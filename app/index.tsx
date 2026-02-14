@@ -13,7 +13,7 @@ import {
     View,
     useWindowDimensions,
 } from "react-native";
-import authService from "../services/auth";
+import * as auth from "../services/auth";
 
 export default function LoginScreen() {
     const [email, setEmail] = useState("");
@@ -23,7 +23,6 @@ export default function LoginScreen() {
     const cardWidth = Math.min(420, width - 48);
 
     const handleLogin = async () => {
-        // Validation
         if (!email.trim() || !password.trim()) {
             Alert.alert("Error", "Please enter both email and password");
             return;
@@ -31,14 +30,14 @@ export default function LoginScreen() {
 
         setLoading(true);
         try {
-            const response = await authService.login({
+            const response = await auth.login({
                 email: email.trim(),
                 passcode: password,
             });
 
             if (response.success) {
-                // Navigate to tabs
-                router.replace("/(tabs)");
+                const targetRoute = response.data.user.role === "emp" ? "/employee" : "/(tabs)";
+                router.replace(targetRoute);
             } else {
                 Alert.alert(
                     "Login Failed",
@@ -73,7 +72,7 @@ export default function LoginScreen() {
                         <Text style={styles.subtitle}>Sign in to continue</Text>
                     </View>
 
-                    <View style={[styles.card, { width: cardWidth }]}>
+                    <View style={[styles.card, { width: cardWidth }]}> 
                         <Text style={styles.label}>EMAIL</Text>
                         <TextInput
                             style={styles.input}
@@ -116,6 +115,15 @@ export default function LoginScreen() {
                         </Pressable>
 
                         <Text style={styles.forgot}>Forgot password?</Text>
+
+                        <Pressable
+                            style={styles.registerTrigger}
+                            onPress={() => router.push("/register")}
+                        >
+                            <Text style={styles.registerTriggerText}>
+                                Need an account? Register
+                            </Text>
+                        </Pressable>
                     </View>
 
                     <View style={styles.footer}>
@@ -210,6 +218,15 @@ const styles = StyleSheet.create({
         color: "#6B7280",
         fontSize: 12,
         marginTop: 16,
+    },
+    registerTrigger: {
+        marginTop: 12,
+        alignItems: "center",
+    },
+    registerTriggerText: {
+        color: "#D4A537",
+        fontSize: 13,
+        fontWeight: "600",
     },
     footer: {
         marginTop: 32,
