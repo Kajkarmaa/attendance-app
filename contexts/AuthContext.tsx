@@ -1,5 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import authService, { User } from "../services/auth";
+import {
+    User,
+    login as authLogin,
+    logout as authLogout,
+    getUser,
+} from "../services/auth";
 
 interface AuthContextType {
     user: User | null;
@@ -21,7 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const loadUser = async () => {
         try {
-            const storedUser = await authService.getUser();
+            const storedUser = await getUser();
             setUser(storedUser);
         } finally {
             setIsLoading(false);
@@ -29,14 +34,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     const login = async (email: string, passcode: string) => {
-        const response = await authService.login({ email, passcode });
+        const response = await authLogin({ email, passcode });
         if (response.success) {
             setUser(response.data.user);
         }
     };
 
     const logout = async () => {
-        await authService.logout();
+        await authLogout();
         setUser(null);
     };
 

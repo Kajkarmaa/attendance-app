@@ -27,23 +27,30 @@ const activities = [
     },
 ];
 
-export default function EmployeeDashboard() {
+export default function EmployeeDashboardScreen() {
     const { user } = useAuth();
 
     return (
         <View style={styles.container}>
             <View style={styles.header}>
                 <Text style={styles.name}>{user?.name ?? "Employee"}</Text>
-                <Text style={styles.subtitle}>{user?.designation ?? "Software Developer"}</Text>
+                <Text style={styles.subtitle}>
+                    {user?.designation ?? "Software Developer"}
+                </Text>
                 <Text style={styles.date}>Dec 14, 2025</Text>
             </View>
 
-            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            <ScrollView
+                contentContainerStyle={styles.content}
+                showsVerticalScrollIndicator={false}
+            >
                 <View style={styles.attendanceCard}>
                     <View style={styles.attendanceText}>
                         <Text style={styles.sectionLabel}>Attendance</Text>
                         <Text style={styles.attendanceTime}>09:05 AM</Text>
-                        <Text style={styles.attendanceShift}>Standard shift: 09:30 AM - 06:30 PM</Text>
+                        <Text style={styles.attendanceShift}>
+                            Standard shift: 09:30 AM - 06:30 PM
+                        </Text>
                     </View>
                     <Pressable style={styles.punchButton}>
                         <Text style={styles.punchText}>Punch In</Text>
@@ -63,9 +70,13 @@ export default function EmployeeDashboard() {
 
                 <View style={styles.salaryCard}>
                     <View>
-                        <Text style={styles.salaryLabel}>Estimated net salary (FYE)</Text>
+                        <Text style={styles.salaryLabel}>
+                            Estimated net salary (FYE)
+                        </Text>
                         <Text style={styles.salaryValue}>$40,000</Text>
-                        <Text style={styles.salaryDate}>Last credited 31 Dec 2025</Text>
+                        <Text style={styles.salaryDate}>
+                            Last credited 31 Dec 2025
+                        </Text>
                     </View>
                     <Pressable style={styles.viewMoreButton}>
                         <Text style={styles.viewMoreText}>View More</Text>
@@ -80,11 +91,17 @@ export default function EmployeeDashboard() {
                     {payslips.map((item) => (
                         <View key={item.month} style={styles.payslipRow}>
                             <View>
-                                <Text style={styles.payslipMonth}>{item.month}</Text>
-                                <Text style={styles.payslipLabel}>{item.label}</Text>
+                                <Text style={styles.payslipMonth}>
+                                    {item.month}
+                                </Text>
+                                <Text style={styles.payslipLabel}>
+                                    {item.label}
+                                </Text>
                             </View>
                             <Pressable style={styles.downloadBadge}>
-                                <Text style={styles.downloadText}>{item.badge}</Text>
+                                <Text style={styles.downloadText}>
+                                    {item.badge}
+                                </Text>
                             </Pressable>
                         </View>
                     ))}
@@ -97,14 +114,30 @@ export default function EmployeeDashboard() {
                     </View>
                     {activities.map((activity) => (
                         <View key={activity.title} style={styles.activityRow}>
-                            <View style={[styles.activityMarker, { backgroundColor: `${activity.color}33` }]}>
-                                <View style={[styles.activityDot, { backgroundColor: activity.color }]} />
+                            <View
+                                style={[
+                                    styles.activityMarker,
+                                    { backgroundColor: `${activity.color}33` },
+                                ]}
+                            >
+                                <View
+                                    style={[
+                                        styles.activityDot,
+                                        { backgroundColor: activity.color },
+                                    ]}
+                                />
                             </View>
                             <View style={styles.activityTextBlock}>
-                                <Text style={styles.activityTitle}>{activity.title}</Text>
-                                <Text style={styles.activityLabel}>{activity.description}</Text>
+                                <Text style={styles.activityTitle}>
+                                    {activity.title}
+                                </Text>
+                                <Text style={styles.activityLabel}>
+                                    {activity.description}
+                                </Text>
                             </View>
-                            <Text style={styles.activityTime}>{activity.time}</Text>
+                            <Text style={styles.activityTime}>
+                                {activity.time}
+                            </Text>
                         </View>
                     ))}
                 </View>

@@ -36,7 +36,10 @@ export default function LoginScreen() {
             });
 
             if (response.success) {
-                const targetRoute = response.data.user.role === "emp" ? "/employee" : "/(tabs)";
+                const targetRoute =
+                    response.data.user.role === "emp"
+                        ? "/employee-profile"
+                        : "/(tabs)";
                 router.replace(targetRoute);
             } else {
                 Alert.alert(
@@ -72,7 +75,7 @@ export default function LoginScreen() {
                         <Text style={styles.subtitle}>Sign in to continue</Text>
                     </View>
 
-                    <View style={[styles.card, { width: cardWidth }]}> 
+                    <View style={[styles.card, { width: cardWidth }]}>
                         <Text style={styles.label}>EMAIL</Text>
                         <TextInput
                             style={styles.input}
