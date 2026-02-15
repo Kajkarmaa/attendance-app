@@ -25,6 +25,7 @@ export interface LoginResponse {
   message: string;
   data: {
     user: User;
+    token?: string;
   };
 }
 
@@ -60,11 +61,13 @@ export async function login(
   );
 
   if (response.data.success) {
-    const token =
+    const headerToken =
       response.headers["authorization"]?.replace("Bearer ", "") ||
       response.headers["set-cookie"]
         ?.find((c: string) => c.includes("authToken"))
         ?.match(/authToken=([^;]+)/)?.[1];
+
+    const token = headerToken || response.data.data.token;
 
     if (token) {
       await storeToken(token);

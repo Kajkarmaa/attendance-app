@@ -5,6 +5,7 @@ import {
     fetchAttendance,
     type AttendanceRecord,
 } from "@/services/attendance";
+import { fetchEmployeeProfile, type EmployeeProfile } from "@/services/profile";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
@@ -15,7 +16,7 @@ import {
     ScrollView,
     StyleSheet,
     Text,
-    View
+    View,
 } from "react-native";
 
 const payslips = [
@@ -49,6 +50,8 @@ export default function EmployeeDashboardScreen() {
     const [attendance, setAttendance] = useState<AttendanceRecord | null>(null);
     const [attLoading, setAttLoading] = useState(false);
     const [punching, setPunching] = useState(false);
+    const [profile, setProfile] = useState<EmployeeProfile | null>(null);
+    const [profileLoading, setProfileLoading] = useState(false);
 
     useEffect(() => {
         if (isLoading) {
@@ -62,9 +65,11 @@ export default function EmployeeDashboardScreen() {
 
         if (user.role !== "emp") {
             router.replace("/(tabs)");
+            return;
         }
 
         loadAttendance();
+        loadProfile();
     }, [isLoading, user]);
 
     const loadAttendance = async () => {
@@ -109,6 +114,18 @@ export default function EmployeeDashboardScreen() {
         }
     };
 
+    const loadProfile = async () => {
+        setProfileLoading(true);
+        try {
+            const data = await fetchEmployeeProfile();
+            setProfile(data);
+        } catch (error: any) {
+            console.log("profile fetch failed", error?.message);
+        } finally {
+            setProfileLoading(false);
+        }
+    };
+
     if (isLoading || !user || user.role !== "emp") {
         return (
             <View style={styles.loadingContainer}>
@@ -137,7 +154,10 @@ export default function EmployeeDashboardScreen() {
                 <Text style={styles.subtitle}>
                     {user?.designation ?? "Software Developer"}
                 </Text>
-                <Text style={styles.date}>Dec 14, 2025</Text>
+                <Text style={styles.metaText}>
+                    ID: {profile?.employeeId || user?.employeeId || "--"} • {profile?.department || "Department"}
+                </Text>
+                <Text style={styles.metaText}>Joined: {profile?.joinDate || "--"}</Text>
             </View>
 
             <ScrollView
@@ -325,11 +345,11 @@ const styles = StyleSheet.create({
         fontSize: 14,
         marginTop: 4,
     },
-    date: {
+    metaText: {
         marginTop: 4,
         fontSize: 12,
         color: "#9CA3AF",
-        letterSpacing: 1,
+        letterSpacing: 0.5,
     },
     content: {
         paddingHorizontal: 24,
@@ -432,6 +452,58 @@ const styles = StyleSheet.create({
         color: "#9CA3AF",
         marginTop: 4,
         fontSize: 12,
+    },
+    balanceCard: {
+        backgroundColor: "#FDFBF7",
+        borderRadius: 18,
+        padding: 20,
+        borderWidth: 1,
+        borderColor: "#F3E9D4",
+        alignItems: "center",
+        marginBottom: 24,
+    },
+    balanceLabel: {
+        color: "#A78B5C",
+        letterSpacing: 1,
+        textTransform: "uppercase",
+        fontSize: 11,
+    },
+    balanceValue: {
+        fontSize: 48,
+        color: "#D4A537",
+        fontWeight: "700",
+        marginTop: 6,
+    },
+    balanceUnit: {
+        color: "#9CA3AF",
+        letterSpacing: 1,
+        textTransform: "uppercase",
+        fontSize: 11,
+    },
+    balanceDivider: {
+        width: "70%",
+        height: 1,
+        backgroundColor: "#EFE7D7",
+        marginVertical: 16,
+    },
+    balanceRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        width: "80%",
+    },
+    balanceCol: {
+        alignItems: "center",
+    },
+    balanceSubLabel: {
+        color: "#9CA3AF",
+        fontSize: 11,
+        letterSpacing: 1,
+        textTransform: "uppercase",
+    },
+    balanceSubValue: {
+        color: "#111827",
+        fontWeight: "600",
+        marginTop: 6,
     },
     viewMoreButton: {
         borderWidth: 1,

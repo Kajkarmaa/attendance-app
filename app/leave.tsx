@@ -1,7 +1,8 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { fetchEmployeeProfile, type EmployeeProfile } from "@/services/profile";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Pressable,
@@ -40,6 +41,8 @@ const leaveHistory = [
 
 export default function LeaveScreen() {
     const { user, isLoading } = useAuth();
+    const [profile, setProfile] = useState<EmployeeProfile | null>(null);
+    const [profileLoading, setProfileLoading] = useState(false);
 
     useEffect(() => {
         if (isLoading) return;
@@ -49,8 +52,23 @@ export default function LeaveScreen() {
         }
         if (user.role !== "emp") {
             router.replace("/(tabs)");
+            return;
         }
+
+        loadProfile();
     }, [isLoading, user]);
+
+    const loadProfile = async () => {
+        setProfileLoading(true);
+        try {
+            const data = await fetchEmployeeProfile();
+            setProfile(data);
+        } catch (error: any) {
+            console.log("profile fetch failed", error?.message);
+        } finally {
+            setProfileLoading(false);
+        }
+    };
 
     if (isLoading || !user || user.role !== "emp") {
         return (
@@ -76,17 +94,22 @@ export default function LeaveScreen() {
 
                 <View style={styles.balanceCard}>
                     <Text style={styles.balanceLabel}>Available Balance</Text>
-                    <Text style={styles.balanceValue}>18</Text>
+                    <Text style={styles.balanceValue}>{profile?.leaveBalance?.remaining ?? 0}</Text>
                     <Text style={styles.balanceUnit}>days</Text>
                     <View style={styles.balanceDivider} />
                     <View style={styles.balanceRow}>
                         <View style={styles.balanceCol}>
                             <Text style={styles.balanceSubLabel}>Used</Text>
-                            <Text style={styles.balanceSubValue}>04 D</Text>
+                            <Text style={styles.balanceSubValue}>{profile?.leaveBalance?.used ?? 0} D</Text>
                         </View>
                         <View style={styles.balanceCol}>
                             <Text style={styles.balanceSubLabel}>Pending</Text>
-                            <Text style={styles.balanceSubValue}>02 D</Text>
+                            <Text style={styles.balanceSubValue}>
+                                {Math.max(
+                                    (profile?.leaveBalance?.total ?? 0) - (profile?.leaveBalance?.used ?? 0) - (profile?.leaveBalance?.remaining ?? 0),
+                                    0,
+                                )} D
+                            </Text>
                         </View>
                     </View>
                 </View>
