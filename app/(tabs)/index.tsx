@@ -1,3 +1,4 @@
+import { useAuth } from '@/contexts/AuthContext';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -14,6 +15,7 @@ import {
 } from 'react-native';
 
 export default function HomeScreen() {
+  const { logout } = useAuth();
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
   const [department, setDepartment] = useState('Department');
@@ -92,6 +94,11 @@ export default function HomeScreen() {
     []
   );
 
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/');
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -100,9 +107,14 @@ export default function HomeScreen() {
             <Text style={styles.headerLabel}>GOOD AFTERNOON,</Text>
             <Text style={styles.headerName}>Enjelin Morgeana</Text>
           </View>
-          <Pressable style={styles.headerBell}>
-            <Feather name="bell" size={18} color="#FFFFFF" />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable style={styles.headerBell}>
+              <Feather name="bell" size={18} color="#FFFFFF" />
+            </Pressable>
+            <Pressable style={styles.headerBell} onPress={handleLogout}>
+              <Feather name="log-out" size={18} color="#F87171" />
+            </Pressable>
+          </View>
         </View>
       </View>
 
@@ -261,6 +273,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
   },
   statsWrapper: {
     marginTop: -24,

@@ -1,7 +1,7 @@
 import {
-    DarkTheme,
-    DefaultTheme,
-    ThemeProvider,
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
 } from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -33,7 +33,15 @@ export default function RootLayout() {
                     />
                     <Stack.Screen
                         name="employee"
-                        options={{ headerShown: false }}
+                        options={{ headerShown: false, gestureEnabled: false }}
+                    />
+                    <Stack.Screen
+                        name="leave"
+                        options={{ headerShown: false, gestureEnabled: false }}
+                    />
+                    <Stack.Screen
+                        name="leave-request"
+                        options={{ headerShown: false, gestureEnabled: false }}
                     />
                     <Stack.Screen
                         name="add-employee"

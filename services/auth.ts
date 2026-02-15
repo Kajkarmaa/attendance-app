@@ -116,8 +116,15 @@ export async function getUser(): Promise<User | null> {
 }
 
 export async function logout(): Promise<void> {
-  await AsyncStorage.removeItem("authToken");
-  await AsyncStorage.removeItem("user");
+  try {
+    await apiClient.post("/users/logout");
+  } catch (error) {
+    // Best-effort logout; continue clearing local state
+    console.log("logout api failed", (error as any)?.message);
+  } finally {
+    await AsyncStorage.removeItem("authToken");
+    await AsyncStorage.removeItem("user");
+  }
 }
 
 export async function isAuthenticated(): Promise<boolean> {

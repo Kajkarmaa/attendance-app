@@ -1,5 +1,22 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+    checkIn,
+    checkOut,
+    fetchAttendance,
+    type AttendanceRecord,
+} from "@/services/attendance";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { useEffect, useState } from "react";
+import {
+    ActivityIndicator,
+    Alert,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View
+} from "react-native";
 
 const payslips = [
     { month: "November 2025", label: "Payslip Nov 20", badge: "Download" },
@@ -28,11 +45,94 @@ const activities = [
 ];
 
 export default function EmployeeDashboardScreen() {
-    const { user } = useAuth();
+    const { user, isLoading, logout } = useAuth();
+    const [attendance, setAttendance] = useState<AttendanceRecord | null>(null);
+    const [attLoading, setAttLoading] = useState(false);
+    const [punching, setPunching] = useState(false);
+
+    useEffect(() => {
+        if (isLoading) {
+            return;
+        }
+
+        if (!user) {
+            router.replace("/");
+            return;
+        }
+
+        if (user.role !== "emp") {
+            router.replace("/(tabs)");
+        }
+
+        loadAttendance();
+    }, [isLoading, user]);
+
+    const loadAttendance = async () => {
+        setAttLoading(true);
+        try {
+            const latest = await fetchAttendance();
+            setAttendance(latest);
+        } catch (error: any) {
+            console.log("attendance fetch failed", error?.message);
+        } finally {
+            setAttLoading(false);
+        }
+    };
+
+    const handleLogout = async () => {
+        await logout();
+        router.replace("/");
+    };
+
+    const isCheckedIn = attendance?.checkIn && !attendance?.checkOut;
+
+    const handlePunch = async () => {
+        if (!user) return;
+        setPunching(true);
+        try {
+            if (isCheckedIn) {
+                const res = await checkOut();
+                setAttendance((prev:any ) => ({
+                    ...prev,
+                    ...res,
+                    checkIn: prev?.checkIn || res.checkIn || null,
+                }));
+            } else {
+                const res = await checkIn();
+                setAttendance(res);
+            }
+        } catch (error: any) {
+            const msg = error?.response?.data?.message || error?.message || "Something went wrong";
+            Alert.alert("Punch failed", msg);
+        } finally {
+            setPunching(false);
+        }
+    };
+
+    if (isLoading || !user || user.role !== "emp") {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#D4A537" />
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
             <View style={styles.header}>
+                <View style={styles.headerTop}>
+                    <Pressable style={styles.headerIcon}>
+                        <Ionicons name="menu" size={22} color="#111827" />
+                    </Pressable>
+                    <View style={styles.headerActions}>
+                        <Pressable style={styles.headerIcon}>
+                            <Ionicons name="notifications-outline" size={20} color="#D4A537" />
+                        </Pressable>
+                        <Pressable style={styles.headerIcon} onPress={handleLogout}>
+                            <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+                        </Pressable>
+                    </View>
+                </View>
                 <Text style={styles.name}>{user?.name ?? "Employee"}</Text>
                 <Text style={styles.subtitle}>
                     {user?.designation ?? "Software Developer"}
@@ -47,23 +147,35 @@ export default function EmployeeDashboardScreen() {
                 <View style={styles.attendanceCard}>
                     <View style={styles.attendanceText}>
                         <Text style={styles.sectionLabel}>Attendance</Text>
-                        <Text style={styles.attendanceTime}>09:05 AM</Text>
+                        <Text style={styles.attendanceTime}>
+                            {attendance?.checkIn?.time || "--:--"}
+                        </Text>
                         <Text style={styles.attendanceShift}>
                             Standard shift: 09:30 AM - 06:30 PM
                         </Text>
                     </View>
-                    <Pressable style={styles.punchButton}>
-                        <Text style={styles.punchText}>Punch In</Text>
+                    <Pressable style={styles.punchButton} onPress={handlePunch} disabled={punching || attLoading}>
+                        {punching ? (
+                            <ActivityIndicator color="#111827" />
+                        ) : (
+                            <Text style={styles.punchText}>
+                                {isCheckedIn ? "Check Out" : "Check In"}
+                            </Text>
+                        )}
                     </Pressable>
                     <View style={styles.clockRow}>
                         <View>
                             <Text style={styles.clockLabel}>Clock In</Text>
-                            <Text style={styles.clockValue}>--:--</Text>
+                            <Text style={styles.clockValue}>
+                                {attendance?.checkIn?.time || "--:--"}
+                            </Text>
                         </View>
                         <View style={styles.divider} />
                         <View>
                             <Text style={styles.clockLabel}>Clock Out</Text>
-                            <Text style={styles.clockValue}>--:--</Text>
+                            <Text style={styles.clockValue}>
+                                {attendance?.checkOut?.time || "--:--"}
+                            </Text>
                         </View>
                     </View>
                 </View>
@@ -142,6 +254,24 @@ export default function EmployeeDashboardScreen() {
                     ))}
                 </View>
             </ScrollView>
+
+            <View style={styles.bottomBar}>
+                <Pressable style={styles.bottomIconActive}>
+                    <Ionicons name="home" size={22} color="#D4A537" />
+                </Pressable>
+                <Pressable
+                    style={styles.bottomIcon}
+                    onPress={() => router.replace("/leave")}
+                >
+                    <Ionicons name="calendar-outline" size={22} color="#9CA3AF" />
+                </Pressable>
+                <Pressable style={styles.bottomIcon}>
+                    <Ionicons name="card-outline" size={22} color="#9CA3AF" />
+                </Pressable>
+                <Pressable style={styles.bottomIcon}>
+                    <Ionicons name="person-outline" size={22} color="#9CA3AF" />
+                </Pressable>
+            </View>
         </View>
     );
 }
@@ -151,10 +281,39 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: "#FFFFFF",
     },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#FFFFFF",
+    },
     header: {
         paddingTop: 56,
         paddingHorizontal: 24,
         paddingBottom: 16,
+    },
+    headerTop: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 12,
+    },
+    headerActions: {
+        flexDirection: "row",
+        gap: 10,
+    },
+    headerIcon: {
+        height: 38,
+        width: 38,
+        borderRadius: 12,
+        backgroundColor: "#F8FAFC",
+        alignItems: "center",
+        justifyContent: "center",
+        shadowColor: "#000000",
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 2,
     },
     name: {
         fontSize: 28,
@@ -174,7 +333,7 @@ const styles = StyleSheet.create({
     },
     content: {
         paddingHorizontal: 24,
-        paddingBottom: 40,
+        paddingBottom: 120,
     },
     attendanceCard: {
         backgroundColor: "#FEF8EF",
@@ -382,5 +541,39 @@ const styles = StyleSheet.create({
     activityTime: {
         color: "#6B7280",
         fontSize: 12,
+    },
+    bottomBar: {
+        position: "absolute",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        height: 76,
+        backgroundColor: "#FFFFFF",
+        borderTopWidth: 1,
+        borderColor: "#E5E7EB",
+        flexDirection: "row",
+        justifyContent: "space-around",
+        alignItems: "center",
+        shadowColor: "#000",
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: -4 },
+        elevation: 6,
+        paddingHorizontal: 24,
+    },
+    bottomIcon: {
+        height: 44,
+        width: 44,
+        borderRadius: 22,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    bottomIconActive: {
+        height: 44,
+        width: 44,
+        borderRadius: 22,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#FEF8EF",
     },
 });

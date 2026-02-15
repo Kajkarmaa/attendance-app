@@ -38,7 +38,7 @@ export default function LoginScreen() {
             if (response.success) {
                 const targetRoute =
                     response.data.user.role === "emp"
-                        ? "/employee-profile"
+                        ? "/employee"
                         : "/(tabs)";
                 router.replace(targetRoute);
             } else {
