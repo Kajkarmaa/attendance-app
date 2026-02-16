@@ -118,6 +118,23 @@ export async function fetchAttendance(): Promise<AttendanceRecord> {
     return normalizeFromAttendance(response.data.data);
 }
 
+export interface DailyAttendanceSummary {
+    date: string;
+    totalEmployees: number;
+    totalCheckedIn: number;
+    totalCheckedOut: number;
+    staffPresent: number;
+    staffAbsent: number;
+    staffOnLeave: number;
+    attendanceRate: number;
+    averageWorkHours: number;
+}
+
+export async function fetchDailySummary(): Promise<DailyAttendanceSummary> {
+    const response = await apiClient.get<ApiEnvelope<DailyAttendanceSummary>>("/attendance/daily-summary");
+    return response.data.data;
+}
+
 export interface AttendanceHistoryResponse {
     records: AttendanceApiData[];
     summary?: {

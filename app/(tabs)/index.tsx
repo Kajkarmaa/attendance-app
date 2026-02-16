@@ -1,5 +1,6 @@
 import MonthYearPicker from '@/components/ui/month-year-picker';
 import { useAuth } from '@/contexts/AuthContext';
+import { fetchDailySummary, type DailyAttendanceSummary } from '@/services/attendance';
 import { generatePayroll } from '@/services/payroll';
 import {
   convertPendingUserToEmployee,
@@ -47,6 +48,8 @@ export default function HomeScreen() {
   const [convertSalary, setConvertSalary] = useState('50000');
   const [convertLoading, setConvertLoading] = useState(false);
   const [convertMessage, setConvertMessage] = useState<{ text: string; tone: 'success' | 'error' } | null>(null);
+  const [dailySummary, setDailySummary] = useState<DailyAttendanceSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
     if (hour < 12) return 'GOOD MORNING,';
@@ -58,20 +61,48 @@ export default function HomeScreen() {
     return user?.name || user?.email || 'Admin';
   }, [user, isLoading]);
 
-  const stats = useMemo(
-    () => [
-      { label: 'Staff Heads', value: '45', color: '#60A5FA' },
-      { label: 'Staff Present', value: '15', color: '#D4A537' },
-      { label: 'Staff Absence', value: '08', color: '#F472B6' },
-      { label: 'Staff Late', value: '06', color: '#FBBF24' },
-      { label: 'Staff Leave', value: '05', color: '#A78BFA' },
-      { label: 'Staff Early', value: '16', color: '#FB923C' },
-    ],
-    []
-  );
+  const stats = useMemo(() => {
+    const formatValue = (value?: number, formatter?: (num: number) => string) => {
+      if (typeof value !== 'number' || Number.isNaN(value)) {
+        return '--';
+      }
+      return formatter ? formatter(value) : `${value}`;
+    };
+
+    return [
+      { label: 'Staff Heads', value: formatValue(dailySummary?.totalEmployees), color: '#60A5FA' },
+      { label: 'Checked In', value: formatValue(dailySummary?.totalCheckedIn), color: '#34D399' },
+      { label: 'Checked Out', value: formatValue(dailySummary?.totalCheckedOut), color: '#0EA5E9' },
+      { label: 'Staff Present', value: formatValue(dailySummary?.staffPresent), color: '#D4A537' },
+      { label: 'Staff Absent', value: formatValue(dailySummary?.staffAbsent), color: '#F472B6' },
+      { label: 'Staff Leave', value: formatValue(dailySummary?.staffOnLeave), color: '#A78BFA' },
+      {
+        label: 'Attendance Rate',
+        value: formatValue(dailySummary?.attendanceRate, (num) => `${num.toFixed(0)}%`),
+        color: '#F97316',
+      },
+      {
+        label: 'Avg Work Hours',
+        value: formatValue(dailySummary?.averageWorkHours, (num) => `${num.toFixed(1)}h`),
+        color: '#10B981',
+      },
+    ];
+  }, [dailySummary]);
+
+  const summaryMonthLabel = useMemo(() => {
+    if (!dailySummary?.date) {
+      return 'TODAY';
+    }
+    const date = new Date(dailySummary.date);
+    if (Number.isNaN(date.getTime())) {
+      return dailySummary.date;
+    }
+    return date.toLocaleDateString(undefined, { month: 'short' }).toUpperCase();
+  }, [dailySummary]);
 
   useEffect(() => {
     loadLists();
+    loadDailySummary();
   }, []);
 
   const loadLists = async () => {
@@ -84,6 +115,18 @@ export default function HomeScreen() {
       console.log('list fetch failed', error?.message);
     } finally {
       setListLoading(false);
+    }
+  };
+
+  const loadDailySummary = async () => {
+    setSummaryLoading(true);
+    try {
+      const summary = await fetchDailySummary();
+      setDailySummary(summary);
+    } catch (error: any) {
+      console.log('daily summary fetch failed', error?.message);
+    } finally {
+      setSummaryLoading(false);
     }
   };
 
@@ -236,8 +279,14 @@ export default function HomeScreen() {
           <View style={styles.statsHeader}>
             <Text style={styles.statsTitle}>Attendance Tracking</Text>
             <View style={styles.statsHeaderRight}>
-              <Text style={styles.statsMonth}>APR</Text>
-              <Feather name="calendar" size={14} color="#9CA3AF" />
+              {summaryLoading ? (
+                <ActivityIndicator size="small" color="#9CA3AF" />
+              ) : (
+                <>
+                  <Text style={styles.statsMonth}>{summaryMonthLabel}</Text>
+                  <Feather name="calendar" size={14} color="#9CA3AF" />
+                </>
+              )}
             </View>
           </View>
 

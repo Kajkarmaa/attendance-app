@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
@@ -19,6 +20,7 @@ export default function LoginScreen() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
     const { width } = useWindowDimensions();
     const cardWidth = Math.min(420, width - 48);
 
@@ -91,16 +93,31 @@ export default function LoginScreen() {
                         <Text style={[styles.label, styles.labelTop]}>
                             PASSWORD
                         </Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="••••••••"
-                            placeholderTextColor="#A0A0A0"
-                            secureTextEntry
-                            value={password}
-                            onChangeText={setPassword}
-                            editable={!loading}
-                            onSubmitEditing={handleLogin}
-                        />
+                        <View style={styles.passwordRow}>
+                            <TextInput
+                                style={styles.passwordInput}
+                                placeholder="••••••••"
+                                placeholderTextColor="#A0A0A0"
+                                secureTextEntry={!showPassword}
+                                value={password}
+                                onChangeText={setPassword}
+                                editable={!loading}
+                                onSubmitEditing={handleLogin}
+                            />
+                            <Pressable
+                                style={styles.eyeButton}
+                                onPress={() => setShowPassword((prev) => !prev)}
+                                disabled={loading}
+                                accessibilityRole="button"
+                                accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+                            >
+                                <Ionicons
+                                    name={showPassword ? "eye-off" : "eye"}
+                                    size={20}
+                                    color="#6B7280"
+                                />
+                            </Pressable>
+                        </View>
 
                         <Pressable
                             style={[
@@ -201,6 +218,25 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         fontSize: 16,
         color: "#111827",
+    },
+    passwordRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 14,
+        paddingHorizontal: 12,
+        paddingVertical: 2,
+    },
+    passwordInput: {
+        flex: 1,
+        paddingVertical: 10,
+        paddingHorizontal: 2,
+        fontSize: 16,
+        color: "#111827",
+    },
+    eyeButton: {
+        padding: 8,
     },
     loginButton: {
         backgroundColor: "#D4A537",
