@@ -1,4 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { EmployeeActivity, fetchRecentActivity, RecentActivityData } from "@/services/activity";
 import {
     checkIn,
     checkOut,
@@ -24,26 +25,18 @@ const payslips = [
     { month: "December 2025", label: "Payslip Dec 20", badge: "Download" },
 ];
 
-const activities = [
-    {
-        title: "Marked Present",
-        description: "On time",
-        time: "09:32 AM",
-        color: "#34D399",
-    },
-    {
-        title: "Work From Home",
-        description: "Manager: Ravi K.",
-        time: "09:32 AM",
-        color: "#60A5FA",
-    },
-    {
-        title: "Salary Credited",
-        description: "$40,000",
-        time: "31 Dec",
-        color: "#FBBF24",
-    },
-];
+const ACTIVITY_COLOR_MAP: Record<string, string> = {
+    attendance: "#34D399",
+    present: "#34D399",
+    payroll: "#FBBF24",
+    salary: "#FBBF24",
+    remote: "#60A5FA",
+    wfh: "#60A5FA",
+    leave: "#60A5FA",
+    warning: "#FB7185",
+    alert: "#FB7185",
+};
+const DEFAULT_ACTIVITY_COLOR = "#94A3B8";
 
 export default function EmployeeDashboardScreen() {
     const { user, isLoading, logout } = useAuth();
@@ -52,6 +45,8 @@ export default function EmployeeDashboardScreen() {
     const [punching, setPunching] = useState(false);
     const [profile, setProfile] = useState<EmployeeProfile | null>(null);
     const [profileLoading, setProfileLoading] = useState(false);
+    const [activityData, setActivityData] = useState<RecentActivityData | null>(null);
+    const [activityLoading, setActivityLoading] = useState(false);
 
     const displayName = profile?.name ?? user?.name ?? "Employee";
     const displayDesignation = profile?.designation ?? user?.designation ?? "Software Developer";
@@ -59,6 +54,51 @@ export default function EmployeeDashboardScreen() {
         typeof profile?.salary === "number"
             ? `$${profile.salary.toLocaleString()}`
             : "$40,000";
+
+    const getActivityColor = (type?: string) => {
+        if (!type) {
+            return DEFAULT_ACTIVITY_COLOR;
+        }
+        const normalized = type.replace(/[_-]+/g, " ").toLowerCase();
+        const found = Object.entries(ACTIVITY_COLOR_MAP).find(([key]) =>
+            normalized.includes(key)
+        );
+        return found?.[1] ?? DEFAULT_ACTIVITY_COLOR;
+    };
+
+    const formatActivityTitle = (type?: string) => {
+        if (!type) {
+            return "Update";
+        }
+        return type
+            .replace(/[_-]+/g, " ")
+            .toLowerCase()
+            .replace(/\b\w/g, (char) => char.toUpperCase());
+    };
+
+    const formatActivitySubtitle = (activity: EmployeeActivity) => {
+        const parts = [activity.description, activity.value].filter(Boolean);
+        return parts.join(" • ") || "No additional details";
+    };
+
+    const formatActivityTime = (value?: string) => {
+        if (!value) {
+            return "--";
+        }
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return value;
+        }
+        const now = new Date();
+        const sameDay =
+            date.getDate() === now.getDate() &&
+            date.getMonth() === now.getMonth() &&
+            date.getFullYear() === now.getFullYear();
+        if (sameDay) {
+            return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        }
+        return date.toLocaleDateString();
+    };
 
     useEffect(() => {
         if (isLoading) {
@@ -77,6 +117,7 @@ export default function EmployeeDashboardScreen() {
 
         loadAttendance();
         loadProfile();
+        loadRecentActivity();
     }, [isLoading, user]);
 
     const loadAttendance = async () => {
@@ -133,6 +174,18 @@ export default function EmployeeDashboardScreen() {
         }
     };
 
+    const loadRecentActivity = async () => {
+        setActivityLoading(true);
+        try {
+            const data = await fetchRecentActivity();
+            setActivityData(data);
+        } catch (error: any) {
+            console.log("recent activity fetch failed", error?.message);
+        } finally {
+            setActivityLoading(false);
+        }
+    };
+
     if (isLoading || !user || user.role !== "emp") {
         return (
             <View style={styles.loadingContainer}>
@@ -140,6 +193,11 @@ export default function EmployeeDashboardScreen() {
             </View>
         );
     }
+
+    const activityCountLabel = activityData?.totalActivities
+        ? `${activityData.totalActivities} updates`
+        : "Latest";
+    const hasActivities = (activityData?.activities?.length ?? 0) > 0;
 
     return (
         <View style={styles.container}>
@@ -247,36 +305,57 @@ export default function EmployeeDashboardScreen() {
                 <View style={styles.activityCard}>
                     <View style={styles.cardHeaderRow}>
                         <Text style={styles.cardHeader}>Recent Activity</Text>
-                        <Text style={styles.cardSubtle}>Today</Text>
+                        <Text style={styles.cardSubtle}>{activityCountLabel}</Text>
                     </View>
-                    {activities.map((activity) => (
-                        <View key={activity.title} style={styles.activityRow}>
-                            <View
-                                style={[
-                                    styles.activityMarker,
-                                    { backgroundColor: `${activity.color}33` },
-                                ]}
-                            >
-                                <View
-                                    style={[
-                                        styles.activityDot,
-                                        { backgroundColor: activity.color },
-                                    ]}
-                                />
-                            </View>
-                            <View style={styles.activityTextBlock}>
-                                <Text style={styles.activityTitle}>
-                                    {activity.title}
-                                </Text>
-                                <Text style={styles.activityLabel}>
-                                    {activity.description}
-                                </Text>
-                            </View>
-                            <Text style={styles.activityTime}>
-                                {activity.time}
+                    {activityLoading ? (
+                        <View style={styles.activityState}>
+                            <ActivityIndicator color="#D4A537" />
+                        </View>
+                    ) : !hasActivities ? (
+                        <View style={styles.activityState}>
+                            <Text style={styles.activityEmptyText}>
+                                No recent updates yet.
                             </Text>
                         </View>
-                    ))}
+                    ) : (
+                        activityData?.activities?.map((activity: EmployeeActivity, index: number) => {
+                            const color = getActivityColor(activity.type);
+                            return (
+                                <View
+                                    key={`${activity.type}-${activity.date}-${index}`}
+                                    style={[
+                                        styles.activityRow,
+                                        index === 0 && styles.activityRowFirst,
+                                    ]}
+                                >
+                                    <View
+                                        style={[
+                                            styles.activityMarker,
+                                            { backgroundColor: `${color}33` },
+                                        ]}
+                                    >
+                                        <View
+                                            style={[
+                                                styles.activityDot,
+                                                { backgroundColor: color },
+                                            ]}
+                                        />
+                                    </View>
+                                    <View style={styles.activityTextBlock}>
+                                        <Text style={styles.activityTitle}>
+                                            {formatActivityTitle(activity.type)}
+                                        </Text>
+                                        <Text style={styles.activityLabel}>
+                                            {formatActivitySubtitle(activity)}
+                                        </Text>
+                                    </View>
+                                    <Text style={styles.activityTime}>
+                                        {formatActivityTime(activity.date)}
+                                    </Text>
+                                </View>
+                            );
+                        })
+                    )}
                 </View>
             </ScrollView>
 
@@ -589,6 +668,10 @@ const styles = StyleSheet.create({
         paddingTop: 12,
         paddingBottom: 12,
     },
+    activityRowFirst: {
+        borderTopWidth: 0,
+        paddingTop: 0,
+    },
     activityMarker: {
         width: 36,
         height: 36,
@@ -617,6 +700,15 @@ const styles = StyleSheet.create({
     },
     activityTime: {
         color: "#6B7280",
+        fontSize: 12,
+    },
+    activityState: {
+        alignItems: "center",
+        justifyContent: "center",
+        paddingVertical: 24,
+    },
+    activityEmptyText: {
+        color: "#9CA3AF",
         fontSize: 12,
     },
     bottomBar: {
