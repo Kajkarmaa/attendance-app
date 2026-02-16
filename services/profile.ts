@@ -6,6 +6,8 @@ export interface EmployeeProfile {
     role: string;
     employeeId: string;
     designation?: string;
+    name?: string;
+    salary?: number;
     department?: string;
     joinDate?: string;
     status?: string;

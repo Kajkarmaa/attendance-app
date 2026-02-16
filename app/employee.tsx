@@ -53,6 +53,13 @@ export default function EmployeeDashboardScreen() {
     const [profile, setProfile] = useState<EmployeeProfile | null>(null);
     const [profileLoading, setProfileLoading] = useState(false);
 
+    const displayName = profile?.name ?? user?.name ?? "Employee";
+    const displayDesignation = profile?.designation ?? user?.designation ?? "Software Developer";
+    const salaryValue =
+        typeof profile?.salary === "number"
+            ? `$${profile.salary.toLocaleString()}`
+            : "$40,000";
+
     useEffect(() => {
         if (isLoading) {
             return;
@@ -150,10 +157,8 @@ export default function EmployeeDashboardScreen() {
                         </Pressable>
                     </View>
                 </View>
-                <Text style={styles.name}>{user?.name ?? "Employee"}</Text>
-                <Text style={styles.subtitle}>
-                    {user?.designation ?? "Software Developer"}
-                </Text>
+                <Text style={styles.name}>{displayName}</Text>
+                <Text style={styles.subtitle}>{displayDesignation}</Text>
                 <Text style={styles.metaText}>
                     ID: {profile?.employeeId || user?.employeeId || "--"} • {profile?.department || "Department"}
                 </Text>
@@ -205,7 +210,7 @@ export default function EmployeeDashboardScreen() {
                         <Text style={styles.salaryLabel}>
                             Estimated net salary (FYE)
                         </Text>
-                        <Text style={styles.salaryValue}>$40,000</Text>
+                        <Text style={styles.salaryValue}>{salaryValue}</Text>
                         <Text style={styles.salaryDate}>
                             Last credited 31 Dec 2025
                         </Text>
