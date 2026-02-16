@@ -15,11 +15,21 @@ import {
 } from 'react-native';
 
 export default function HomeScreen() {
-  const { logout } = useAuth();
+  const { logout, user, isLoading } = useAuth();
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
   const [department, setDepartment] = useState('Department');
   const [showDepartment, setShowDepartment] = useState(false);
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'GOOD MORNING,';
+    if (hour < 18) return 'GOOD AFTERNOON,';
+    return 'GOOD EVENING,';
+  }, []);
+  const displayName = useMemo(() => {
+    if (isLoading) return '...';
+    return user?.name || user?.email || 'Admin';
+  }, [user, isLoading]);
 
   const stats = useMemo(
     () => [
@@ -104,8 +114,8 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.headerLabel}>GOOD AFTERNOON,</Text>
-            <Text style={styles.headerName}>Enjelin Morgeana</Text>
+            <Text style={styles.headerLabel}>{greeting}</Text>
+            <Text style={styles.headerName}>{displayName}</Text>
           </View>
           <View style={styles.headerActions}>
             <Pressable style={styles.headerBell}>
