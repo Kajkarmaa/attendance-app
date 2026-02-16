@@ -1,9 +1,9 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { fetchEmployees, fetchPendingUsers, type EmployeeUser, type PendingUser } from '@/services/users';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -11,15 +11,20 @@ import {
   Text,
   TextInput,
   View,
-  useWindowDimensions,
+  useWindowDimensions
 } from 'react-native';
 
 export default function HomeScreen() {
   const { logout, user, isLoading } = useAuth();
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
-  const [department, setDepartment] = useState('Department');
+  const [department, setDepartment] = useState('All');
   const [showDepartment, setShowDepartment] = useState(false);
+  const [activeTab, setActiveTab] = useState<'employees' | 'pending'>('employees');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [employees, setEmployees] = useState<EmployeeUser[]>([]);
+  const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
+  const [listLoading, setListLoading] = useState(false);
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
     if (hour < 12) return 'GOOD MORNING,';
@@ -43,66 +48,46 @@ export default function HomeScreen() {
     []
   );
 
-  const staff = useMemo(
-    () => [
-      {
-        name: 'Sarah Jenkins',
-        role: 'Luxury Sales HR',
-        profileRole: 'Senior Gemologist',
-        employeeId: 'EMP-9283',
-        division: 'Luxury Division',
-        time: '11:50 AM',
-        status: 'IN',
-        avatar:
-          'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=200&q=80&auto=format&fit=facearea',
-      },
-      {
-        name: 'Marcus Thorne',
-        role: 'Business Dev. Manager',
-        profileRole: 'Business Manager',
-        employeeId: 'EMP-1147',
-        division: 'Growth Division',
-        time: '10:08 AM',
-        status: 'IN',
-        avatar:
-          'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&q=80&auto=format&fit=facearea',
-      },
-      {
-        name: 'Elena Vane',
-        role: 'Gemologist Specialist',
-        profileRole: 'Gemologist Specialist',
-        employeeId: 'EMP-3402',
-        division: 'Luxury Division',
-        time: '10:14 AM',
-        status: 'IN',
-        avatar:
-          'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=200&q=80&auto=format&fit=facearea',
-      },
-      {
-        name: 'Julien Ross',
-        role: 'Team Leader',
-        profileRole: 'Team Leader',
-        employeeId: 'EMP-7721',
-        division: 'Operations',
-        time: '11:20 AM',
-        status: 'IN',
-        avatar:
-          'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&q=80&auto=format&fit=facearea',
-      },
-      {
-        name: 'Sophie Laurent',
-        role: 'Marketing Director',
-        profileRole: 'Marketing Director',
-        employeeId: 'EMP-6609',
-        division: 'Marketing',
-        time: '10:41 AM',
-        status: 'IN',
-        avatar:
-          'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?w=200&q=80&auto=format&fit=facearea',
-      },
-    ],
-    []
-  );
+  useEffect(() => {
+    loadLists();
+  }, []);
+
+  const loadLists = async () => {
+    setListLoading(true);
+    try {
+      const [emps, pend] = await Promise.all([fetchEmployees(), fetchPendingUsers()]);
+      setEmployees(emps || []);
+      setPendingUsers(pend || []);
+    } catch (error: any) {
+      console.log('list fetch failed', error?.message);
+    } finally {
+      setListLoading(false);
+    }
+  };
+
+  const filteredEmployees = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return employees.filter((emp) => {
+      const name = emp.userId?.name?.toLowerCase() || '';
+      const email = emp.userId?.email?.toLowerCase() || '';
+      const id = emp.employeeId?.toLowerCase() || '';
+      const dept = emp.department || '';
+      const matchesTerm = !term || name.includes(term) || email.includes(term) || id.includes(term);
+      const matchesDept = department === 'All' || dept === department;
+      return matchesTerm && matchesDept;
+    });
+  }, [employees, searchTerm, department]);
+
+  const filteredPending = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return pendingUsers.filter((p) => {
+      const name = p.name?.toLowerCase() || '';
+      const email = p.email?.toLowerCase() || '';
+      return !term || name.includes(term) || email.includes(term);
+    });
+  }, [pendingUsers, searchTerm]);
+
+
 
   const handleLogout = async () => {
     await logout();
@@ -166,52 +151,118 @@ export default function HomeScreen() {
             style={styles.searchInput}
             placeholder="Search staff members..."
             placeholderTextColor="#9CA3AF"
+            value={searchTerm}
+            onChangeText={setSearchTerm}
           />
         </View>
 
-        <View style={styles.filterRow}>
-          <Pressable style={styles.filterPrimary}>
-            <Text style={styles.filterPrimaryText}>All</Text>
+        <View style={styles.tabRow}>
+          <Pressable
+            style={[styles.tabButton, activeTab === 'employees' && styles.tabButtonActive]}
+            onPress={() => setActiveTab('employees')}>
+            <Text
+              style={activeTab === 'employees' ? styles.tabTextActive : styles.tabText}
+            >
+              Employees
+            </Text>
           </Pressable>
           <Pressable
-            style={styles.filterSecondary}
-            onPress={() => setShowDepartment(true)}>
-            <Text style={styles.filterSecondaryText}>{department}</Text>
-            <Ionicons name="chevron-down" size={14} color="#6B7280" />
+            style={[styles.tabButton, activeTab === 'pending' && styles.tabButtonActive]}
+            onPress={() => setActiveTab('pending')}>
+            <Text
+              style={activeTab === 'pending' ? styles.tabTextActive : styles.tabText}
+            >
+              Pending
+            </Text>
           </Pressable>
         </View>
 
-        <View style={styles.staffList}>
-          {staff.map((person) => (
+        {activeTab === 'employees' && (
+          <View style={styles.filterRow}>
             <Pressable
-              key={person.name}
+              style={styles.filterSecondary}
+              onPress={() => setShowDepartment(true)}>
+              <Text style={styles.filterSecondaryText}>{department}</Text>
+              <Ionicons name="chevron-down" size={14} color="#6B7280" />
+            </Pressable>
+          </View>
+        )}
+
+        <View style={styles.staffList}>
+          {listLoading && (
+            <Text style={styles.loadingText}>Loading...</Text>
+          )}
+
+          {!listLoading && activeTab === 'employees' && filteredEmployees.map((emp) => {
+            const name = emp.userId?.name || emp.employeeId;
+            const role = emp.designation || emp.userId?.designation || 'Employee';
+            const division = emp.department || 'Department';
+            const empId = emp.employeeId;
+            return (
+              <Pressable
+                key={emp._id || emp.employeeId}
+                style={styles.staffCard}
+                onPress={() =>
+                  router.push({
+                    pathname: '/employee-profile',
+                    params: {
+                      name,
+                      role,
+                      employeeId: empId,
+                      division,
+                    },
+                  })
+                }>
+                <View style={styles.placeholderAvatar} />
+                <View style={styles.staffInfo}>
+                  <Text style={styles.staffName}>{name}</Text>
+                  <Text style={styles.staffRole}>{role}</Text>
+                  <Text style={styles.staffMeta}>{division} • {empId}</Text>
+                </View>
+                <View style={styles.staffStatus}>
+                  <Text style={styles.staffStatusText}>APPROVED</Text>
+                  <Text style={styles.staffTime}>{emp.joinDate?.slice(0, 10) || ''}</Text>
+                </View>
+              </Pressable>
+            );
+          })}
+
+          {!listLoading && activeTab === 'pending' && filteredPending.map((p) => (
+            <Pressable
+              key={p._id}
               style={styles.staffCard}
               onPress={() =>
                 router.push({
                   pathname: '/employee-profile',
                   params: {
-                    name: person.name,
-                    role: person.profileRole ?? person.role,
-                    avatar: person.avatar,
-                    employeeId: person.employeeId,
-                    division: person.division,
+                    name: p.name,
+                    role: 'Pending',
+                    employeeId: p._id,
+                    division: p.email,
+                    phone: p.phone,
+                    status: p.status,
                   },
                 })
               }>
-              <Image
-                source={{ uri: person.avatar }}
-                style={styles.staffAvatar}
-              />
+              <View style={styles.placeholderAvatar} />
               <View style={styles.staffInfo}>
-                <Text style={styles.staffName}>{person.name}</Text>
-                <Text style={styles.staffRole}>{person.role}</Text>
+                <Text style={styles.staffName}>{p.name}</Text>
+                <Text style={styles.staffRole}>{p.email}</Text>
+                <Text style={styles.staffMeta}>Phone: {p.phone}</Text>
               </View>
               <View style={styles.staffStatus}>
-                <Text style={styles.staffStatusText}>{person.status}</Text>
-                <Text style={styles.staffTime}>{person.time}</Text>
+                <Text style={styles.pendingStatusText}>PENDING</Text>
+                <Text style={styles.staffTime}>{p.createdAt?.slice(0, 10) || ''}</Text>
               </View>
             </Pressable>
           ))}
+
+          {!listLoading && activeTab === 'employees' && filteredEmployees.length === 0 && (
+            <Text style={styles.emptyText}>No employees found.</Text>
+          )}
+          {!listLoading && activeTab === 'pending' && filteredPending.length === 0 && (
+            <Text style={styles.emptyText}>No pending users found.</Text>
+          )}
         </View>
       </ScrollView>
 
@@ -228,7 +279,7 @@ export default function HomeScreen() {
           style={styles.modalOverlay}
           onPress={() => setShowDepartment(false)}>
           <View style={styles.dropdownCard}>
-            {['Department', 'Sales', 'HR', 'Engineering', 'Marketing'].map((item) => (
+            {['All', 'Sales', 'HR', 'Engineering', 'Marketing'].map((item) => (
               <Pressable
                 key={item}
                 style={styles.dropdownItem}
@@ -378,6 +429,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 16,
   },
+  tabRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  tabButtonActive: {
+    backgroundColor: '#D4A537',
+    borderColor: '#D4A537',
+  },
+  tabText: {
+    color: '#6B7280',
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  tabTextActive: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 12,
+  },
   filterPrimary: {
     backgroundColor: '#D4A537',
     borderRadius: 999,
@@ -409,6 +488,16 @@ const styles = StyleSheet.create({
   staffList: {
     marginTop: 16,
   },
+  loadingText: {
+    color: '#6B7280',
+    textAlign: 'center',
+    marginVertical: 12,
+  },
+  emptyText: {
+    color: '#9CA3AF',
+    textAlign: 'center',
+    marginVertical: 12,
+  },
   staffCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -427,6 +516,14 @@ const styles = StyleSheet.create({
     width: 48,
     borderRadius: 24,
   },
+  placeholderAvatar: {
+    height: 48,
+    width: 48,
+    borderRadius: 24,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
   staffInfo: {
     flex: 1,
     marginLeft: 12,
@@ -440,6 +537,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textTransform: 'uppercase',
   },
+  staffMeta: {
+    color: '#9CA3AF',
+    fontSize: 11,
+    marginTop: 2,
+  },
   staffStatus: {
     alignItems: 'flex-end',
   },
@@ -447,6 +549,11 @@ const styles = StyleSheet.create({
     color: '#D4A537',
     fontSize: 11,
     fontWeight: '600',
+  },
+  pendingStatusText: {
+    color: '#F59E0B',
+    fontSize: 11,
+    fontWeight: '700',
   },
   staffTime: {
     color: '#D4A537',
