@@ -361,10 +361,10 @@ export default function HomeScreen() {
           )}
 
           {!listLoading && activeTab === 'employees' && filteredEmployees.map((emp) => {
-            const name = emp.userId?.name || emp.employeeId;
-            const role = emp.designation || emp.userId?.designation || 'Employee';
-            const division = emp.department || 'Department';
-            const empId = emp.employeeId;
+            const name = emp?.name || emp.employeeId;
+            const role = emp?.designation || 'Employee';
+            const division = emp?.department || 'Department';
+            const empId = emp?.employeeId;
             return (
               <Pressable
                 key={emp._id || emp.employeeId}

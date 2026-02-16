@@ -31,6 +31,7 @@ export interface EmployeeUser {
         designation?: string;
         employeeId?: string;
     } | null;
+    name?: string;
     employeeId: string;
     designation?: string;
     department?: string;
