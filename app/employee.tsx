@@ -111,14 +111,20 @@ export default function EmployeeDashboardScreen() {
         }
 
         if (user.role !== "emp") {
-            router.replace("/(tabs)");
+            (async () => {
+                try {
+                    await logout();
+                } finally {
+                    router.replace("/");
+                }
+            })();
             return;
         }
 
         loadAttendance();
         loadProfile();
         loadRecentActivity();
-    }, [isLoading, user]);
+    }, [isLoading, user, logout]);
 
     const loadAttendance = async () => {
         setAttLoading(true);
