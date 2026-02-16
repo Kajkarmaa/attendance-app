@@ -1,9 +1,18 @@
+import MonthYearPicker from '@/components/ui/month-year-picker';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchEmployees, fetchPendingUsers, type EmployeeUser, type PendingUser } from '@/services/users';
+import { generatePayroll } from '@/services/payroll';
+import {
+  convertPendingUserToEmployee,
+  fetchEmployees,
+  fetchPendingUsers,
+  type EmployeeUser,
+  type PendingUser
+} from '@/services/users';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
@@ -25,6 +34,19 @@ export default function HomeScreen() {
   const [employees, setEmployees] = useState<EmployeeUser[]>([]);
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [listLoading, setListLoading] = useState(false);
+  const [showPayrollModal, setShowPayrollModal] = useState(false);
+  const [selectedPayrollEmployee, setSelectedPayrollEmployee] = useState<EmployeeUser | null>(null);
+  const [payrollMonth, setPayrollMonth] = useState(() => new Date().getMonth() + 1);
+  const [payrollYear, setPayrollYear] = useState(() => new Date().getFullYear());
+  const [payrollLoading, setPayrollLoading] = useState(false);
+  const [payrollMessage, setPayrollMessage] = useState<{ text: string; tone: 'success' | 'error' } | null>(null);
+  const [showConvertModal, setShowConvertModal] = useState(false);
+  const [selectedPendingUser, setSelectedPendingUser] = useState<PendingUser | null>(null);
+  const [convertDesignation, setConvertDesignation] = useState('Software Developer');
+  const [convertDepartment, setConvertDepartment] = useState('Engineering');
+  const [convertSalary, setConvertSalary] = useState('50000');
+  const [convertLoading, setConvertLoading] = useState(false);
+  const [convertMessage, setConvertMessage] = useState<{ text: string; tone: 'success' | 'error' } | null>(null);
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
     if (hour < 12) return 'GOOD MORNING,';
@@ -62,6 +84,102 @@ export default function HomeScreen() {
       console.log('list fetch failed', error?.message);
     } finally {
       setListLoading(false);
+    }
+  };
+
+  const openPayrollModal = (employee: EmployeeUser) => {
+    setSelectedPayrollEmployee(employee);
+    const now = new Date();
+    setPayrollMonth(now.getMonth() + 1);
+    setPayrollYear(now.getFullYear());
+    setPayrollMessage(null);
+    setShowPayrollModal(true);
+  };
+
+  const closePayrollModal = () => {
+    if (payrollLoading) return;
+    setShowPayrollModal(false);
+    setSelectedPayrollEmployee(null);
+    setPayrollMessage(null);
+  };
+
+  const handleGeneratePayroll = async () => {
+    if (!selectedPayrollEmployee?.employeeId) {
+      setPayrollMessage({ text: 'Missing employee identifier.', tone: 'error' });
+      return;
+    }
+
+    setPayrollLoading(true);
+    setPayrollMessage(null);
+    try {
+      const response = await generatePayroll({
+        month: payrollMonth,
+        year: payrollYear,
+        employeeId: selectedPayrollEmployee.employeeId,
+      });
+      setPayrollMessage({ text: response?.message || 'Payroll generated successfully.', tone: 'success' });
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.message || 'Failed to generate payroll.';
+      setPayrollMessage({ text: message, tone: 'error' });
+    } finally {
+      setPayrollLoading(false);
+    }
+  };
+
+  const openConvertModal = (pending: PendingUser) => {
+    setSelectedPendingUser(pending);
+    setConvertDesignation(pending.role || 'Software Developer');
+    setConvertDepartment('Engineering');
+    setConvertSalary('50000');
+    setConvertMessage(null);
+    setShowConvertModal(true);
+  };
+
+  const closeConvertModal = () => {
+    if (convertLoading) return;
+    setShowConvertModal(false);
+    setSelectedPendingUser(null);
+    setConvertMessage(null);
+  };
+
+  const handleConvertToEmployee = async () => {
+    if (!selectedPendingUser?._id) {
+      setConvertMessage({ text: 'Pending user not found.', tone: 'error' });
+      return;
+    }
+
+    const designation = convertDesignation.trim();
+    const departmentValue = convertDepartment.trim();
+    const salaryNumber = Number(convertSalary);
+
+    if (!designation || !departmentValue) {
+      setConvertMessage({ text: 'Please fill designation and department.', tone: 'error' });
+      return;
+    }
+
+    if (!Number.isFinite(salaryNumber) || salaryNumber <= 0) {
+      setConvertMessage({ text: 'Enter a valid salary amount.', tone: 'error' });
+      return;
+    }
+
+    setConvertLoading(true);
+    setConvertMessage(null);
+    try {
+      const response = await convertPendingUserToEmployee(selectedPendingUser._id, {
+        designation,
+        department: departmentValue,
+        salary: salaryNumber,
+      });
+      setConvertMessage({ text: response?.message || 'User converted successfully.', tone: 'success' });
+      await loadLists();
+      setTimeout(() => {
+        closeConvertModal();
+      }, 800);
+    } catch (error: any) {
+      const message = error?.response?.data?.message || error?.message || 'Failed to convert user.';
+      setConvertMessage({ text: message, tone: 'error' });
+    } finally {
+      setConvertLoading(false);
     }
   };
 
@@ -222,28 +340,25 @@ export default function HomeScreen() {
                 <View style={styles.staffStatus}>
                   <Text style={styles.staffStatusText}>APPROVED</Text>
                   <Text style={styles.staffTime}>{emp.joinDate?.slice(0, 10) || ''}</Text>
+                  <Pressable
+                    style={styles.staffActionButton}
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      openPayrollModal(emp);
+                    }}
+                  >
+                    <Text style={styles.staffActionText}>Generate Payroll</Text>
+                  </Pressable>
                 </View>
               </Pressable>
             );
           })}
 
           {!listLoading && activeTab === 'pending' && filteredPending.map((p) => (
-            <Pressable
+            <View
               key={p._id}
               style={styles.staffCard}
-              onPress={() =>
-                router.push({
-                  pathname: '/employee-profile',
-                  params: {
-                    name: p.name,
-                    role: 'Pending',
-                    employeeId: p._id,
-                    division: p.email,
-                    phone: p.phone,
-                    status: p.status,
-                  },
-                })
-              }>
+            >
               <View style={styles.placeholderAvatar} />
               <View style={styles.staffInfo}>
                 <Text style={styles.staffName}>{p.name}</Text>
@@ -253,8 +368,17 @@ export default function HomeScreen() {
               <View style={styles.staffStatus}>
                 <Text style={styles.pendingStatusText}>PENDING</Text>
                 <Text style={styles.staffTime}>{p.createdAt?.slice(0, 10) || ''}</Text>
+                <Pressable
+                  style={styles.pendingActionButton}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    openConvertModal(p);
+                  }}
+                >
+                  <Text style={styles.pendingActionText}>Convert to Employee</Text>
+                </Pressable>
               </View>
-            </Pressable>
+            </View>
           ))}
 
           {!listLoading && activeTab === 'employees' && filteredEmployees.length === 0 && (
@@ -269,6 +393,158 @@ export default function HomeScreen() {
       <Pressable style={styles.fab} onPress={() => router.push('/add-employee')}>
         <Feather name="plus" size={22} color="#FFFFFF" />
       </Pressable>
+
+      <Modal
+        transparent
+        visible={showPayrollModal}
+        animationType="fade"
+        onRequestClose={closePayrollModal}>
+        <Pressable
+          style={styles.centeredOverlay}
+          onPress={closePayrollModal}>
+          <Pressable style={styles.payrollCard} onPress={(event) => event.stopPropagation()}>
+            <Text style={styles.payrollTitle}>Generate Payroll</Text>
+            <Text style={styles.payrollSubtitle}>
+              {selectedPayrollEmployee?.userId?.name || selectedPayrollEmployee?.employeeId || 'Select employee'}
+            </Text>
+            {selectedPayrollEmployee?.employeeId && (
+              <Text style={styles.payrollMeta}>
+                ID: {selectedPayrollEmployee.employeeId} • {selectedPayrollEmployee.department || 'Department'}
+              </Text>
+            )}
+
+            <View style={styles.payrollPickerWrapper}>
+              <MonthYearPicker
+                month={payrollMonth}
+                year={payrollYear}
+                onMonthChange={setPayrollMonth}
+                onYearChange={setPayrollYear}
+              />
+            </View>
+
+            {payrollMessage && (
+              <Text
+                style={
+                  payrollMessage.tone === 'success'
+                    ? styles.payrollMessageSuccess
+                    : styles.payrollMessageError
+                }>
+                {payrollMessage.text}
+              </Text>
+            )}
+
+            <View style={styles.payrollActions}>
+              <Pressable
+                style={styles.payrollCancelButton}
+                disabled={payrollLoading}
+                onPress={closePayrollModal}>
+                <Text style={styles.payrollCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.payrollSubmitButton, payrollLoading && styles.payrollSubmitButtonDisabled]}
+                onPress={handleGeneratePayroll}
+                disabled={payrollLoading}
+              >
+                {payrollLoading ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.payrollSubmitText}>Generate</Text>
+                )}
+              </Pressable>
+            </View>
+            <Text style={styles.payrollHint}>Payroll runs immediately for the selected month.</Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        transparent
+        visible={showConvertModal}
+        animationType="fade"
+        onRequestClose={closeConvertModal}>
+        <Pressable
+          style={styles.centeredOverlay}
+          onPress={closeConvertModal}>
+          <Pressable style={styles.convertCard} onPress={(event) => event.stopPropagation()}>
+            <Text style={styles.convertTitle}>Convert Pending User</Text>
+            <Text style={styles.convertSubtitle}>{selectedPendingUser?.name || 'Select pending user'}</Text>
+            {selectedPendingUser?.email && (
+              <Text style={styles.convertMeta}>{selectedPendingUser.email}</Text>
+            )}
+            <Text style={styles.convertDescription}>
+              Assign designation, department, and salary to finalize onboarding.
+            </Text>
+
+            <View style={styles.convertFieldGroup}>
+              <Text style={styles.convertLabel}>Designation</Text>
+              <TextInput
+                style={styles.convertInput}
+                value={convertDesignation}
+                onChangeText={setConvertDesignation}
+                placeholder="e.g. Software Developer"
+                placeholderTextColor="#94A3B8"
+                autoCapitalize="words"
+              />
+            </View>
+
+            <View style={styles.convertFieldGroup}>
+              <Text style={styles.convertLabel}>Department</Text>
+              <TextInput
+                style={styles.convertInput}
+                value={convertDepartment}
+                onChangeText={setConvertDepartment}
+                placeholder="e.g. Engineering"
+                placeholderTextColor="#94A3B8"
+                autoCapitalize="words"
+              />
+            </View>
+
+            <View style={styles.convertFieldGroup}>
+              <Text style={styles.convertLabel}>Salary</Text>
+              <TextInput
+                style={styles.convertInput}
+                value={convertSalary}
+                onChangeText={setConvertSalary}
+                placeholder="50000"
+                placeholderTextColor="#94A3B8"
+                keyboardType="number-pad"
+              />
+            </View>
+
+            {convertMessage && (
+              <Text
+                style={
+                  convertMessage.tone === 'success'
+                    ? styles.convertMessageSuccess
+                    : styles.convertMessageError
+                }>
+                {convertMessage.text}
+              </Text>
+            )}
+
+            <View style={styles.convertActions}>
+              <Pressable
+                style={styles.convertCancel}
+                onPress={closeConvertModal}
+                disabled={convertLoading}>
+                <Text style={styles.convertCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.convertSubmit, convertLoading && styles.convertSubmitDisabled]}
+                onPress={handleConvertToEmployee}
+                disabled={convertLoading}
+              >
+                {convertLoading ? (
+                  <ActivityIndicator color="#111827" size="small" />
+                ) : (
+                  <Text style={styles.convertSubmitText}>Convert</Text>
+                )}
+              </Pressable>
+            </View>
+            <Text style={styles.convertHint}>Converted users appear instantly in the employee tab.</Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal
         transparent
@@ -555,11 +831,37 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
+  pendingActionButton: {
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+  },
+  pendingActionText: {
+    color: '#F59E0B',
+    fontSize: 11,
+    fontWeight: '700',
+  },
   staffTime: {
     color: '#D4A537',
     fontSize: 13,
     fontWeight: '600',
     marginTop: 4,
+  },
+  staffActionButton: {
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#111827',
+  },
+  staffActionText: {
+    color: '#111827',
+    fontSize: 11,
+    fontWeight: '700',
   },
   fab: {
     position: 'absolute',
@@ -583,6 +885,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 180,
   },
+  centeredOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    padding: 24,
+    justifyContent: 'center',
+  },
   dropdownCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -601,5 +909,188 @@ const styles = StyleSheet.create({
     color: '#2F2F2F',
     fontSize: 13,
     fontWeight: '600',
+  },
+  payrollCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 5,
+  },
+  payrollTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  payrollSubtitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginTop: 4,
+  },
+  payrollMeta: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+    letterSpacing: 0.5,
+  },
+  payrollPickerWrapper: {
+    marginTop: 16,
+  },
+  payrollActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    gap: 12,
+  },
+  payrollCancelButton: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  payrollCancelText: {
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  payrollSubmitButton: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: '#111827',
+  },
+  payrollSubmitButtonDisabled: {
+    opacity: 0.6,
+  },
+  payrollSubmitText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  payrollMessageSuccess: {
+    marginTop: 12,
+    color: '#16A34A',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  payrollMessageError: {
+    marginTop: 12,
+    color: '#DC2626',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  payrollHint: {
+    marginTop: 12,
+    fontSize: 12,
+    color: '#9CA3AF',
+    textAlign: 'center',
+  },
+  convertCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 22,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 28,
+    shadowOffset: { width: 0, height: 18 },
+    elevation: 6,
+  },
+  convertTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#F8FAFC',
+  },
+  convertSubtitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FDE68A',
+    marginTop: 4,
+  },
+  convertMeta: {
+    fontSize: 12,
+    color: '#E2E8F0',
+    marginTop: 2,
+  },
+  convertDescription: {
+    fontSize: 13,
+    color: '#CBD5F5',
+    marginTop: 10,
+  },
+  convertFieldGroup: {
+    marginTop: 16,
+  },
+  convertLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#E5E7EB',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  convertInput: {
+    borderWidth: 1,
+    borderColor: '#2E3A4F',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#1F2937',
+    color: '#F8FAFC',
+  },
+  convertActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 20,
+  },
+  convertCancel: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#475569',
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  convertCancelText: {
+    color: '#E2E8F0',
+    fontWeight: '600',
+  },
+  convertSubmit: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: '#D4A537',
+  },
+  convertSubmitDisabled: {
+    opacity: 0.6,
+  },
+  convertSubmitText: {
+    color: '#111827',
+    fontWeight: '700',
+  },
+  convertMessageSuccess: {
+    marginTop: 12,
+    color: '#16A34A',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  convertMessageError: {
+    marginTop: 12,
+    color: '#DC2626',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  convertHint: {
+    marginTop: 12,
+    fontSize: 12,
+    color: '#E2E8F0',
+    textAlign: 'center',
   },
 });

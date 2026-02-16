@@ -44,6 +44,18 @@ export interface EmployeesResponse {
     message?: string;
 }
 
+export interface ConvertToEmployeePayload {
+    designation: string;
+    department: string;
+    salary: number;
+}
+
+interface ConvertToEmployeeResponse {
+    success: boolean;
+    message?: string;
+    data?: EmployeeUser;
+}
+
 export async function fetchPendingUsers() {
     const res = await apiClient.get<PendingUsersResponse>("/users/pending");
     return res.data.data;
@@ -52,4 +64,15 @@ export async function fetchPendingUsers() {
 export async function fetchEmployees() {
     const res = await apiClient.get<EmployeesResponse>("/users/employees");
     return res.data.data;
+}
+
+export async function convertPendingUserToEmployee(
+    pendingUserId: string,
+    payload: ConvertToEmployeePayload
+) {
+    const res = await apiClient.post<ConvertToEmployeeResponse>(
+        `/users/${pendingUserId}/convert-to-employee`,
+        payload
+    );
+    return res.data;
 }
