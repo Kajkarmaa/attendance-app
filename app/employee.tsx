@@ -9,7 +9,7 @@ import {
 import { fetchEmployeeProfile, type EmployeeProfile } from "@/services/profile";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -19,11 +19,6 @@ import {
     Text,
     View,
 } from "react-native";
-
-const payslips = [
-    { month: "November 2025", label: "Payslip Nov 20", badge: "Download" },
-    { month: "December 2025", label: "Payslip Dec 20", badge: "Download" },
-];
 
 const ACTIVITY_COLOR_MAP: Record<string, string> = {
     attendance: "#34D399",
@@ -54,6 +49,52 @@ export default function EmployeeDashboardScreen() {
         typeof profile?.salary === "number"
             ? `$${profile.salary.toLocaleString()}`
             : "$40,000";
+
+    const formatPayslipMonth = (month?: number | null, year?: number | null) => {
+        if (!month || !year) {
+            return "Upcoming payout";
+        }
+        const date = new Date(year, month - 1, 1);
+        if (Number.isNaN(date.getTime())) {
+            return `Month ${month}, ${year}`;
+        }
+        return date.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+    };
+
+    const formatCurrency = (value?: number | null) => {
+        if (typeof value !== "number") {
+            return "--";
+        }
+        return `$${value.toLocaleString()}`;
+    };
+
+    const payslipEntries = useMemo(() => {
+        if (!profile?.Payslips || profile.Payslips.length === 0) {
+            return [];
+        }
+
+        return profile.Payslips.map((slip, index) => {
+            const monthLabel = formatPayslipMonth(slip.month as number | undefined, slip.year as number | undefined);
+            const netLabel = slip.netSalary ? `Net ${formatCurrency(slip.netSalary)}` : "Awaiting net salary";
+            const canDownload = Boolean(slip.payslipGenerated && slip.payslipSent);
+            return {
+                id: slip.payrollId || `${slip.year}-${slip.month}-${index}`,
+                monthLabel,
+                detail: netLabel,
+                canDownload,
+                buttonLabel: canDownload ? "Download" : "Pending",
+            };
+        });
+    }, [profile?.Payslips]);
+
+    const payslipYearLabel = useMemo(() => {
+        const year = profile?.Payslips?.[0]?.year;
+        if (typeof year === "number" && year > 0) {
+            return `${year}`;
+        }
+        const fallback = new Date().getFullYear();
+        return `${fallback}`;
+    }, [profile?.Payslips]);
 
     const getActivityColor = (type?: string) => {
         if (!type) {
@@ -209,14 +250,18 @@ export default function EmployeeDashboardScreen() {
         <View style={styles.container}>
             <View style={styles.header}>
                 <View style={styles.headerTop}>
-                    <Pressable style={styles.headerIcon}>
+                    <Pressable style={styles.headerIcon} accessibilityRole="button">
                         <Ionicons name="menu" size={22} color="#111827" />
                     </Pressable>
                     <View style={styles.headerActions}>
-                        <Pressable style={styles.headerIcon}>
+                        <Pressable style={styles.headerIcon} accessibilityRole="button">
                             <Ionicons name="notifications-outline" size={20} color="#D4A537" />
                         </Pressable>
-                        <Pressable style={styles.headerIcon} onPress={handleLogout}>
+                        <Pressable
+                            style={styles.headerIcon}
+                            onPress={handleLogout}
+                            accessibilityRole="button"
+                        >
                             <Ionicons name="log-out-outline" size={20} color="#EF4444" />
                         </Pressable>
                     </View>
@@ -243,7 +288,12 @@ export default function EmployeeDashboardScreen() {
                             Standard shift: 09:30 AM - 06:30 PM
                         </Text>
                     </View>
-                    <Pressable style={styles.punchButton} onPress={handlePunch} disabled={punching || attLoading}>
+                    <Pressable
+                        style={styles.punchButton}
+                        onPress={handlePunch}
+                        disabled={punching || attLoading}
+                        accessibilityRole="button"
+                    >
                         {punching ? (
                             <ActivityIndicator color="#111827" />
                         ) : (
@@ -279,7 +329,7 @@ export default function EmployeeDashboardScreen() {
                             Last credited 31 Dec 2025
                         </Text>
                     </View>
-                    <Pressable style={styles.viewMoreButton}>
+                    <Pressable style={styles.viewMoreButton} accessibilityRole="button">
                         <Text style={styles.viewMoreText}>View More</Text>
                     </Pressable>
                 </View>
@@ -287,25 +337,43 @@ export default function EmployeeDashboardScreen() {
                 <View style={styles.payslipCard}>
                     <View style={styles.cardHeaderRow}>
                         <Text style={styles.cardHeader}>Payslips</Text>
-                        <Text style={styles.cardSubtle}>2025</Text>
+                        <Text style={styles.cardSubtle}>{payslipYearLabel}</Text>
                     </View>
-                    {payslips.map((item) => (
-                        <View key={item.month} style={styles.payslipRow}>
-                            <View>
-                                <Text style={styles.payslipMonth}>
-                                    {item.month}
-                                </Text>
-                                <Text style={styles.payslipLabel}>
-                                    {item.label}
-                                </Text>
+                    {payslipEntries.length === 0 ? (
+                        <Text style={styles.payslipEmptyText}>
+                            Payslips will appear automatically after payroll generates them.
+                        </Text>
+                    ) : (
+                        payslipEntries.map((item) => (
+                            <View key={item.id} style={styles.payslipRow}>
+                                <View>
+                                    <Text style={styles.payslipMonth}>
+                                        {item.monthLabel}
+                                    </Text>
+                                    <Text style={styles.payslipLabel}>
+                                        {item.detail}
+                                    </Text>
+                                </View>
+                                <Pressable
+                                    style={[
+                                        styles.downloadBadge,
+                                        !item.canDownload && styles.downloadBadgeDisabled,
+                                    ]}
+                                    disabled={!item.canDownload}
+                                    accessibilityRole="button"
+                                >
+                                    <Text
+                                        style={[
+                                            styles.downloadText,
+                                            !item.canDownload && styles.downloadTextDisabled,
+                                        ]}
+                                    >
+                                        {item.buttonLabel}
+                                    </Text>
+                                </Pressable>
                             </View>
-                            <Pressable style={styles.downloadBadge}>
-                                <Text style={styles.downloadText}>
-                                    {item.badge}
-                                </Text>
-                            </Pressable>
-                        </View>
-                    ))}
+                        ))
+                    )}
                 </View>
 
                 <View style={styles.activityCard}>
@@ -366,19 +434,20 @@ export default function EmployeeDashboardScreen() {
             </ScrollView>
 
             <View style={styles.bottomBar}>
-                <Pressable style={styles.bottomIconActive}>
+                <Pressable style={styles.bottomIconActive} accessibilityRole="button">
                     <Ionicons name="home" size={22} color="#D4A537" />
                 </Pressable>
                 <Pressable
                     style={styles.bottomIcon}
                     onPress={() => router.replace("/leave")}
+                    accessibilityRole="button"
                 >
                     <Ionicons name="calendar-outline" size={22} color="#9CA3AF" />
                 </Pressable>
-                <Pressable style={styles.bottomIcon}>
+                <Pressable style={styles.bottomIcon} accessibilityRole="button">
                     <Ionicons name="card-outline" size={22} color="#9CA3AF" />
                 </Pressable>
-                <Pressable style={styles.bottomIcon}>
+                <Pressable style={styles.bottomIcon} accessibilityRole="button">
                     <Ionicons name="person-outline" size={22} color="#9CA3AF" />
                 </Pressable>
             </View>
@@ -658,6 +727,18 @@ const styles = StyleSheet.create({
         color: "#D4A537",
         fontSize: 12,
         fontWeight: "600",
+    },
+    downloadBadgeDisabled: {
+        borderColor: "#E5E7EB",
+        backgroundColor: "#F9FAFB",
+    },
+    downloadTextDisabled: {
+        color: "#9CA3AF",
+    },
+    payslipEmptyText: {
+        color: "#9CA3AF",
+        fontSize: 12,
+        paddingVertical: 8,
     },
     activityCard: {
         backgroundColor: "#FFFFFF",

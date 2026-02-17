@@ -11,6 +11,14 @@ export interface EmployeeProfile {
     department?: string;
     joinDate?: string;
     status?: string;
+    Payslips?: Array<{
+        month?: number;
+        year?: number;
+        payrollId?: string;
+        netSalary?: number;
+        payslipGenerated?: boolean;
+        payslipSent?: boolean;
+    }>;
     attendance?: {
         thisMonth?: {
             present?: number;
