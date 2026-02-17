@@ -6,13 +6,17 @@ import {
     fetchAttendance,
     type AttendanceRecord,
 } from "@/services/attendance";
+import { getPayslipDownloadUrl } from "@/services/payroll";
 import { fetchEmployeeProfile, type EmployeeProfile } from "@/services/profile";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    Linking,
+    Modal,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -33,6 +37,16 @@ const ACTIVITY_COLOR_MAP: Record<string, string> = {
 };
 const DEFAULT_ACTIVITY_COLOR = "#94A3B8";
 
+interface PayslipEntry {
+    id: string;
+    monthLabel: string;
+    detail: string;
+    canDownload: boolean;
+    buttonLabel: string;
+    month?: number | null;
+    year?: number | null;
+}
+
 export default function EmployeeDashboardScreen() {
     const { user, isLoading, logout } = useAuth();
     const [attendance, setAttendance] = useState<AttendanceRecord | null>(null);
@@ -42,6 +56,9 @@ export default function EmployeeDashboardScreen() {
     const [profileLoading, setProfileLoading] = useState(false);
     const [activityData, setActivityData] = useState<RecentActivityData | null>(null);
     const [activityLoading, setActivityLoading] = useState(false);
+    const [selectedPayslipYear, setSelectedPayslipYear] = useState<number | null>(null);
+    const [yearPickerVisible, setYearPickerVisible] = useState(false);
+    const [downloadingPayslipId, setDownloadingPayslipId] = useState<string | null>(null);
 
     const displayName = profile?.name ?? user?.name ?? "Employee";
     const displayDesignation = profile?.designation ?? user?.designation ?? "Software Developer";
@@ -68,12 +85,42 @@ export default function EmployeeDashboardScreen() {
         return `$${value.toLocaleString()}`;
     };
 
-    const payslipEntries = useMemo(() => {
-        if (!profile?.Payslips || profile.Payslips.length === 0) {
+    const payslipYears = useMemo(() => {
+        if (!profile?.Payslips) {
+            return [];
+        }
+        const unique = Array.from(
+            new Set(
+                profile.Payslips.map((slip) => Number(slip.year)).filter(
+                    (year) => typeof year === "number" && !Number.isNaN(year)
+                )
+            )
+        );
+        return unique.sort((a, b) => b - a);
+    }, [profile?.Payslips]);
+
+    useEffect(() => {
+        if (!selectedPayslipYear && payslipYears.length > 0) {
+            setSelectedPayslipYear(payslipYears[0]);
+        }
+    }, [payslipYears, selectedPayslipYear]);
+
+    const payslipEntries = useMemo<PayslipEntry[]>(() => {
+        if (!profile?.Payslips || profile.Payslips.length === 0 || !selectedPayslipYear) {
             return [];
         }
 
-        return profile.Payslips.map((slip, index) => {
+        const filtered = profile.Payslips.filter(
+            (slip) => Number(slip.year) === selectedPayslipYear
+        );
+
+        if (filtered.length === 0) {
+            return [];
+        }
+
+        return filtered.map((slip, index) => {
+            const monthValue = typeof slip.month === "number" ? slip.month : Number(slip.month);
+            const yearValue = typeof slip.year === "number" ? slip.year : Number(slip.year);
             const monthLabel = formatPayslipMonth(slip.month as number | undefined, slip.year as number | undefined);
             const netLabel = slip.netSalary ? `Net ${formatCurrency(slip.netSalary)}` : "Awaiting net salary";
             const canDownload = Boolean(slip.payslipGenerated && slip.payslipSent);
@@ -83,18 +130,16 @@ export default function EmployeeDashboardScreen() {
                 detail: netLabel,
                 canDownload,
                 buttonLabel: canDownload ? "Download" : "Pending",
+                month: Number.isFinite(monthValue) ? monthValue : null,
+                year: Number.isFinite(yearValue) ? yearValue : null,
             };
         });
-    }, [profile?.Payslips]);
+    }, [profile?.Payslips, selectedPayslipYear]);
 
-    const payslipYearLabel = useMemo(() => {
-        const year = profile?.Payslips?.[0]?.year;
-        if (typeof year === "number" && year > 0) {
-            return `${year}`;
-        }
-        const fallback = new Date().getFullYear();
-        return `${fallback}`;
-    }, [profile?.Payslips]);
+    const payslipYearLabel = selectedPayslipYear ? `${selectedPayslipYear}` : "Select";
+    const payslipEmptyMessage = selectedPayslipYear
+        ? `No payslips available for ${selectedPayslipYear} yet.`
+        : "Payslips will appear automatically after payroll generates them.";
 
     const getActivityColor = (type?: string) => {
         if (!type) {
@@ -176,6 +221,47 @@ export default function EmployeeDashboardScreen() {
             console.log("attendance fetch failed", error?.message);
         } finally {
             setAttLoading(false);
+        }
+    };
+
+    const handleDownloadPayslip = async (entry: PayslipEntry) => {
+        if (!profile?.employeeId || !entry.month || !entry.year) {
+            Alert.alert("Download unavailable", "Missing payslip period details for this record.");
+            return;
+        }
+
+        if (!entry.canDownload) {
+            Alert.alert("Not ready", "This payslip is still being processed.");
+            return;
+        }
+
+        setDownloadingPayslipId(entry.id);
+        try {
+            const response = await getPayslipDownloadUrl({
+                employeeId: profile.employeeId,
+                month: entry.month,
+                year: entry.year,
+            });
+
+            const downloadUrl = response?.data?.downloadUrl 
+            if (!downloadUrl) {
+                throw new Error("Download link not available yet.");
+            }
+
+            const canOpen = await Linking.canOpenURL(downloadUrl);
+            if (canOpen) {
+                await Linking.openURL(downloadUrl);
+            } else {
+                await WebBrowser.openBrowserAsync(downloadUrl);
+            }
+        } catch (error: any) {
+            const message =
+                error?.response?.data?.message ||
+                error?.message ||
+                "Unable to download payslip right now.";
+            Alert.alert("Download failed", message);
+        } finally {
+            setDownloadingPayslipId(null);
         }
     };
 
@@ -337,11 +423,21 @@ export default function EmployeeDashboardScreen() {
                 <View style={styles.payslipCard}>
                     <View style={styles.cardHeaderRow}>
                         <Text style={styles.cardHeader}>Payslips</Text>
-                        <Text style={styles.cardSubtle}>{payslipYearLabel}</Text>
+                        <Pressable
+                            style={styles.yearFilter}
+                            onPress={() => setYearPickerVisible(true)}
+                            accessibilityRole="button"
+                        >
+                            <Text style={styles.yearFilterLabel}>Year</Text>
+                            <View style={styles.yearFilterValue}>
+                                <Text style={styles.yearFilterText}>{payslipYearLabel}</Text>
+                                <Ionicons name="chevron-down" size={14} color="#6B7280" />
+                            </View>
+                        </Pressable>
                     </View>
                     {payslipEntries.length === 0 ? (
                         <Text style={styles.payslipEmptyText}>
-                            Payslips will appear automatically after payroll generates them.
+                            {payslipEmptyMessage}
                         </Text>
                     ) : (
                         payslipEntries.map((item) => (
@@ -357,19 +453,25 @@ export default function EmployeeDashboardScreen() {
                                 <Pressable
                                     style={[
                                         styles.downloadBadge,
-                                        !item.canDownload && styles.downloadBadgeDisabled,
+                                        (!item.canDownload || downloadingPayslipId === item.id) &&
+                                            styles.downloadBadgeDisabled,
                                     ]}
-                                    disabled={!item.canDownload}
+                                    disabled={!item.canDownload || downloadingPayslipId === item.id}
                                     accessibilityRole="button"
+                                    onPress={() => handleDownloadPayslip(item)}
                                 >
-                                    <Text
-                                        style={[
-                                            styles.downloadText,
-                                            !item.canDownload && styles.downloadTextDisabled,
-                                        ]}
-                                    >
-                                        {item.buttonLabel}
-                                    </Text>
+                                    {downloadingPayslipId === item.id ? (
+                                        <ActivityIndicator size="small" color="#9CA3AF" />
+                                    ) : (
+                                        <Text
+                                            style={[
+                                                styles.downloadText,
+                                                !item.canDownload && styles.downloadTextDisabled,
+                                            ]}
+                                        >
+                                            {item.buttonLabel}
+                                        </Text>
+                                    )}
                                 </Pressable>
                             </View>
                         ))
@@ -451,6 +553,55 @@ export default function EmployeeDashboardScreen() {
                     <Ionicons name="person-outline" size={22} color="#9CA3AF" />
                 </Pressable>
             </View>
+
+            <Modal
+                visible={yearPickerVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setYearPickerVisible(false)}
+            >
+                <Pressable
+                    style={styles.yearModalBackdrop}
+                    onPress={() => setYearPickerVisible(false)}
+                    accessibilityRole="button"
+                >
+                    <View style={styles.yearModalCard}>
+                        <Text style={styles.yearModalTitle}>Select year</Text>
+                        {payslipYears.length === 0 ? (
+                            <Text style={styles.yearModalEmpty}>
+                                No payslip years available yet.
+                            </Text>
+                        ) : (
+                            payslipYears.map((year) => (
+                                <Pressable
+                                    key={year}
+                                    style={[
+                                        styles.yearOption,
+                                        selectedPayslipYear === year && styles.yearOptionActive,
+                                    ]}
+                                    onPress={() => {
+                                        setSelectedPayslipYear(year);
+                                        setYearPickerVisible(false);
+                                    }}
+                                    accessibilityRole="button"
+                                >
+                                    <Text
+                                        style={[
+                                            styles.yearOptionText,
+                                            selectedPayslipYear === year && styles.yearOptionTextActive,
+                                        ]}
+                                    >
+                                        {year}
+                                    </Text>
+                                    {selectedPayslipYear === year && (
+                                        <Ionicons name="checkmark" size={16} color="#111827" />
+                                    )}
+                                </Pressable>
+                            ))
+                        )}
+                    </View>
+                </Pressable>
+            </Modal>
         </View>
     );
 }
@@ -699,6 +850,34 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: "#9CA3AF",
     },
+    yearFilter: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        backgroundColor: "#F9FAFB",
+    },
+    yearFilterLabel: {
+        fontSize: 11,
+        textTransform: "uppercase",
+        letterSpacing: 0.8,
+        color: "#9CA3AF",
+        fontWeight: "600",
+    },
+    yearFilterValue: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+    },
+    yearFilterText: {
+        fontSize: 13,
+        color: "#111827",
+        fontWeight: "600",
+    },
     payslipRow: {
         flexDirection: "row",
         justifyContent: "space-between",
@@ -739,6 +918,47 @@ const styles = StyleSheet.create({
         color: "#9CA3AF",
         fontSize: 12,
         paddingVertical: 8,
+    },
+    yearModalBackdrop: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.3)",
+        justifyContent: "center",
+        paddingHorizontal: 32,
+    },
+    yearModalCard: {
+        backgroundColor: "#FFFFFF",
+        borderRadius: 20,
+        padding: 20,
+        gap: 8,
+    },
+    yearModalTitle: {
+        fontSize: 16,
+        fontWeight: "600",
+        color: "#111827",
+        marginBottom: 4,
+    },
+    yearModalEmpty: {
+        color: "#9CA3AF",
+        fontSize: 13,
+        paddingVertical: 4,
+    },
+    yearOption: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderColor: "#F1F5F9",
+    },
+    yearOptionActive: {
+        backgroundColor: "#F8FAFC",
+    },
+    yearOptionText: {
+        fontSize: 15,
+        color: "#1F2937",
+    },
+    yearOptionTextActive: {
+        fontWeight: "700",
     },
     activityCard: {
         backgroundColor: "#FFFFFF",
