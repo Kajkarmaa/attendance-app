@@ -186,7 +186,7 @@ export default function HomeScreen() {
   };
 
   const handleConvertToEmployee = async () => {
-    if (!selectedPendingUser?._id) {
+    if (!selectedPendingUser?.id) {
       setConvertMessage({ text: 'Pending user not found.', tone: 'error' });
       return;
     }
@@ -207,8 +207,9 @@ export default function HomeScreen() {
 
     setConvertLoading(true);
     setConvertMessage(null);
+    console.log('Converting user' , selectedPendingUser.id, designation, departmentValue, salaryNumber)
     try {
-      const response = await convertPendingUserToEmployee(selectedPendingUser._id, {
+      const response = await convertPendingUserToEmployee(selectedPendingUser.id, {
         designation,
         department: departmentValue,
         salary: salaryNumber,
@@ -361,22 +362,26 @@ export default function HomeScreen() {
           )}
 
           {!listLoading && activeTab === 'employees' && filteredEmployees.map((emp) => {
-            const name = emp?.name || emp.employeeId;
-            const role = emp?.designation || 'Employee';
+            const name = emp?.name || emp?.userId?.name || emp.employeeId;
+            const role = emp?.designation || emp?.userId?.designation || 'Employee';
             const division = emp?.department || 'Department';
             const empId = emp?.employeeId;
+            const recordId = emp?.id || emp?.userId?._id;
+            const email = emp?.userId?.email || '';
             return (
               <Pressable
-                key={emp._id || emp.employeeId}
+                key={emp.id || emp.employeeId}
                 style={styles.staffCard}
                 onPress={() =>
                   router.push({
                     pathname: '/employee-profile',
                     params: {
+                      employeeRecordId: recordId || '',
                       name,
                       role,
                       employeeId: empId,
                       division,
+                      email,
                     },
                   })
                 }>
@@ -405,7 +410,7 @@ export default function HomeScreen() {
 
           {!listLoading && activeTab === 'pending' && filteredPending.map((p) => (
             <View
-              key={p._id}
+              key={p.id}
               style={styles.staffCard}
             >
               <View style={styles.placeholderAvatar} />

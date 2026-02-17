@@ -1,7 +1,7 @@
 import apiClient from "./api";
 
 export interface PendingUser {
-    _id: string;
+    id: string;
     name: string;
     email: string;
     phone: string;
@@ -20,7 +20,7 @@ export interface PendingUsersResponse {
 }
 
 export interface EmployeeUser {
-    _id?: string;
+    id?: string;
     userId: {
         _id: string;
         name: string;
@@ -57,6 +57,55 @@ interface ConvertToEmployeeResponse {
     data?: EmployeeUser;
 }
 
+export interface EmployeeAttendanceBreakdown {
+    present: number;
+    absent: number;
+    late: number;
+    halfDay: number;
+    totalDays: number;
+    averageWorkHours: string;
+}
+
+export interface EmployeeLeaveBalance {
+    total: number;
+    used: number;
+    remaining: number;
+}
+
+export interface EmployeePayslip {
+    id?: string;
+    month?: string;
+    amount?: number;
+    issuedOn?: string;
+    status?: string;
+    downloadUrl?: string;
+}
+
+export interface EmployeeDetail {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    employeeId: string;
+    designation?: string;
+    department?: string;
+    salary?: number;
+    joinDate?: string;
+    status?: string;
+    phone?: string;
+    Payslips: EmployeePayslip[];
+    attendance?: {
+        thisMonth?: EmployeeAttendanceBreakdown;
+    };
+    leaveBalance?: EmployeeLeaveBalance;
+}
+
+interface EmployeeDetailResponse {
+    success: boolean;
+    data: EmployeeDetail;
+    message?: string;
+}
+
 export async function fetchPendingUsers() {
     const res = await apiClient.get<PendingUsersResponse>("/users/pending");
     return res.data.data;
@@ -76,4 +125,9 @@ export async function convertPendingUserToEmployee(
         payload
     );
     return res.data;
+}
+
+export async function fetchEmployeeDetail(employeeId: string) {
+    const res = await apiClient.get<EmployeeDetailResponse>(`/employees/${employeeId}`);
+    return res.data.data;
 }
