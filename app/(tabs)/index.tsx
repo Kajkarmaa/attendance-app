@@ -101,9 +101,17 @@ export default function HomeScreen() {
   }, [dailySummary]);
 
   useEffect(() => {
+    if (isLoading) {
+      return;
+    }
+
+    if (!user || user.role === 'emp') {
+      return;
+    }
+
     loadLists();
     loadDailySummary();
-  }, []);
+  }, [user, isLoading]);
 
   const loadLists = async () => {
     setListLoading(true);
@@ -252,8 +260,11 @@ export default function HomeScreen() {
 
 
   const handleLogout = async () => {
-    await logout();
-    router.replace('/');
+    try {
+      await logout();
+    } finally {
+      router.replace('/');
+    }
   };
 
   return (

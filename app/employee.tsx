@@ -266,8 +266,11 @@ export default function EmployeeDashboardScreen() {
     };
 
     const handleLogout = async () => {
-        await logout();
-        router.replace("/");
+        try {
+            await logout();
+        } finally {
+            router.replace("/");
+        }
     };
 
     const isCheckedIn = attendance?.checkIn && !attendance?.checkOut;
@@ -545,12 +548,6 @@ export default function EmployeeDashboardScreen() {
                     accessibilityRole="button"
                 >
                     <Ionicons name="calendar-outline" size={22} color="#9CA3AF" />
-                </Pressable>
-                <Pressable style={styles.bottomIcon} accessibilityRole="button">
-                    <Ionicons name="card-outline" size={22} color="#9CA3AF" />
-                </Pressable>
-                <Pressable style={styles.bottomIcon} accessibilityRole="button">
-                    <Ionicons name="person-outline" size={22} color="#9CA3AF" />
                 </Pressable>
             </View>
 
@@ -1028,14 +1025,14 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderColor: "#E5E7EB",
         flexDirection: "row",
-        justifyContent: "space-around",
+        justifyContent: "space-evenly",
         alignItems: "center",
         shadowColor: "#000",
         shadowOpacity: 0.08,
         shadowRadius: 12,
         shadowOffset: { width: 0, height: -4 },
         elevation: 6,
-        paddingHorizontal: 24,
+        paddingHorizontal: 12,
     },
     bottomIcon: {
         height: 44,
