@@ -3,7 +3,9 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,6 +13,7 @@ import {
   View,
 } from 'react-native';
 
+import { getPayslipDownloadUrl } from '@/services/payroll';
 import { fetchEmployeeDetail, type EmployeeDetail } from '@/services/users';
 
 const TABS = ['Overview', 'Attendance', 'Salary', 'Bonus', 'Payslips'] as const;
@@ -31,6 +34,7 @@ export default function EmployeeProfileScreen() {
   const [activeTab, setActiveTab] = useState<TabKey>('Overview');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [payslipDownloading, setPayslipDownloading] = useState(false);
 
   const recordId = useMemo(() => {
     const value = params.employeeRecordId;
@@ -100,6 +104,83 @@ export default function EmployeeProfileScreen() {
 
   const attendanceSummary = profile?.attendance?.thisMonth;
   const hasPayslips = (profile?.Payslips?.length ?? 0) > 0;
+
+  const latestPayslip = useMemo(() => {
+    return profile?.Payslips?.[0];
+  }, [profile?.Payslips]);
+
+  const extractMonthYear = (payslip: any): { month: number; year: number } | null => {
+    if (!payslip) return null;
+
+    const rawMonth = payslip.month;
+    const rawYear = payslip.year;
+
+    const monthNum = typeof rawMonth === 'number' ? rawMonth : Number(rawMonth);
+    const yearNum = typeof rawYear === 'number' ? rawYear : Number(rawYear);
+    if (Number.isFinite(monthNum) && monthNum >= 1 && monthNum <= 12 && Number.isFinite(yearNum) && yearNum >= 2000) {
+      return { month: monthNum, year: yearNum };
+    }
+
+    if (typeof rawMonth === 'string') {
+      const value = rawMonth.trim();
+      const match = value.match(/^(\d{4})-(\d{1,2})/);
+      if (match) {
+        const parsedYear = Number(match[1]);
+        const parsedMonth = Number(match[2]);
+        if (Number.isFinite(parsedYear) && Number.isFinite(parsedMonth) && parsedMonth >= 1 && parsedMonth <= 12) {
+          return { month: parsedMonth, year: parsedYear };
+        }
+      }
+    }
+
+    return null;
+  };
+
+  const handleDownloadLatestPayslip = useCallback(async () => {
+    if (payslipDownloading) return;
+    if (!hasPayslips) return;
+
+    const employeeId = profile?.employeeId || params.employeeId;
+    if (!employeeId) {
+      Alert.alert('Payslip', 'Missing employee id.');
+      return;
+    }
+
+    const monthYear = extractMonthYear(latestPayslip);
+    if (!monthYear) {
+      Alert.alert('Payslip', 'Payslip month/year missing from API response.');
+      return;
+    }
+
+    setPayslipDownloading(true);
+    try {
+      const response = await getPayslipDownloadUrl({
+        employeeId,
+        month: monthYear.month,
+        year: monthYear.year,
+      });
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Failed to get payslip download url.');
+      }
+
+      const url = response?.data?.downloadUrl || response?.data?.payslipUrl;
+      if (!url) {
+        throw new Error('Download url not found in response.');
+      }
+
+      const canOpen = await Linking.canOpenURL(url);
+      if (!canOpen) {
+        throw new Error('Cannot open download url.');
+      }
+      await Linking.openURL(url);
+    } catch (err: any) {
+      const message = err?.response?.data?.message || err?.message || 'Unable to download payslip.';
+      Alert.alert('Payslip', message);
+    } finally {
+      setPayslipDownloading(false);
+    }
+  }, [payslipDownloading, hasPayslips, profile?.employeeId, params.employeeId, latestPayslip]);
 
   const formatHours = (value?: number | string) => {
     if (typeof value === 'number') {
@@ -464,10 +545,25 @@ export default function EmployeeProfileScreen() {
         {renderTabContent()}
       </ScrollView>
 
-      <Pressable style={[styles.bottomButton, !hasPayslips && styles.bottomButtonDisabled]} disabled={!hasPayslips}>
-        <Feather name="download" size={16} color={hasPayslips ? '#D4A537' : '#9CA3AF'} />
-        <Text style={[styles.bottomButtonText, !hasPayslips && styles.bottomButtonTextDisabled]}>
-          {hasPayslips ? 'DOWNLOAD LATEST PAYSLIP' : 'NO PAYSLIPS TO DOWNLOAD'}
+      <Pressable
+        style={[
+          styles.bottomButton,
+          (!hasPayslips || payslipDownloading) && styles.bottomButtonDisabled,
+        ]}
+        disabled={!hasPayslips || payslipDownloading}
+        onPress={handleDownloadLatestPayslip}
+      >
+        {payslipDownloading ? (
+          <ActivityIndicator size="small" color="#111111" />
+        ) : (
+          <Feather name="download" size={16} color={hasPayslips ? '#D4A537' : '#9CA3AF'} />
+        )}
+        <Text style={[styles.bottomButtonText, (!hasPayslips || payslipDownloading) && styles.bottomButtonTextDisabled]}>
+          {!hasPayslips
+            ? 'NO PAYSLIPS TO DOWNLOAD'
+            : payslipDownloading
+              ? 'PREPARING DOWNLOAD...'
+              : 'DOWNLOAD LATEST PAYSLIP'}
         </Text>
       </Pressable>
     </View>

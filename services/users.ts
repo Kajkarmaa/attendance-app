@@ -74,7 +74,12 @@ export interface EmployeeLeaveBalance {
 
 export interface EmployeePayslip {
     id?: string;
-    month?: string;
+    month?: number | string;
+    year?: number | string;
+    payrollId?: string;
+    netSalary?: number;
+    payslipGenerated?: boolean;
+    payslipSent?: boolean;
     amount?: number;
     issuedOn?: string;
     status?: string;
@@ -106,6 +111,12 @@ interface EmployeeDetailResponse {
     message?: string;
 }
 
+export interface DepartmentsResponse {
+    success: boolean;
+    data: string[];
+    message?: string;
+}
+
 export async function fetchPendingUsers() {
     const res = await apiClient.get<PendingUsersResponse>("/users/pending");
     return res.data.data;
@@ -129,5 +140,10 @@ export async function convertPendingUserToEmployee(
 
 export async function fetchEmployeeDetail(employeeId: string) {
     const res = await apiClient.get<EmployeeDetailResponse>(`/employees/${employeeId}`);
+    return res.data.data;
+}
+
+export async function fetchDepartments() {
+    const res = await apiClient.get<DepartmentsResponse>("/employees/departments");
     return res.data.data;
 }

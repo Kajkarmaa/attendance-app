@@ -4,6 +4,7 @@ import { fetchDailySummary, type DailyAttendanceSummary } from '@/services/atten
 import { generatePayroll } from '@/services/payroll';
 import {
   convertPendingUserToEmployee,
+  fetchDepartments,
   fetchEmployees,
   fetchPendingUsers,
   type EmployeeUser,
@@ -30,6 +31,9 @@ export default function HomeScreen() {
   const isWide = width >= 768;
   const [department, setDepartment] = useState('All');
   const [showDepartment, setShowDepartment] = useState(false);
+  const [departments, setDepartments] = useState<string[]>([]);
+  const [departmentsLoading, setDepartmentsLoading] = useState(false);
+  const [showConvertDepartment, setShowConvertDepartment] = useState(false);
   const [activeTab, setActiveTab] = useState<'employees' | 'pending'>('employees');
   const [searchTerm, setSearchTerm] = useState('');
   const [employees, setEmployees] = useState<EmployeeUser[]>([]);
@@ -111,7 +115,21 @@ export default function HomeScreen() {
 
     loadLists();
     loadDailySummary();
+    loadDepartments();
   }, [user, isLoading]);
+
+  const loadDepartments = async () => {
+    setDepartmentsLoading(true);
+    try {
+      const data = await fetchDepartments();
+      setDepartments(Array.isArray(data) ? data : []);
+    } catch (error: any) {
+      console.log('departments fetch failed', error?.message);
+      setDepartments([]);
+    } finally {
+      setDepartmentsLoading(false);
+    }
+  };
 
   const loadLists = async () => {
     setListLoading(true);
@@ -180,7 +198,7 @@ export default function HomeScreen() {
   const openConvertModal = (pending: PendingUser) => {
     setSelectedPendingUser(pending);
     setConvertDesignation(pending.role || 'Software Developer');
-    setConvertDepartment('Engineering');
+    setConvertDepartment(departments?.[0] || 'Engineering');
     setConvertSalary('50000');
     setConvertMessage(null);
     setShowConvertModal(true);
@@ -256,6 +274,20 @@ export default function HomeScreen() {
       return !term || name.includes(term) || email.includes(term);
     });
   }, [pendingUsers, searchTerm]);
+
+  const departmentOptions = useMemo(() => {
+    const cleaned = (departments || [])
+      .map((item) => (typeof item === 'string' ? item.trim() : ''))
+      .filter(Boolean);
+    const unique = Array.from(new Set(cleaned));
+    return ['All', ...unique];
+  }, [departments]);
+
+  const convertDepartmentOptions = useMemo(() => {
+    return (departments || [])
+      .map((item) => (typeof item === 'string' ? item.trim() : ''))
+      .filter(Boolean);
+  }, [departments]);
 
 
 
@@ -554,14 +586,25 @@ export default function HomeScreen() {
 
             <View style={styles.convertFieldGroup}>
               <Text style={styles.convertLabel}>Department</Text>
-              <TextInput
-                style={styles.convertInput}
-                value={convertDepartment}
-                onChangeText={setConvertDepartment}
-                placeholder="e.g. Engineering"
-                placeholderTextColor="#94A3B8"
-                autoCapitalize="words"
-              />
+              {convertDepartmentOptions.length > 0 ? (
+                <Pressable
+                  style={styles.convertSelect}
+                  onPress={() => setShowConvertDepartment(true)}>
+                  <Text style={styles.convertSelectText} numberOfLines={1}>
+                    {convertDepartment || 'Select department'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={16} color="#6B7280" />
+                </Pressable>
+              ) : (
+                <TextInput
+                  style={styles.convertInput}
+                  value={convertDepartment}
+                  onChangeText={setConvertDepartment}
+                  placeholder="e.g. Engineering"
+                  placeholderTextColor="#94A3B8"
+                  autoCapitalize="words"
+                />
+              )}
             </View>
 
             <View style={styles.convertFieldGroup}>
@@ -620,13 +663,44 @@ export default function HomeScreen() {
           style={styles.modalOverlay}
           onPress={() => setShowDepartment(false)}>
           <View style={styles.dropdownCard}>
-            {['All', 'Sales', 'HR', 'Engineering', 'Marketing'].map((item) => (
+            {departmentsLoading ? (
+              <View style={styles.dropdownLoadingRow}>
+                <ActivityIndicator size="small" color="#111827" />
+                <Text style={styles.dropdownLoadingText}>Loading departments…</Text>
+              </View>
+            ) : (
+              departmentOptions.map((item) => (
+                <Pressable
+                  key={item}
+                  style={styles.dropdownItem}
+                  onPress={() => {
+                    setDepartment(item);
+                    setShowDepartment(false);
+                  }}>
+                  <Text style={styles.dropdownText}>{item}</Text>
+                </Pressable>
+              ))
+            )}
+          </View>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        transparent
+        visible={showConvertDepartment}
+        animationType="fade"
+        onRequestClose={() => setShowConvertDepartment(false)}>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowConvertDepartment(false)}>
+          <View style={styles.dropdownCard}>
+            {convertDepartmentOptions.map((item) => (
               <Pressable
                 key={item}
                 style={styles.dropdownItem}
                 onPress={() => {
-                  setDepartment(item);
-                  setShowDepartment(false);
+                  setConvertDepartment(item);
+                  setShowConvertDepartment(false);
                 }}>
                 <Text style={styles.dropdownText}>{item}</Text>
               </Pressable>
@@ -966,6 +1040,18 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 4,
   },
+  dropdownLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    gap: 10,
+  },
+  dropdownLoadingText: {
+    color: '#6B7280',
+    fontSize: 12,
+    fontWeight: '500',
+  },
   dropdownItem: {
     paddingVertical: 12,
     paddingHorizontal: 16,
@@ -1107,6 +1193,23 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: '#1F2937',
     color: '#F8FAFC',
+  },
+  convertSelect: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  convertSelectText: {
+    color: '#111827',
+    fontWeight: '500',
+    flex: 1,
+    marginRight: 8,
   },
   convertActions: {
     flexDirection: 'row',
