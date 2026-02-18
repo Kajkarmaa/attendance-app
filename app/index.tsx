@@ -1,3 +1,4 @@
+import { useAuth } from "@/contexts/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
@@ -15,7 +16,6 @@ import {
     View,
     useWindowDimensions,
 } from "react-native";
-import * as auth from "../services/auth";
 
 const APP_LOGO = require("../assets/logo.jpg");
 
@@ -26,6 +26,7 @@ export default function LoginScreen() {
     const [showPassword, setShowPassword] = useState(false);
     const { width } = useWindowDimensions();
     const cardWidth = Math.min(420, width - 48);
+    const { login } = useAuth();
 
     const handleLogin = async () => {
         if (!email.trim() || !password.trim()) {
@@ -35,22 +36,12 @@ export default function LoginScreen() {
 
         setLoading(true);
         try {
-            const response = await auth.login({
-                email: email.trim(),
-                passcode: password,
-            });
+            const loggedInUser = await login(email.trim(), password);
 
-            if (response.success) {
-                const targetRoute =
-                    response.data.user.role === "emp"
-                        ? "/employee"
-                        : "/(tabs)";
-                router.replace(targetRoute);
+            if (loggedInUser.role === "emp") {
+                router.replace("/employee");
             } else {
-                Alert.alert(
-                    "Login Failed",
-                    response.message || "Invalid credentials",
-                );
+                router.replace("/admin");
             }
         } catch (error: any) {
             console.error("Login error:", error);
@@ -115,7 +106,11 @@ export default function LoginScreen() {
                                 onPress={() => setShowPassword((prev) => !prev)}
                                 disabled={loading}
                                 accessibilityRole="button"
-                                accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+                                accessibilityLabel={
+                                    showPassword
+                                        ? "Hide password"
+                                        : "Show password"
+                                }
                             >
                                 <Ionicons
                                     name={showPassword ? "eye-off" : "eye"}

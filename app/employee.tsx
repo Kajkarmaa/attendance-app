@@ -1,5 +1,9 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { EmployeeActivity, fetchRecentActivity, RecentActivityData } from "@/services/activity";
+import {
+    EmployeeActivity,
+    fetchRecentActivity,
+    RecentActivityData,
+} from "@/services/activity";
 import {
     checkIn,
     checkOut,
@@ -58,20 +62,30 @@ export default function EmployeeDashboardScreen() {
     const [punching, setPunching] = useState(false);
     const [profile, setProfile] = useState<EmployeeProfile | null>(null);
     const [profileLoading, setProfileLoading] = useState(false);
-    const [activityData, setActivityData] = useState<RecentActivityData | null>(null);
+    const [activityData, setActivityData] = useState<RecentActivityData | null>(
+        null,
+    );
     const [activityLoading, setActivityLoading] = useState(false);
-    const [selectedPayslipYear, setSelectedPayslipYear] = useState<number | null>(null);
+    const [selectedPayslipYear, setSelectedPayslipYear] = useState<
+        number | null
+    >(null);
     const [yearPickerVisible, setYearPickerVisible] = useState(false);
-    const [downloadingPayslipId, setDownloadingPayslipId] = useState<string | null>(null);
+    const [downloadingPayslipId, setDownloadingPayslipId] = useState<
+        string | null
+    >(null);
 
     const displayName = profile?.name ?? user?.name ?? "Employee";
-    const displayDesignation = profile?.designation ?? user?.designation ?? "Software Developer";
+    const displayDesignation =
+        profile?.designation ?? user?.designation ?? "Software Developer";
     const salaryValue =
         typeof profile?.salary === "number"
             ? `$${profile.salary.toLocaleString()}`
             : "$40,000";
 
-    const formatPayslipMonth = (month?: number | null, year?: number | null) => {
+    const formatPayslipMonth = (
+        month?: number | null,
+        year?: number | null,
+    ) => {
         if (!month || !year) {
             return "Upcoming payout";
         }
@@ -79,7 +93,10 @@ export default function EmployeeDashboardScreen() {
         if (Number.isNaN(date.getTime())) {
             return `Month ${month}, ${year}`;
         }
-        return date.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+        return date.toLocaleDateString(undefined, {
+            month: "long",
+            year: "numeric",
+        });
     };
 
     const formatCurrency = (value?: number | null) => {
@@ -96,9 +113,9 @@ export default function EmployeeDashboardScreen() {
         const unique = Array.from(
             new Set(
                 profile.Payslips.map((slip) => Number(slip.year)).filter(
-                    (year) => typeof year === "number" && !Number.isNaN(year)
-                )
-            )
+                    (year) => typeof year === "number" && !Number.isNaN(year),
+                ),
+            ),
         );
         return unique.sort((a, b) => b - a);
     }, [profile?.Payslips]);
@@ -110,12 +127,16 @@ export default function EmployeeDashboardScreen() {
     }, [payslipYears, selectedPayslipYear]);
 
     const payslipEntries = useMemo<PayslipEntry[]>(() => {
-        if (!profile?.Payslips || profile.Payslips.length === 0 || !selectedPayslipYear) {
+        if (
+            !profile?.Payslips ||
+            profile.Payslips.length === 0 ||
+            !selectedPayslipYear
+        ) {
             return [];
         }
 
         const filtered = profile.Payslips.filter(
-            (slip) => Number(slip.year) === selectedPayslipYear
+            (slip) => Number(slip.year) === selectedPayslipYear,
         );
 
         if (filtered.length === 0) {
@@ -123,11 +144,22 @@ export default function EmployeeDashboardScreen() {
         }
 
         return filtered.map((slip, index) => {
-            const monthValue = typeof slip.month === "number" ? slip.month : Number(slip.month);
-            const yearValue = typeof slip.year === "number" ? slip.year : Number(slip.year);
-            const monthLabel = formatPayslipMonth(slip.month as number | undefined, slip.year as number | undefined);
-            const netLabel = slip.netSalary ? `Net ${formatCurrency(slip.netSalary)}` : "Awaiting net salary";
-            const canDownload = Boolean(slip.payslipGenerated && slip.payslipSent);
+            const monthValue =
+                typeof slip.month === "number"
+                    ? slip.month
+                    : Number(slip.month);
+            const yearValue =
+                typeof slip.year === "number" ? slip.year : Number(slip.year);
+            const monthLabel = formatPayslipMonth(
+                slip.month as number | undefined,
+                slip.year as number | undefined,
+            );
+            const netLabel = slip.netSalary
+                ? `Net ${formatCurrency(slip.netSalary)}`
+                : "Awaiting net salary";
+            const canDownload = Boolean(
+                slip.payslipGenerated && slip.payslipSent,
+            );
             return {
                 id: slip.payrollId || `${slip.year}-${slip.month}-${index}`,
                 monthLabel,
@@ -140,7 +172,9 @@ export default function EmployeeDashboardScreen() {
         });
     }, [profile?.Payslips, selectedPayslipYear]);
 
-    const payslipYearLabel = selectedPayslipYear ? `${selectedPayslipYear}` : "Select";
+    const payslipYearLabel = selectedPayslipYear
+        ? `${selectedPayslipYear}`
+        : "Select";
     const payslipEmptyMessage = selectedPayslipYear
         ? `No payslips available for ${selectedPayslipYear} yet.`
         : "Payslips will appear automatically after payroll generates them.";
@@ -151,7 +185,7 @@ export default function EmployeeDashboardScreen() {
         }
         const normalized = type.replace(/[_-]+/g, " ").toLowerCase();
         const found = Object.entries(ACTIVITY_COLOR_MAP).find(([key]) =>
-            normalized.includes(key)
+            normalized.includes(key),
         );
         return found?.[1] ?? DEFAULT_ACTIVITY_COLOR;
     };
@@ -185,7 +219,10 @@ export default function EmployeeDashboardScreen() {
             date.getMonth() === now.getMonth() &&
             date.getFullYear() === now.getFullYear();
         if (sameDay) {
-            return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+            return date.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+            });
         }
         return date.toLocaleDateString();
     };
@@ -214,7 +251,7 @@ export default function EmployeeDashboardScreen() {
         loadAttendance();
         loadProfile();
         loadRecentActivity();
-    }, [isLoading, user, logout]);
+    }, [isLoading, user]);
 
     const loadAttendance = async () => {
         setAttLoading(true);
@@ -230,7 +267,10 @@ export default function EmployeeDashboardScreen() {
 
     const handleDownloadPayslip = async (entry: PayslipEntry) => {
         if (!profile?.employeeId || !entry.month || !entry.year) {
-            Alert.alert("Download unavailable", "Missing payslip period details for this record.");
+            Alert.alert(
+                "Download unavailable",
+                "Missing payslip period details for this record.",
+            );
             return;
         }
 
@@ -247,7 +287,7 @@ export default function EmployeeDashboardScreen() {
                 year: entry.year,
             });
 
-            const downloadUrl = response?.data?.downloadUrl 
+            const downloadUrl = response?.data?.downloadUrl;
             if (!downloadUrl) {
                 throw new Error("Download link not available yet.");
             }
@@ -289,7 +329,7 @@ export default function EmployeeDashboardScreen() {
             if (!hasHardware) {
                 Alert.alert(
                     "Fingerprint not supported",
-                    "This device does not support biometric authentication."
+                    "This device does not support biometric authentication.",
                 );
                 return;
             }
@@ -297,20 +337,28 @@ export default function EmployeeDashboardScreen() {
             if (!isEnrolled) {
                 Alert.alert(
                     "Fingerprint not set up",
-                    "Please register your fingerprint in your device settings to punch in or out."
+                    "Please register your fingerprint in your device settings to punch in or out.",
                 );
                 return;
             }
 
             const authResult = await LocalAuthentication.authenticateAsync({
-                promptMessage: isCheckedIn ? "Confirm to check out" : "Confirm to check in",
+                promptMessage: isCheckedIn
+                    ? "Confirm to check out"
+                    : "Confirm to check in",
                 fallbackLabel: "Use device passcode",
                 cancelLabel: "Cancel",
             });
 
             if (!authResult.success) {
-                if (authResult.error !== "user_cancel" && authResult.error !== "system_cancel") {
-                    Alert.alert("Authentication failed", "We couldn't verify your identity.");
+                if (
+                    authResult.error !== "user_cancel" &&
+                    authResult.error !== "system_cancel"
+                ) {
+                    Alert.alert(
+                        "Authentication failed",
+                        "We couldn't verify your identity.",
+                    );
                 }
                 return;
             }
@@ -330,7 +378,9 @@ export default function EmployeeDashboardScreen() {
             }
         } catch (error: any) {
             const msg =
-                error?.response?.data?.message || error?.message || "Something went wrong";
+                error?.response?.data?.message ||
+                error?.message ||
+                "Something went wrong";
             Alert.alert("Punch failed", msg);
         } finally {
             setPunching(false);
@@ -378,7 +428,10 @@ export default function EmployeeDashboardScreen() {
         <View style={styles.container}>
             <View style={styles.header}>
                 <View style={styles.headerTop}>
-                    <Pressable style={styles.headerIcon} accessibilityRole="button">
+                    <Pressable
+                        style={styles.headerIcon}
+                        accessibilityRole="button"
+                    >
                         <Ionicons name="menu" size={22} color="#111827" />
                     </Pressable>
 
@@ -387,24 +440,38 @@ export default function EmployeeDashboardScreen() {
                     </View>
 
                     <View style={styles.headerActions}>
-                        <Pressable style={styles.headerIcon} accessibilityRole="button">
-                            <Ionicons name="notifications-outline" size={20} color="#D4A537" />
+                        <Pressable
+                            style={styles.headerIcon}
+                            accessibilityRole="button"
+                        >
+                            <Ionicons
+                                name="notifications-outline"
+                                size={20}
+                                color="#D4A537"
+                            />
                         </Pressable>
                         <Pressable
                             style={styles.headerIcon}
                             onPress={handleLogout}
                             accessibilityRole="button"
                         >
-                            <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+                            <Ionicons
+                                name="log-out-outline"
+                                size={20}
+                                color="#EF4444"
+                            />
                         </Pressable>
                     </View>
                 </View>
                 <Text style={styles.name}>{displayName}</Text>
                 <Text style={styles.subtitle}>{displayDesignation}</Text>
                 <Text style={styles.metaText}>
-                    ID: {profile?.employeeId || user?.employeeId || "--"} • {profile?.department || "Department"}
+                    ID: {profile?.employeeId || user?.employeeId || "--"} •{" "}
+                    {profile?.department || "Department"}
                 </Text>
-                <Text style={styles.metaText}>Joined: {profile?.joinDate || "--"}</Text>
+                <Text style={styles.metaText}>
+                    Joined: {profile?.joinDate || "--"}
+                </Text>
             </View>
 
             <ScrollView
@@ -474,8 +541,14 @@ export default function EmployeeDashboardScreen() {
                         >
                             <Text style={styles.yearFilterLabel}>Year</Text>
                             <View style={styles.yearFilterValue}>
-                                <Text style={styles.yearFilterText}>{payslipYearLabel}</Text>
-                                <Ionicons name="chevron-down" size={14} color="#6B7280" />
+                                <Text style={styles.yearFilterText}>
+                                    {payslipYearLabel}
+                                </Text>
+                                <Ionicons
+                                    name="chevron-down"
+                                    size={14}
+                                    color="#6B7280"
+                                />
                             </View>
                         </Pressable>
                     </View>
@@ -497,20 +570,28 @@ export default function EmployeeDashboardScreen() {
                                 <Pressable
                                     style={[
                                         styles.downloadBadge,
-                                        (!item.canDownload || downloadingPayslipId === item.id) &&
+                                        (!item.canDownload ||
+                                            downloadingPayslipId === item.id) &&
                                             styles.downloadBadgeDisabled,
                                     ]}
-                                    disabled={!item.canDownload || downloadingPayslipId === item.id}
+                                    disabled={
+                                        !item.canDownload ||
+                                        downloadingPayslipId === item.id
+                                    }
                                     accessibilityRole="button"
                                     onPress={() => handleDownloadPayslip(item)}
                                 >
                                     {downloadingPayslipId === item.id ? (
-                                        <ActivityIndicator size="small" color="#9CA3AF" />
+                                        <ActivityIndicator
+                                            size="small"
+                                            color="#9CA3AF"
+                                        />
                                     ) : (
                                         <Text
                                             style={[
                                                 styles.downloadText,
-                                                !item.canDownload && styles.downloadTextDisabled,
+                                                !item.canDownload &&
+                                                    styles.downloadTextDisabled,
                                             ]}
                                         >
                                             {item.buttonLabel}
@@ -525,7 +606,9 @@ export default function EmployeeDashboardScreen() {
                 <View style={styles.activityCard}>
                     <View style={styles.cardHeaderRow}>
                         <Text style={styles.cardHeader}>Recent Activity</Text>
-                        <Text style={styles.cardSubtle}>{activityCountLabel}</Text>
+                        <Text style={styles.cardSubtle}>
+                            {activityCountLabel}
+                        </Text>
                     </View>
                     {activityLoading ? (
                         <View style={styles.activityState}>
@@ -538,49 +621,61 @@ export default function EmployeeDashboardScreen() {
                             </Text>
                         </View>
                     ) : (
-                        activityData?.activities?.map((activity: EmployeeActivity, index: number) => {
-                            const color = getActivityColor(activity.type);
-                            return (
-                                <View
-                                    key={`${activity.type}-${activity.date}-${index}`}
-                                    style={[
-                                        styles.activityRow,
-                                        index === 0 && styles.activityRowFirst,
-                                    ]}
-                                >
+                        activityData?.activities?.map(
+                            (activity: EmployeeActivity, index: number) => {
+                                const color = getActivityColor(activity.type);
+                                return (
                                     <View
+                                        key={`${activity.type}-${activity.date}-${index}`}
                                         style={[
-                                            styles.activityMarker,
-                                            { backgroundColor: `${color}33` },
+                                            styles.activityRow,
+                                            index === 0 &&
+                                                styles.activityRowFirst,
                                         ]}
                                     >
                                         <View
                                             style={[
-                                                styles.activityDot,
-                                                { backgroundColor: color },
+                                                styles.activityMarker,
+                                                {
+                                                    backgroundColor: `${color}33`,
+                                                },
                                             ]}
-                                        />
-                                    </View>
-                                    <View style={styles.activityTextBlock}>
-                                        <Text style={styles.activityTitle}>
-                                            {formatActivityTitle(activity.type)}
+                                        >
+                                            <View
+                                                style={[
+                                                    styles.activityDot,
+                                                    { backgroundColor: color },
+                                                ]}
+                                            />
+                                        </View>
+                                        <View style={styles.activityTextBlock}>
+                                            <Text style={styles.activityTitle}>
+                                                {formatActivityTitle(
+                                                    activity.type,
+                                                )}
+                                            </Text>
+                                            <Text style={styles.activityLabel}>
+                                                {formatActivitySubtitle(
+                                                    activity,
+                                                )}
+                                            </Text>
+                                        </View>
+                                        <Text style={styles.activityTime}>
+                                            {formatActivityTime(activity.date)}
                                         </Text>
-                                        <Text style={styles.activityLabel}>
-                                            {formatActivitySubtitle(activity)}
-                                        </Text>
                                     </View>
-                                    <Text style={styles.activityTime}>
-                                        {formatActivityTime(activity.date)}
-                                    </Text>
-                                </View>
-                            );
-                        })
+                                );
+                            },
+                        )
                     )}
                 </View>
             </ScrollView>
 
             <View style={styles.bottomBar}>
-                <Pressable style={styles.bottomIconActive} accessibilityRole="button">
+                <Pressable
+                    style={styles.bottomIconActive}
+                    accessibilityRole="button"
+                >
                     <Ionicons name="home" size={22} color="#D4A537" />
                 </Pressable>
                 <Pressable
@@ -588,7 +683,11 @@ export default function EmployeeDashboardScreen() {
                     onPress={() => router.replace("/leave")}
                     accessibilityRole="button"
                 >
-                    <Ionicons name="calendar-outline" size={22} color="#9CA3AF" />
+                    <Ionicons
+                        name="calendar-outline"
+                        size={22}
+                        color="#9CA3AF"
+                    />
                 </Pressable>
             </View>
 
@@ -615,7 +714,8 @@ export default function EmployeeDashboardScreen() {
                                     key={year}
                                     style={[
                                         styles.yearOption,
-                                        selectedPayslipYear === year && styles.yearOptionActive,
+                                        selectedPayslipYear === year &&
+                                            styles.yearOptionActive,
                                     ]}
                                     onPress={() => {
                                         setSelectedPayslipYear(year);
@@ -626,13 +726,18 @@ export default function EmployeeDashboardScreen() {
                                     <Text
                                         style={[
                                             styles.yearOptionText,
-                                            selectedPayslipYear === year && styles.yearOptionTextActive,
+                                            selectedPayslipYear === year &&
+                                                styles.yearOptionTextActive,
                                         ]}
                                     >
                                         {year}
                                     </Text>
                                     {selectedPayslipYear === year && (
-                                        <Ionicons name="checkmark" size={16} color="#111827" />
+                                        <Ionicons
+                                            name="checkmark"
+                                            size={16}
+                                            color="#111827"
+                                        />
                                     )}
                                 </Pressable>
                             ))
