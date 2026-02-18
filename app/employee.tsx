@@ -462,9 +462,6 @@ export default function EmployeeDashboardScreen() {
                             Last credited 31 Dec 2025
                         </Text>
                     </View>
-                    <Pressable style={styles.viewMoreButton} accessibilityRole="button">
-                        <Text style={styles.viewMoreText}>View More</Text>
-                    </Pressable>
                 </View>
 
                 <View style={styles.payslipCard}>
