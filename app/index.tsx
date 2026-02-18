@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    Image,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -15,6 +16,8 @@ import {
     useWindowDimensions,
 } from "react-native";
 import * as auth from "../services/auth";
+
+const APP_LOGO = require("../assets/logo.jpg");
 
 export default function LoginScreen() {
     const [email, setEmail] = useState("");
@@ -72,6 +75,9 @@ export default function LoginScreen() {
                     keyboardShouldPersistTaps="handled"
                 >
                     <View style={styles.headerBlock}>
+                        <View style={styles.logoWrap}>
+                            <Image source={APP_LOGO} style={styles.logoImage} />
+                        </View>
                         <Text style={styles.welcome}>WELCOME</Text>
                         <Text style={styles.title}>Attendance</Text>
                         <Text style={styles.subtitle}>Sign in to continue</Text>
@@ -173,6 +179,23 @@ const styles = StyleSheet.create({
     },
     headerBlock: {
         marginBottom: 32,
+        alignItems: "center",
+    },
+    logoWrap: {
+        height: 92,
+        width: 92,
+        borderRadius: 46,
+        backgroundColor: "#FFFFFF",
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: "rgba(255,255,255,0.1)",
+    },
+    logoImage: {
+        height: 64,
+        width: 64,
+        resizeMode: "contain",
     },
     welcome: {
         color: "#FFFFFF",

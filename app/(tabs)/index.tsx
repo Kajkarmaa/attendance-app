@@ -15,6 +15,7 @@ import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Modal,
   Pressable,
   ScrollView,
@@ -24,6 +25,8 @@ import {
   View,
   useWindowDimensions
 } from 'react-native';
+
+const APP_LOGO = require('../../assets/logo.jpg');
 
 export default function HomeScreen() {
   const { logout, user, isLoading } = useAuth();
@@ -303,9 +306,14 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.headerLabel}>{greeting}</Text>
-            <Text style={styles.headerName}>{displayName}</Text>
+          <View style={styles.headerIdentity}>
+            <View style={styles.headerLogoWrap}>
+              <Image source={APP_LOGO} style={styles.headerLogo} />
+            </View>
+            <View>
+              <Text style={styles.headerLabel}>{greeting}</Text>
+              <Text style={styles.headerName}>{displayName}</Text>
+            </View>
           </View>
           <View style={styles.headerActions}>
             <Pressable style={styles.headerBell}>
@@ -730,6 +738,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  headerIdentity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerLogoWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerLogo: {
+    width: 30,
+    height: 30,
+    resizeMode: 'contain',
   },
   headerLabel: {
     color: 'rgba(255,255,255,0.7)',

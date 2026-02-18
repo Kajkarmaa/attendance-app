@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    Image,
     Linking,
     Modal,
     Pressable,
@@ -23,6 +24,8 @@ import {
     Text,
     View,
 } from "react-native";
+
+const APP_LOGO = require("../assets/logo.jpg");
 
 const ACTIVITY_COLOR_MAP: Record<string, string> = {
     attendance: "#34D399",
@@ -342,6 +345,11 @@ export default function EmployeeDashboardScreen() {
                     <Pressable style={styles.headerIcon} accessibilityRole="button">
                         <Ionicons name="menu" size={22} color="#111827" />
                     </Pressable>
+
+                    <View style={styles.headerLogoWrap}>
+                        <Image source={APP_LOGO} style={styles.headerLogo} />
+                    </View>
+
                     <View style={styles.headerActions}>
                         <Pressable style={styles.headerIcon} accessibilityRole="button">
                             <Ionicons name="notifications-outline" size={20} color="#D4A537" />
@@ -624,6 +632,21 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "space-between",
         marginBottom: 12,
+    },
+    headerLogoWrap: {
+        height: 42,
+        width: 42,
+        borderRadius: 21,
+        backgroundColor: "#F8FAFC",
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+    },
+    headerLogo: {
+        height: 28,
+        width: 28,
+        resizeMode: "contain",
     },
     headerActions: {
         flexDirection: "row",
