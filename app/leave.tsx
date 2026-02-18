@@ -1,8 +1,14 @@
 import { useAuth } from "@/contexts/AuthContext";
+import {
+    fetchLeaveBalance,
+    fetchMyLeaves,
+    type LeaveBalanceData,
+    type MyLeaveRequest,
+} from "@/services/leaves";
 import { fetchEmployeeProfile, type EmployeeProfile } from "@/services/profile";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     Pressable,
@@ -23,10 +29,39 @@ const formatWorkHours = (value: unknown) => {
     return "0.00";
 };
 
+const formatTypeLabel = (value: string) => {
+    if (!value) return "Unknown";
+    const normalized = value.replace(/[_-]+/g, " ").trim();
+    if (!normalized) return "Unknown";
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+};
+
+const leaveTypeIcon = (type: string) => {
+    switch (type) {
+        case "sick":
+            return "medkit-outline" as const;
+        case "casual":
+            return "sunny-outline" as const;
+        case "earned":
+            return "briefcase-outline" as const;
+        case "maternity":
+            return "heart-outline" as const;
+        case "paternity":
+            return "people-outline" as const;
+        default:
+            return "leaf-outline" as const;
+    }
+};
+
 export default function LeaveScreen() {
     const { user, isLoading } = useAuth();
     const [profile, setProfile] = useState<EmployeeProfile | null>(null);
     const [profileLoading, setProfileLoading] = useState(false);
+    const [leaveBalance, setLeaveBalance] = useState<LeaveBalanceData | null>(null);
+    const [leaveBalanceLoading, setLeaveBalanceLoading] = useState(false);
+    const [myLeaves, setMyLeaves] = useState<MyLeaveRequest[]>([]);
+    const [myLeavesLoading, setMyLeavesLoading] = useState(false);
+    const [showAllMyLeaves, setShowAllMyLeaves] = useState(false);
 
     useEffect(() => {
         if (isLoading) return;
@@ -39,18 +74,78 @@ export default function LeaveScreen() {
             return;
         }
 
-        loadProfile();
+        loadData();
     }, [isLoading, user]);
 
-    const loadProfile = async () => {
+    const loadData = async () => {
         setProfileLoading(true);
+        setLeaveBalanceLoading(true);
+        setMyLeavesLoading(true);
         try {
-            const data = await fetchEmployeeProfile();
-            setProfile(data);
+            const results = await Promise.allSettled([
+                fetchEmployeeProfile(),
+                fetchLeaveBalance(),
+                fetchMyLeaves(),
+            ]);
+
+            const profileResult = results[0];
+            const leaveBalanceResult = results[1];
+            const myLeavesResult = results[2];
+
+            if (profileResult.status === "fulfilled") {
+                setProfile(profileResult.value);
+            } else {
+                console.log("profile fetch failed", profileResult.reason?.message);
+            }
+
+            if (leaveBalanceResult.status === "fulfilled") {
+                setLeaveBalance(leaveBalanceResult.value);
+            } else {
+                console.log("leave balance fetch failed", leaveBalanceResult.reason?.message);
+            }
+
+            if (myLeavesResult.status === "fulfilled") {
+                setMyLeaves(myLeavesResult.value ?? []);
+            } else {
+                console.log("my leaves fetch failed", myLeavesResult.reason?.message);
+                setMyLeaves([]);
+            }
         } catch (error: any) {
-            console.log("profile fetch failed", error?.message);
+            console.log("leave screen fetch failed", error?.message);
         } finally {
             setProfileLoading(false);
+            setLeaveBalanceLoading(false);
+            setMyLeavesLoading(false);
+        }
+    };
+
+    const formatDateShort = (iso: string) => {
+        if (!iso) return "";
+        try {
+            return new Date(iso).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+            });
+        } catch {
+            return iso;
+        }
+    };
+
+    const myLeavesVisible = useMemo(() => {
+        return showAllMyLeaves ? myLeaves : myLeaves.slice(0, 5);
+    }, [myLeaves, showAllMyLeaves]);
+
+    const canToggleMyLeaves = myLeaves.length > 5;
+
+    const statusStyleFor = (status: string) => {
+        switch (status) {
+            case "approved":
+                return { pill: styles.statusApproved, text: styles.statusApprovedText };
+            case "rejected":
+                return { pill: styles.statusRejected, text: styles.statusRejectedText };
+            case "pending":
+            default:
+                return { pill: styles.statusPending, text: styles.statusPendingText };
         }
     };
 
@@ -94,6 +189,24 @@ export default function LeaveScreen() {
         },
     ];
 
+    const leaveRemaining = leaveBalance?.remaining ?? 0;
+    const leaveUsed = leaveBalance?.used ?? 0;
+    const leaveTotal = leaveBalance?.total ?? 0;
+    const leavePending = Math.max(leaveTotal - leaveUsed - leaveRemaining, 0);
+
+    const leaveByTypeRows = Object.entries(leaveBalance?.byType ?? {}).map(([type, values]) => {
+        const total = formatNumber(values?.total);
+        const used = formatNumber(values?.used);
+        const remaining = formatNumber(values?.remaining);
+        return {
+            key: type,
+            title: formatTypeLabel(type),
+            subtitle: `Used ${used} / Total ${total}`,
+            value: `${remaining} Days`,
+            icon: leaveTypeIcon(type),
+        };
+    });
+
     if (isLoading || !user || user.role !== "emp") {
         return (
             <View style={styles.loadingContainer}>
@@ -118,24 +231,49 @@ export default function LeaveScreen() {
 
                 <View style={styles.balanceCard}>
                     <Text style={styles.balanceLabel}>Available Balance</Text>
-                    <Text style={styles.balanceValue}>{profile?.leaveBalance?.remaining ?? 0}</Text>
+                    <Text style={styles.balanceValue}>{leaveRemaining}</Text>
                     <Text style={styles.balanceUnit}>days</Text>
                     <View style={styles.balanceDivider} />
                     <View style={styles.balanceRow}>
                         <View style={styles.balanceCol}>
                             <Text style={styles.balanceSubLabel}>Used</Text>
-                            <Text style={styles.balanceSubValue}>{profile?.leaveBalance?.used ?? 0} D</Text>
+                            <Text style={styles.balanceSubValue}>{leaveUsed} D</Text>
                         </View>
                         <View style={styles.balanceCol}>
                             <Text style={styles.balanceSubLabel}>Pending</Text>
-                            <Text style={styles.balanceSubValue}>
-                                {Math.max(
-                                    (profile?.leaveBalance?.total ?? 0) - (profile?.leaveBalance?.used ?? 0) - (profile?.leaveBalance?.remaining ?? 0),
-                                    0,
-                                )} D
-                            </Text>
+                            <Text style={styles.balanceSubValue}>{leavePending} D</Text>
                         </View>
                     </View>
+                </View>
+
+                <Text style={styles.sectionLabel}>Leave Details</Text>
+
+                <View style={styles.listCard}>
+                    {leaveBalanceLoading ? (
+                        <View style={styles.inlineLoadingRow}>
+                            <ActivityIndicator size="small" color="#D4A537" />
+                            <Text style={styles.inlineLoadingText}>Loading leave balance…</Text>
+                        </View>
+                    ) : leaveByTypeRows.length === 0 ? (
+                        <View style={styles.inlineLoadingRow}>
+                            <Text style={styles.inlineLoadingText}>No leave types available.</Text>
+                        </View>
+                    ) : (
+                        leaveByTypeRows.map((item) => (
+                            <View key={item.key} style={styles.leaveRow}>
+                                <View style={styles.iconPill}>
+                                    <Ionicons name={item.icon} size={18} color="#D4A537" />
+                                </View>
+                                <View style={styles.leaveTextBlock}>
+                                    <Text style={styles.leaveTitle}>{item.title}</Text>
+                                    <Text style={styles.leaveDates}>{item.subtitle}</Text>
+                                </View>
+                                <View style={[styles.statusPill, styles.valuePill]}>
+                                    <Text style={styles.valueText}>{item.value}</Text>
+                                </View>
+                            </View>
+                        ))
+                    )}
                 </View>
 
                 <Text style={styles.sectionLabel}>Attendance Summary</Text>
@@ -161,6 +299,68 @@ export default function LeaveScreen() {
                                 </View>
                             </View>
                         ))
+                    )}
+                </View>
+
+                <View style={{ height: 24 }} />
+
+                <View style={styles.sectionHeaderRow}>
+                    <Text style={[styles.sectionLabel, { marginBottom: 0 }]}>My Leave Requests</Text>
+                    <Pressable onPress={loadData} style={styles.refreshBtn}>
+                        <Ionicons name="refresh" size={18} color="#9CA3AF" />
+                    </Pressable>
+                </View>
+
+                <View style={styles.listCard}>
+                    {myLeavesLoading ? (
+                        <View style={styles.inlineLoadingRow}>
+                            <ActivityIndicator size="small" color="#D4A537" />
+                            <Text style={styles.inlineLoadingText}>Loading your requests…</Text>
+                        </View>
+                    ) : myLeaves.length === 0 ? (
+                        <View style={styles.inlineLoadingRow}>
+                            <Text style={styles.inlineLoadingText}>No leave requests yet.</Text>
+                        </View>
+                    ) : (
+                        myLeavesVisible.map((item) => {
+                            const status = (item.status || "pending").toLowerCase();
+                            const statusStyles = statusStyleFor(status);
+
+                            return (
+                                <View key={item.id} style={styles.leaveRow}>
+                                    <View style={styles.iconPill}>
+                                        <Ionicons
+                                            name={leaveTypeIcon(item.type)}
+                                            size={18}
+                                            color="#D4A537"
+                                        />
+                                    </View>
+                                    <View style={styles.leaveTextBlock}>
+                                        <Text style={styles.leaveTitle}>{formatTypeLabel(item.type)}</Text>
+                                        <Text style={styles.leaveDates}>
+                                            {formatDateShort(item.startDate)} - {formatDateShort(item.endDate)} · {formatNumber(item.days)} day(s)
+                                        </Text>
+                                    </View>
+                                    <View style={[styles.statusPill, statusStyles.pill]}>
+                                        <Text style={statusStyles.text}>{formatTypeLabel(status)}</Text>
+                                    </View>
+                                </View>
+                            );
+                        })
+                    )}
+
+                    {canToggleMyLeaves && !myLeavesLoading && (
+                        <Pressable
+                            onPress={() => setShowAllMyLeaves((v) => !v)}
+                            style={styles.moreLessBtn}
+                        >
+                            <Text style={styles.moreLessText}>{showAllMyLeaves ? "Less" : "More"}</Text>
+                            <Ionicons
+                                name={showAllMyLeaves ? "chevron-up" : "chevron-down"}
+                                size={18}
+                                color="#D4A537"
+                            />
+                        </Pressable>
                     )}
                 </View>
             </ScrollView>
@@ -208,6 +408,16 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "space-between",
         marginBottom: 24,
+    },
+    sectionHeaderRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 12,
+    },
+    refreshBtn: {
+        padding: 6,
+        borderRadius: 999,
     },
     backBtn: {
         height: 38,
@@ -281,6 +491,7 @@ const styles = StyleSheet.create({
     },
     sectionLabel: {
         color: "#9CA3AF",
+        paddingTop: 10,
         fontSize: 11,
         letterSpacing: 1,
         textTransform: "uppercase",
@@ -358,6 +569,10 @@ const styles = StyleSheet.create({
         borderColor: "#E5E7EB",
         backgroundColor: "#F8FAFC",
     },
+    statusRejected: {
+        borderColor: "#FECACA",
+        backgroundColor: "#FEF2F2",
+    },
     statusApprovedText: {
         color: "#A78B5C",
         fontSize: 11,
@@ -367,6 +582,25 @@ const styles = StyleSheet.create({
         color: "#6B7280",
         fontSize: 11,
         fontWeight: "600",
+    },
+    statusRejectedText: {
+        color: "#B91C1C",
+        fontSize: 11,
+        fontWeight: "600",
+    },
+    moreLessBtn: {
+        marginTop: 8,
+        paddingVertical: 10,
+        borderTopWidth: 1,
+        borderColor: "#F5F3EE",
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+    },
+    moreLessText: {
+        color: "#D4A537",
+        fontWeight: "700",
     },
     fab: {
         position: "absolute",

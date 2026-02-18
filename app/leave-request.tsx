@@ -1,5 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { requestLeave } from "@/services/leaves";
+import { fetchLeaveBalance, requestLeave, type LeaveBalanceData } from "@/services/leaves";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, {
     DateTimePickerEvent,
@@ -18,13 +18,12 @@ import {
     View,
 } from "react-native";
 
-const leaveCategories = [
-    "Annual Vacation",
-    "Medical Leave",
-    "Business Personal",
-    "Ceremonial Leave",
-    "Parental Leave",
-];
+const formatTypeLabel = (value: string) => {
+    if (!value) return "Select";
+    const normalized = value.replace(/[_-]+/g, " ").trim();
+    if (!normalized) return "Select";
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+};
 
 const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -33,8 +32,10 @@ const defaultEnd = "2026-02-19";
 
 export default function LeaveRequestScreen() {
     const { user, isLoading } = useAuth();
-    const [category, setCategory] = useState("Annual Vacation");
+    const [leaveType, setLeaveType] = useState<string>("");
     const [showCategory, setShowCategory] = useState(false);
+    const [leaveBalance, setLeaveBalance] = useState<LeaveBalanceData | null>(null);
+    const [leaveBalanceLoading, setLeaveBalanceLoading] = useState(false);
     const [startDate, setStartDate] = useState(defaultStart);
     const [endDate, setEndDate] = useState(defaultEnd);
     const [reason, setReason] = useState("Medical appointment and recovery");
@@ -55,8 +56,41 @@ export default function LeaveRequestScreen() {
         }
         if (user.role !== "emp") {
             router.replace("/(tabs)");
+            return;
         }
+
+        loadLeaveBalance();
     }, [isLoading, user]);
+
+    const loadLeaveBalance = async () => {
+        setLeaveBalanceLoading(true);
+        try {
+            const data = await fetchLeaveBalance();
+            setLeaveBalance(data);
+            const keys = Object.keys(data?.byType ?? {});
+            if (keys.length > 0 && (!leaveType || !keys.includes(leaveType))) {
+                setLeaveType(keys[0]);
+            }
+        } catch (err: any) {
+            console.log("leave balance fetch failed", err?.message);
+            setLeaveBalance(null);
+        } finally {
+            setLeaveBalanceLoading(false);
+        }
+    };
+
+    const leaveTypeOptions = useMemo(() => {
+        const entries = Object.entries(leaveBalance?.byType ?? {});
+        // Keep stable order if backend already provides it; otherwise sort with remaining desc.
+        return entries.map(([type, values]) => ({
+            type,
+            remaining: values?.remaining ?? 0,
+            total: values?.total ?? 0,
+            used: values?.used ?? 0,
+        }));
+    }, [leaveBalance]);
+
+    const selectedTypeLabel = useMemo(() => formatTypeLabel(leaveType), [leaveType]);
 
     const durationLabel = useMemo(() => {
         if (!startDate || !endDate) return "";
@@ -137,7 +171,7 @@ export default function LeaveRequestScreen() {
     };
 
     const handleSubmit = async () => {
-        if (!category || !startDate || !endDate || !reason.trim()) {
+        if (!leaveType || !startDate || !endDate || !reason.trim()) {
             Alert.alert("Missing info", "Please complete all fields before submitting.");
             return;
         }
@@ -145,7 +179,7 @@ export default function LeaveRequestScreen() {
         setSubmitting(true);
         try {
             const response = await requestLeave({
-                type: category,
+                type: leaveType,
                 startDate,
                 endDate,
                 reason: reason.trim(),
@@ -198,23 +232,38 @@ export default function LeaveRequestScreen() {
                         style={styles.selector}
                         onPress={() => setShowCategory((v) => !v)}
                     >
-                        <Text style={styles.selectorValue}>{category}</Text>
+                        <Text style={styles.selectorValue}>
+                            {leaveBalanceLoading ? "Loading…" : selectedTypeLabel}
+                        </Text>
                         <Ionicons name={showCategory ? "chevron-up" : "chevron-down"} size={18} color="#9CA3AF" />
                     </Pressable>
                     {showCategory && (
                         <View style={styles.dropdown}>
-                            {leaveCategories.map((item) => (
-                                <Pressable
-                                    key={item}
-                                    style={styles.dropdownItem}
-                                    onPress={() => {
-                                        setCategory(item);
-                                        setShowCategory(false);
-                                    }}
-                                >
-                                    <Text style={styles.dropdownText}>{item}</Text>
-                                </Pressable>
-                            ))}
+                            {leaveBalanceLoading ? (
+                                <View style={styles.dropdownItem}>
+                                    <Text style={styles.dropdownText}>Loading leave types…</Text>
+                                </View>
+                            ) : leaveTypeOptions.length === 0 ? (
+                                <View style={styles.dropdownItem}>
+                                    <Text style={styles.dropdownText}>No leave types available</Text>
+                                </View>
+                            ) : (
+                                leaveTypeOptions.map((item) => (
+                                    <Pressable
+                                        key={item.type}
+                                        style={styles.dropdownItem}
+                                        onPress={() => {
+                                            setLeaveType(item.type);
+                                            setShowCategory(false);
+                                        }}
+                                    >
+                                        <View style={styles.dropdownRow}>
+                                            <Text style={styles.dropdownText}>{formatTypeLabel(item.type)}</Text>
+                                            <Text style={styles.dropdownMeta}>{item.remaining} left</Text>
+                                        </View>
+                                    </Pressable>
+                                ))
+                            )}
                         </View>
                     )}
                 </View>
@@ -482,6 +531,16 @@ const styles = StyleSheet.create({
     dropdownText: {
         color: "#111827",
         fontSize: 14,
+    },
+    dropdownRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+    },
+    dropdownMeta: {
+        color: "#9CA3AF",
+        fontSize: 12,
     },
     calendarHeader: {
         flexDirection: "row",
