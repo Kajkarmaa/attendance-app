@@ -9,6 +9,7 @@ import {
 import { getPayslipDownloadUrl } from "@/services/payroll";
 import { fetchEmployeeProfile, type EmployeeProfile } from "@/services/profile";
 import { Ionicons } from "@expo/vector-icons";
+import * as LocalAuthentication from "expo-local-authentication";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect, useMemo, useState } from "react";
@@ -280,11 +281,45 @@ export default function EmployeeDashboardScreen() {
 
     const handlePunch = async () => {
         if (!user) return;
-        setPunching(true);
+
         try {
+            const hasHardware = await LocalAuthentication.hasHardwareAsync();
+            const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+
+            if (!hasHardware) {
+                Alert.alert(
+                    "Fingerprint not supported",
+                    "This device does not support biometric authentication."
+                );
+                return;
+            }
+
+            if (!isEnrolled) {
+                Alert.alert(
+                    "Fingerprint not set up",
+                    "Please register your fingerprint in your device settings to punch in or out."
+                );
+                return;
+            }
+
+            const authResult = await LocalAuthentication.authenticateAsync({
+                promptMessage: isCheckedIn ? "Confirm to check out" : "Confirm to check in",
+                fallbackLabel: "Use device passcode",
+                cancelLabel: "Cancel",
+            });
+
+            if (!authResult.success) {
+                if (authResult.error !== "user_cancel" && authResult.error !== "system_cancel") {
+                    Alert.alert("Authentication failed", "We couldn't verify your identity.");
+                }
+                return;
+            }
+
+            setPunching(true);
+
             if (isCheckedIn) {
                 const res = await checkOut();
-                setAttendance((prev:any ) => ({
+                setAttendance((prev: any) => ({
                     ...prev,
                     ...res,
                     checkIn: prev?.checkIn || res.checkIn || null,
@@ -294,7 +329,8 @@ export default function EmployeeDashboardScreen() {
                 setAttendance(res);
             }
         } catch (error: any) {
-            const msg = error?.response?.data?.message || error?.message || "Something went wrong";
+            const msg =
+                error?.response?.data?.message || error?.message || "Something went wrong";
             Alert.alert("Punch failed", msg);
         } finally {
             setPunching(false);
