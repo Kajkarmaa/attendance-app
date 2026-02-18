@@ -52,6 +52,15 @@ export interface VerifyOtpResponse {
   message: string;
 }
 
+export interface SendOtpPayload {
+  email: string;
+}
+
+export interface SendOtpResponse {
+  success: boolean;
+  message: string;
+}
+
 export async function login(
   credentials: LoginCredentials
 ): Promise<LoginResponse> {
@@ -95,6 +104,15 @@ export async function verifyOtp(
 ): Promise<VerifyOtpResponse> {
   const response = await apiClient.post<VerifyOtpResponse>(
     "/users/verify-otp",
+    payload,
+  );
+
+  return response.data;
+}
+
+export async function sendOtp(payload: SendOtpPayload): Promise<SendOtpResponse> {
+  const response = await apiClient.post<SendOtpResponse>(
+    "/users/send-otp",
     payload,
   );
 

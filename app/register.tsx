@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -27,8 +27,26 @@ export default function RegisterScreen() {
     const [otpPendingEmail, setOtpPendingEmail] = useState("");
     const [otpStepVisible, setOtpStepVisible] = useState(false);
     const [otpLoading, setOtpLoading] = useState(false);
+    const [resendCooldown, setResendCooldown] = useState(0);
+    const [resendLoading, setResendLoading] = useState(false);
     const { width } = useWindowDimensions();
     const cardWidth = Math.min(440, width - 48);
+
+    const isEmailUnverifiedMessage = useMemo(() => {
+        return (message: string) =>
+            /not verified|verify your otp|verify the otp|email still not verified/i.test(message);
+    }, []);
+
+    useEffect(() => {
+        if (!otpStepVisible) return;
+        if (resendCooldown <= 0) return;
+
+        const timer = setTimeout(() => {
+            setResendCooldown((prev) => Math.max(prev - 1, 0));
+        }, 1000);
+
+        return () => clearTimeout(timer);
+    }, [otpStepVisible, resendCooldown]);
 
     const handleChange = (field: keyof typeof form, value: string) => {
         setForm((prev) => ({ ...prev, [field]: value }));
@@ -39,6 +57,31 @@ export default function RegisterScreen() {
         setOtp("");
         setOtpStepVisible(false);
         setOtpPendingEmail("");
+        setResendCooldown(0);
+    };
+
+    const openOtpStep = async (email: string, showAlertMessage?: string) => {
+        const normalizedEmail = email.trim();
+        if (!normalizedEmail) {
+            Alert.alert("Error", "Email is required to send OTP");
+            return;
+        }
+
+        setOtpPendingEmail(normalizedEmail);
+        setOtpStepVisible(true);
+        setOtp("");
+        setResendCooldown(30);
+
+        try {
+            await auth.sendOtp({ email: normalizedEmail });
+        } catch (err) {
+            // Best-effort resend; keep OTP screen visible
+            console.log("send otp failed", (err as any)?.message);
+        }
+
+        if (showAlertMessage) {
+            Alert.alert("Registration", showAlertMessage);
+        }
     };
 
     const handleRegister = async () => {
@@ -61,16 +104,56 @@ export default function RegisterScreen() {
                 Alert.alert("Registration", response.message || "OTP sent to your email");
                 setOtpStepVisible(true);
                 setOtpPendingEmail(email.trim());
+                setOtp("");
+                setResendCooldown(30);
             } else {
-                Alert.alert("Registration Failed", response.message || "Unable to register");
+                const message = response.message || "Unable to register";
+                if (isEmailUnverifiedMessage(message)) {
+                    await openOtpStep(email, message);
+                } else {
+                    Alert.alert("Registration Failed", message);
+                }
             }
         } catch (error: any) {
             console.error("Registration error:", error);
             const message =
                 error.response?.data?.message || error.message || "Unable to register right now.";
-            Alert.alert("Registration Error", message);
+            if (isEmailUnverifiedMessage(message)) {
+                await openOtpStep(email, message);
+            } else {
+                Alert.alert("Registration Error", message);
+            }
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleResendOtp = async () => {
+        if (!otpPendingEmail) {
+            Alert.alert("Error", "Email is required to resend OTP");
+            return;
+        }
+
+        if (resendCooldown > 0 || resendLoading) {
+            return;
+        }
+
+        // Disable immediately to prevent double-taps/spam.
+        setResendCooldown(30);
+
+        setResendLoading(true);
+        try {
+            const response = await auth.sendOtp({ email: otpPendingEmail });
+            if (response?.success) {
+                Alert.alert("OTP", response.message || "OTP sent successfully");
+            } else {
+                Alert.alert("OTP", response?.message || "Unable to send OTP");
+            }
+        } catch (error: any) {
+            const message = error.response?.data?.message || error.message || "Unable to send OTP.";
+            Alert.alert("OTP Error", message);
+        } finally {
+            setResendLoading(false);
         }
     };
 
@@ -120,68 +203,71 @@ export default function RegisterScreen() {
                     </View>
 
                     <View style={[styles.card, { width: cardWidth }]}> 
-                        <Text style={styles.label}>NAME</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="John Doe"
-                            value={form.name}
-                            onChangeText={(value) => handleChange("name", value)}
-                            autoCapitalize="words"
-                        />
+                        {!otpStepVisible ? (
+                            <>
+                                <Text style={styles.label}>NAME</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="John Doe"
+                                    value={form.name}
+                                    onChangeText={(value) => handleChange("name", value)}
+                                    autoCapitalize="words"
+                                />
 
-                        <Text style={[styles.label, styles.labelTop]}>EMAIL</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="email@example.com"
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                            value={form.email}
-                            onChangeText={(value) => handleChange("email", value)}
-                        />
+                                <Text style={[styles.label, styles.labelTop]}>EMAIL</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="email@example.com"
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                    value={form.email}
+                                    onChangeText={(value) => handleChange("email", value)}
+                                />
 
-                        <Text style={[styles.label, styles.labelTop]}>PHONE</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="9876543210"
-                            keyboardType="phone-pad"
-                            value={form.phone}
-                            onChangeText={(value) => handleChange("phone", value)}
-                        />
+                                <Text style={[styles.label, styles.labelTop]}>PHONE</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="9876543210"
+                                    keyboardType="phone-pad"
+                                    value={form.phone}
+                                    onChangeText={(value) => handleChange("phone", value)}
+                                />
 
-                        <Text style={[styles.label, styles.labelTop]}>PASSCODE</Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="5678"
-                            secureTextEntry
-                            value={form.passcode}
-                            onChangeText={(value) => handleChange("passcode", value)}
-                        />
+                                <Text style={[styles.label, styles.labelTop]}>PASSCODE</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="5678"
+                                    secureTextEntry
+                                    value={form.passcode}
+                                    onChangeText={(value) => handleChange("passcode", value)}
+                                />
 
-                        <Pressable
-                            style={[
-                                styles.registerButton,
-                                loading && styles.loginButtonDisabled,
-                            ]}
-                            onPress={handleRegister}
-                            disabled={loading}
-                        >
-                            {loading ? (
-                                <ActivityIndicator color="#FFFFFF" />
-                            ) : (
-                                <Text style={styles.registerButtonText}>Register</Text>
-                            )}
-                        </Pressable>
+                                <Pressable
+                                    style={[
+                                        styles.registerButton,
+                                        loading && styles.loginButtonDisabled,
+                                    ]}
+                                    onPress={handleRegister}
+                                    disabled={loading}
+                                >
+                                    {loading ? (
+                                        <ActivityIndicator color="#FFFFFF" />
+                                    ) : (
+                                        <Text style={styles.registerButtonText}>Register</Text>
+                                    )}
+                                </Pressable>
 
-                        <Pressable
-                            style={styles.secondaryLink}
-                            onPress={() => router.replace("/")}
-                        >
-                            <Text style={styles.secondaryText}>Back to login</Text>
-                        </Pressable>
-
-                        {otpStepVisible && (
+                                <Pressable
+                                    style={styles.secondaryLink}
+                                    onPress={() => router.replace("/")}
+                                >
+                                    <Text style={styles.secondaryText}>Back to login</Text>
+                                </Pressable>
+                            </>
+                        ) : (
                             <View style={styles.otpSection}>
                                 <Text style={styles.label}>ENTER OTP</Text>
+                                <Text style={styles.otpEmail}>{otpPendingEmail}</Text>
                                 <TextInput
                                     style={styles.input}
                                     placeholder="123456"
@@ -189,6 +275,28 @@ export default function RegisterScreen() {
                                     value={otp}
                                     onChangeText={setOtp}
                                 />
+
+                                <View style={styles.resendRow}>
+                                    <Pressable
+                                        style={[
+                                            styles.resendButton,
+                                            (resendCooldown > 0 || resendLoading) && styles.resendButtonDisabled,
+                                        ]}
+                                        onPress={handleResendOtp}
+                                        disabled={resendCooldown > 0 || resendLoading}
+                                    >
+                                        {resendLoading ? (
+                                            <ActivityIndicator color="#111111" size="small" />
+                                        ) : (
+                                            <Text style={styles.resendButtonText}>
+                                                {resendCooldown > 0
+                                                    ? `Resend OTP (${resendCooldown}s)`
+                                                    : "Resend OTP"}
+                                            </Text>
+                                        )}
+                                    </Pressable>
+                                </View>
+
                                 <Pressable
                                     style={[
                                         styles.verifyButton,
@@ -202,6 +310,14 @@ export default function RegisterScreen() {
                                     ) : (
                                         <Text style={styles.verifyButtonText}>Verify OTP</Text>
                                     )}
+                                </Pressable>
+
+                                <Pressable
+                                    style={styles.secondaryLink}
+                                    onPress={() => setOtpStepVisible(false)}
+                                    disabled={otpLoading || resendLoading}
+                                >
+                                    <Text style={styles.secondaryText}>Edit registration details</Text>
                                 </Pressable>
                             </View>
                         )}
@@ -304,6 +420,36 @@ const styles = StyleSheet.create({
     },
     otpSection: {
         marginTop: 18,
+    },
+    otpEmail: {
+        color: "#6B7280",
+        fontSize: 12,
+        marginBottom: 10,
+    },
+    resendRow: {
+        marginTop: 10,
+        marginBottom: 4,
+    },
+    resendButton: {
+        width: "100%",
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+        borderRadius: 12,
+        backgroundColor: "#F3F4F6",
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+    },
+    resendButtonDisabled: {
+        opacity: 0.55,
+    },
+    resendButtonText: {
+        color: "#111827",
+        fontWeight: "600",
+        fontSize: 12,
     },
     verifyButton: {
         backgroundColor: "#2563EB",
