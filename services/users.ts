@@ -126,7 +126,7 @@ export async function fetchEmployees(searchTerm?: string) {
     const trimmed = (searchTerm || "").trim();
     const url = trimmed
         ? `/employees/search?query=${encodeURIComponent(trimmed)}`
-        : "/employees";
+        : "/users/employees";
     const res = await apiClient.get<EmployeesResponse>(url);
     return res.data.data;
 }

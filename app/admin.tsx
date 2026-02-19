@@ -40,6 +40,10 @@ export default function HomeScreen() {
     const [departments, setDepartments] = useState<string[]>([]);
     const [departmentsLoading, setDepartmentsLoading] = useState(false);
     const [showConvertDepartment, setShowConvertDepartment] = useState(false);
+    const [showConvertCustomDepartmentInput, setShowConvertCustomDepartmentInput] =
+        useState(false);
+    const [customConvertDepartment, setCustomConvertDepartment] =
+        useState("");
     const [activeTab, setActiveTab] = useState<"employees" | "pending">(
         "employees",
     );
@@ -287,6 +291,9 @@ export default function HomeScreen() {
         setConvertDepartment(departments?.[0] || "Engineering");
         setConvertSalary("50000");
         setConvertMessage(null);
+        setShowConvertCustomDepartmentInput(false);
+        setCustomConvertDepartment("");
+        setShowConvertDepartment(false);
         setShowConvertModal(true);
     };
 
@@ -295,6 +302,9 @@ export default function HomeScreen() {
         setShowConvertModal(false);
         setSelectedPendingUser(null);
         setConvertMessage(null);
+        setShowConvertCustomDepartmentInput(false);
+        setCustomConvertDepartment("");
+        setShowConvertDepartment(false);
     };
 
     const handleConvertToEmployee = async () => {
@@ -389,9 +399,13 @@ export default function HomeScreen() {
     }, [departments]);
 
     const convertDepartmentOptions = useMemo(() => {
-        return (departments || [])
-            .map((item) => (typeof item === "string" ? item.trim() : ""))
-            .filter(Boolean);
+        return [
+            ...(
+                departments || []
+            ).map((item) => (typeof item === "string" ? item.trim() : ""))
+                .filter(Boolean),
+            "Other",
+        ];
     }, [departments]);
 
     const handleLogout = async () => {
@@ -817,7 +831,14 @@ export default function HomeScreen() {
                 >
                     <Pressable
                         style={styles.convertCard}
-                        onPress={(event) => event.stopPropagation()}
+                        onPress={(event) => {
+                            event.stopPropagation();
+                            if (showConvertDepartment) {
+                                setShowConvertDepartment(false);
+                                setShowConvertCustomDepartmentInput(false);
+                                setCustomConvertDepartment("");
+                            }
+                        }}
                     >
                         <Text style={styles.convertTitle}>
                             Convert Pending User
@@ -850,25 +871,180 @@ export default function HomeScreen() {
                         <View style={styles.convertFieldGroup}>
                             <Text style={styles.convertLabel}>Department</Text>
                             {convertDepartmentOptions.length > 0 ? (
-                                <Pressable
-                                    style={styles.convertSelect}
-                                    onPress={() =>
-                                        setShowConvertDepartment(true)
-                                    }
-                                >
-                                    <Text
-                                        style={styles.convertSelectText}
-                                        numberOfLines={1}
+                                <View style={styles.convertSelectWrapper}>
+                                    <Pressable
+                                        style={styles.convertSelect}
+                                        onPress={() =>
+                                            setShowConvertDepartment(
+                                                (prev) => !prev,
+                                            )
+                                        }
                                     >
-                                        {convertDepartment ||
-                                            "Select department"}
-                                    </Text>
-                                    <Ionicons
-                                        name="chevron-down"
-                                        size={16}
-                                        color="#6B7280"
-                                    />
-                                </Pressable>
+                                        <Text
+                                            style={styles.convertSelectText}
+                                            numberOfLines={1}
+                                        >
+                                            {convertDepartment ||
+                                                "Select department"}
+                                        </Text>
+                                        <Ionicons
+                                            name="chevron-down"
+                                            size={16}
+                                            color="#6B7280"
+                                        />
+                                    </Pressable>
+
+                                    {showConvertDepartment && (
+                                        <View
+                                            style={[
+                                                styles.dropdownCard,
+                                                styles.convertInlineDropdown,
+                                            ]}
+                                        >
+                                            {convertDepartmentOptions.map(
+                                                (item) => (
+                                                    <Pressable
+                                                        key={item}
+                                                        style={
+                                                            styles.dropdownItem
+                                                        }
+                                                        onPress={() => {
+                                                            if (item === "Other") {
+                                                                setShowConvertCustomDepartmentInput(
+                                                                    true,
+                                                                );
+                                                                return;
+                                                            }
+                                                            setConvertDepartment(
+                                                                item,
+                                                            );
+                                                            setShowConvertDepartment(
+                                                                false,
+                                                            );
+                                                            setShowConvertCustomDepartmentInput(
+                                                                false,
+                                                            );
+                                                            setCustomConvertDepartment(
+                                                                "",
+                                                            );
+                                                        }}
+                                                    >
+                                                        <Text
+                                                            style={
+                                                                styles.dropdownText
+                                                            }
+                                                        >
+                                                            {item}
+                                                        </Text>
+                                                    </Pressable>
+                                                ),
+                                            )}
+
+                                            {showConvertCustomDepartmentInput && (
+                                                <View
+                                                    style={
+                                                        styles.customDeptBlock
+                                                    }
+                                                >
+                                                    <Text
+                                                        style={
+                                                            styles.customDeptLabel
+                                                        }
+                                                    >
+                                                        Enter department
+                                                    </Text>
+                                                    <TextInput
+                                                        style={
+                                                            styles.customDeptInput
+                                                        }
+                                                        placeholder="e.g. Strategy"
+                                                        placeholderTextColor="#94A3B8"
+                                                        value={
+                                                            customConvertDepartment
+                                                        }
+                                                        onChangeText={
+                                                            setCustomConvertDepartment
+                                                        }
+                                                        autoCapitalize="words"
+                                                    />
+                                                    <View
+                                                        style={
+                                                            styles.customDeptActions
+                                                        }
+                                                    >
+                                                        <Pressable
+                                                            style={
+                                                                styles.customDeptCancel
+                                                            }
+                                                            onPress={() => {
+                                                                setShowConvertCustomDepartmentInput(
+                                                                    false,
+                                                                );
+                                                                setCustomConvertDepartment(
+                                                                    "",
+                                                                );
+                                                            }}
+                                                        >
+                                                            <Text
+                                                                style={
+                                                                    styles.customDeptCancelText
+                                                                }
+                                                            >
+                                                                Cancel
+                                                            </Text>
+                                                        </Pressable>
+                                                        <Pressable
+                                                            style={
+                                                                styles.customDeptSave
+                                                            }
+                                                            onPress={() => {
+                                                                const trimmed =
+                                                                    customConvertDepartment.trim();
+                                                                if (!trimmed) {
+                                                                    return;
+                                                                }
+                                                                setDepartments(
+                                                                    (prev) => {
+                                                                        const next =
+                                                                            new Set(
+                                                                                prev,
+                                                                            );
+                                                                        next.add(
+                                                                            trimmed,
+                                                                        );
+                                                                        return Array.from(
+                                                                            next,
+                                                                        );
+                                                                    },
+                                                                );
+                                                                setConvertDepartment(
+                                                                    trimmed,
+                                                                );
+                                                                setShowConvertDepartment(
+                                                                    false,
+                                                                );
+                                                                setShowConvertCustomDepartmentInput(
+                                                                    false,
+                                                                );
+                                                                setCustomConvertDepartment(
+                                                                    "",
+                                                                );
+                                                            }}
+                                                        >
+                                                            <Text
+                                                                style={
+                                                                    styles.customDeptSaveText
+                                                                }
+                                                            >
+                                                                Save
+                                                            </Text>
+                                                        </Pressable>
+                                                    </View>
+                                                </View>
+                                            )}
+                                        </View>
+                                    )}
+                                </View>
                             ) : (
                                 <TextInput
                                     style={styles.convertInput}
@@ -985,32 +1161,6 @@ export default function HomeScreen() {
                 </Pressable>
             </Modal>
 
-            <Modal
-                transparent
-                visible={showConvertDepartment}
-                animationType="fade"
-                onRequestClose={() => setShowConvertDepartment(false)}
-            >
-                <Pressable
-                    style={styles.modalOverlay}
-                    onPress={() => setShowConvertDepartment(false)}
-                >
-                    <View style={styles.dropdownCard}>
-                        {convertDepartmentOptions.map((item) => (
-                            <Pressable
-                                key={item}
-                                style={styles.dropdownItem}
-                                onPress={() => {
-                                    setConvertDepartment(item);
-                                    setShowConvertDepartment(false);
-                                }}
-                            >
-                                <Text style={styles.dropdownText}>{item}</Text>
-                            </Pressable>
-                        ))}
-                    </View>
-                </Pressable>
-            </Modal>
         </View>
     );
 }
@@ -1416,6 +1566,57 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: "600",
     },
+    customDeptBlock: {
+        paddingHorizontal: 16,
+        paddingBottom: 14,
+        paddingTop: 6,
+        borderTopWidth: 1,
+        borderTopColor: "#E5E7EB",
+        gap: 8,
+    },
+    customDeptLabel: {
+        color: "#374151",
+        fontWeight: "700",
+        fontSize: 12,
+        textTransform: "uppercase",
+        letterSpacing: 0.4,
+    },
+    customDeptInput: {
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 10,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        color: "#111827",
+        backgroundColor: "#FFFFFF",
+    },
+    customDeptActions: {
+        flexDirection: "row",
+        justifyContent: "flex-end",
+        gap: 10,
+    },
+    customDeptCancel: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        backgroundColor: "#FFFFFF",
+    },
+    customDeptCancelText: {
+        color: "#6B7280",
+        fontWeight: "600",
+    },
+    customDeptSave: {
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 10,
+        backgroundColor: "#111827",
+    },
+    customDeptSaveText: {
+        color: "#FFFFFF",
+        fontWeight: "700",
+    },
     payrollCard: {
         backgroundColor: "#FFFFFF",
         borderRadius: 20,
@@ -1549,6 +1750,9 @@ const styles = StyleSheet.create({
         backgroundColor: "#1F2937",
         color: "#F8FAFC",
     },
+    convertSelectWrapper: {
+        position: "relative",
+    },
     convertSelect: {
         borderWidth: 1,
         borderColor: "#E2E8F0",
@@ -1565,6 +1769,13 @@ const styles = StyleSheet.create({
         fontWeight: "500",
         flex: 1,
         marginRight: 8,
+    },
+    convertInlineDropdown: {
+        position: "absolute",
+        top: 52,
+        left: 0,
+        right: 0,
+        zIndex: 50,
     },
     convertActions: {
         flexDirection: "row",
