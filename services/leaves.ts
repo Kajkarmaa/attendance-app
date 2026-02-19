@@ -120,6 +120,7 @@ export interface AdminLeaveItem {
     year?: number;
     appliedAt?: string;
     attachmentCount?: number;
+    attachments?: string[];
 }
 
 export interface AdminLeavesResponse {

@@ -1,4 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { API_BASE_URL } from "@/services/api";
 import {
     approveAdminLeave,
     fetchAdminLeaves,
@@ -11,6 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    Linking,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -97,6 +99,44 @@ export default function AdminLeavesScreen() {
             default:
                 return { pill: styles.statusPending, text: styles.statusPendingText };
         }
+    };
+
+    const handleDownloadAttachment = async (item: AdminLeaveItem) => {
+        try {
+            const fileName = item.attachments?.[0];
+            if (!fileName) {
+                if ((item.attachmentCount ?? 0) > 0) {
+                    Alert.alert("Unavailable", "Attachment metadata missing. Please refresh and try again.");
+                    return;
+                }
+                Alert.alert("No attachment", "This request has no downloadable file.");
+                return;
+            }
+
+            const isAbsolute = fileName.startsWith("http://") || fileName.startsWith("https://");
+            const url = isAbsolute
+                ? fileName
+                : `${API_BASE_URL}/leaves/attachment/download?leaveId=${encodeURIComponent(item.id)}&fileName=${encodeURIComponent(fileName)}`;
+
+            const supported = await Linking.canOpenURL(url);
+            if (!supported) {
+                Alert.alert("Unavailable", "Unable to open the attachment link.");
+                return;
+            }
+
+            await Linking.openURL(url);
+        } catch (error: any) {
+            console.log("attachment open failed", error?.message);
+            Alert.alert("Error", "Could not open the attachment.");
+        }
+    };
+
+    const handleDownloadPress = (item: AdminLeaveItem) => {
+        if ((item.attachments?.length ?? 0) > 0) {
+            handleDownloadAttachment(item);
+            return;
+        }
+        Alert.alert("Unavailable", "Attachment link not available yet. Please refresh and try again.");
     };
 
     const handleApprove = async (id: string, note: string) => {
@@ -310,6 +350,37 @@ export default function AdminLeavesScreen() {
                                 <Text style={styles.attachmentText}>
                                     Attachments: {item.attachmentCount ?? 0}
                                 </Text>
+
+                                {(item.attachments?.length ?? 0) > 0 || (item.attachmentCount ?? 0) > 0 ? (
+                                    <Pressable
+                                        style={[
+                                            styles.downloadRow,
+                                            (item.attachments?.length ?? 0) === 0 && { opacity: 0.6 },
+                                        ]}
+                                        onPress={() => handleDownloadPress(item)}
+                                    >
+                                        <Pressable
+                                            onPress={() => handleDownloadPress(item)}
+                                            hitSlop={10}
+                                        >
+                                            <Ionicons name="download-outline" size={18} color="#111827" />
+                                        </Pressable>
+                                        <View style={{ flex: 1, marginHorizontal: 8 }}>
+                                            <Text style={styles.downloadLabel}>Download</Text>
+                                            <Text style={styles.downloadFile} numberOfLines={1}>
+                                                {(item.attachments?.length ?? 0) > 0
+                                                    ? item.attachments?.[0]
+                                                    : "Attachment link not available"}
+                                            </Text>
+                                        </View>
+                                        <Pressable
+                                            onPress={() => handleDownloadPress(item)}
+                                            hitSlop={10}
+                                        >
+                                            <Ionicons name="open-outline" size={16} color="#9CA3AF" />
+                                        </Pressable>
+                                    </Pressable>
+                                ) : null}
 
                                 {status === "pending" && (
                                     <View style={styles.commentBlock}>
@@ -589,6 +660,29 @@ const styles = StyleSheet.create({
         marginTop: 6,
         color: "#9CA3AF",
         fontSize: 12,
+    },
+    downloadRow: {
+        marginTop: 8,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        backgroundColor: "#F9FAFB",
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    downloadLabel: {
+        color: "#4B5563",
+        fontSize: 12,
+        fontWeight: "700",
+        textTransform: "uppercase",
+        letterSpacing: 0.3,
+    },
+    downloadFile: {
+        color: "#111827",
+        fontSize: 13,
+        marginTop: 2,
     },
     actionRow: {
         flexDirection: "row",
