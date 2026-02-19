@@ -26,7 +26,11 @@ export interface LeaveRequestPayload {
     startDate: string; // ISO date string
     endDate: string;   // ISO date string
     reason: string;
-    attachmentUrl?: string;
+    attachment?: {
+        uri: string;
+        name: string;
+        type: string;
+    };
 }
 
 export interface LeaveRequestResponse {
@@ -57,9 +61,28 @@ export interface MyLeavesResponse {
 export async function requestLeave(
     payload: LeaveRequestPayload,
 ): Promise<LeaveRequestResponse> {
+    const formData = new FormData();
+    formData.append("type", payload.type);
+    formData.append("startDate", payload.startDate);
+    formData.append("endDate", payload.endDate);
+    formData.append("reason", payload.reason);
+
+    if (payload.attachment) {
+        formData.append("attachments", {
+            uri: payload.attachment.uri,
+            name: payload.attachment.name,
+            type: payload.attachment.type,
+        } as unknown as Blob);
+    }
+
     const response = await apiClient.post<LeaveRequestResponse>(
         "/leaves/request",
-        payload,
+        formData,
+        {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        },
     );
     return response.data;
 }

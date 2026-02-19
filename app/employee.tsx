@@ -428,12 +428,12 @@ export default function EmployeeDashboardScreen() {
         <View style={styles.container}>
             <View style={styles.header}>
                 <View style={styles.headerTop}>
-                    <Pressable
+                    {/* <Pressable
                         style={styles.headerIcon}
                         accessibilityRole="button"
                     >
                         <Ionicons name="menu" size={22} color="#111827" />
-                    </Pressable>
+                    </Pressable> */}
 
                     <View style={styles.headerLogoWrap}>
                         <Image source={APP_LOGO} style={styles.headerLogo} />

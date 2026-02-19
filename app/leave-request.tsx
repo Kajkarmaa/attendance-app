@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, {
     DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
+import * as DocumentPicker from "expo-document-picker";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -17,6 +18,16 @@ import {
     TextInput,
     View,
 } from "react-native";
+import { Calendar, type DateData } from "react-native-calendars";
+
+type MarkedDates = {
+    [key: string]: {
+        startingDay?: boolean;
+        endingDay?: boolean;
+        color?: string;
+        textColor?: string;
+    };
+};
 
 const formatTypeLabel = (value: string) => {
     if (!value) return "Select";
@@ -24,8 +35,6 @@ const formatTypeLabel = (value: string) => {
     if (!normalized) return "Select";
     return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 };
-
-const weekdayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const defaultStart = "2026-02-18";
 const defaultEnd = "2026-02-19";
@@ -42,11 +51,7 @@ export default function LeaveRequestScreen() {
     const [submitting, setSubmitting] = useState(false);
     const [showStartPicker, setShowStartPicker] = useState(false);
     const [showEndPicker, setShowEndPicker] = useState(false);
-    const [visibleMonth, setVisibleMonth] = useState(() => {
-        const next = new Date(defaultStart);
-        next.setDate(1);
-        return next;
-    });
+    const [attachment, setAttachment] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
 
     useEffect(() => {
         if (isLoading) return;
@@ -109,28 +114,6 @@ export default function LeaveRequestScreen() {
         return `${format(startDate)} - ${format(endDate)}`;
     }, [startDate, endDate]);
 
-    const monthLabel = useMemo(() => {
-        return visibleMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-    }, [visibleMonth]);
-
-    const calendarDays = useMemo(() => {
-        const firstOfMonth = new Date(visibleMonth);
-        firstOfMonth.setDate(1);
-        const startOffset = firstOfMonth.getDay();
-        const start = new Date(firstOfMonth);
-        start.setDate(firstOfMonth.getDate() - startOffset);
-
-        return Array.from({ length: 42 }, (_, idx) => {
-            const date = new Date(start);
-            date.setDate(start.getDate() + idx);
-            return {
-                date,
-                iso: date.toISOString().slice(0, 10),
-                isCurrentMonth: date.getMonth() === visibleMonth.getMonth(),
-            };
-        });
-    }, [visibleMonth]);
-
     const formatDateValue = (iso: string, includeYear = false) =>
         new Date(iso).toLocaleDateString("en-US", {
             weekday: "short",
@@ -139,36 +122,83 @@ export default function LeaveRequestScreen() {
             ...(includeYear ? { year: "numeric" } : {}),
         });
 
-    const changeMonth = (delta: number) => {
-        const next = new Date(visibleMonth);
-        next.setMonth(visibleMonth.getMonth() + delta);
-        setVisibleMonth(next);
+    const setStartAndClampEnd = (iso: string) => {
+        setStartDate(iso);
+        setEndDate((prev) => (prev < iso ? iso : prev));
+    };
+
+    const setEndAndClampStart = (iso: string) => {
+        setEndDate(iso);
+        setStartDate((prev) => (prev > iso ? iso : prev));
     };
 
     const handleDaySelect = (iso: string) => {
         if (!startDate || iso <= startDate) {
-            setStartDate(iso);
-            if (iso > endDate) {
-                setEndDate(iso);
-            }
+            setStartAndClampEnd(iso);
             return;
         }
-        setEndDate(iso);
+        setEndAndClampStart(iso);
     };
 
     const handleDateChange = (
         event: DateTimePickerEvent,
-        setter: (value: string) => void,
+        kind: "start" | "end",
         closePicker: () => void,
     ) => {
         if (event.type === "set" && event.nativeEvent.timestamp) {
             const iso = new Date(event.nativeEvent.timestamp).toISOString().slice(0, 10);
-            setter(iso);
+            if (kind === "start") {
+                setStartAndClampEnd(iso);
+            } else {
+                setEndAndClampStart(iso);
+            }
         }
         if (Platform.OS !== "ios") {
             closePicker();
         }
     };
+
+    const handlePickAttachment = async () => {
+        const result = await DocumentPicker.getDocumentAsync({
+            multiple: false,
+            copyToCacheDirectory: true,
+            type: ["application/pdf", "image/*", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+        });
+
+        if (!result.canceled && result.assets && result.assets.length > 0) {
+            const file = result.assets[0];
+            setAttachment({
+                ...file,
+                name: file.name ?? "attachment",
+                mimeType: file.mimeType ?? "application/octet-stream",
+            });
+        }
+    };
+
+    const markedDates = useMemo<MarkedDates>(() => {
+        if (!startDate || !endDate) return {};
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return {};
+
+        const result: MarkedDates = {};
+        const cursor = new Date(start);
+
+        while (cursor <= end) {
+            const iso = cursor.toISOString().slice(0, 10);
+            const isStart = iso === startDate;
+            const isEnd = iso === endDate;
+            result[iso] = {
+                startingDay: isStart,
+                endingDay: isEnd,
+                color: isStart || isEnd ? "#D4A537" : "#F6E9C2",
+                textColor: isStart || isEnd ? "#FFFFFF" : "#111827",
+            };
+            cursor.setDate(cursor.getDate() + 1);
+        }
+
+        return result;
+    }, [startDate, endDate]);
 
     const handleSubmit = async () => {
         if (!leaveType || !startDate || !endDate || !reason.trim()) {
@@ -183,6 +213,13 @@ export default function LeaveRequestScreen() {
                 startDate,
                 endDate,
                 reason: reason.trim(),
+                attachment: attachment
+                    ? {
+                        uri: attachment.uri,
+                        name: attachment.name ?? "attachment",
+                        type: attachment.mimeType ?? "application/octet-stream",
+                    }
+                    : undefined,
             });
 
             if (response.success) {
@@ -269,62 +306,21 @@ export default function LeaveRequestScreen() {
                 </View>
 
                 <View style={styles.card}>
-                    <View style={styles.calendarHeader}>
-                        <Pressable style={styles.navBtn} onPress={() => changeMonth(-1)}>
-                            <Ionicons name="chevron-back" size={18} color="#D4A537" />
-                        </Pressable>
-                        <Text style={styles.calendarTitle}>{monthLabel}</Text>
-                        <Pressable style={styles.navBtn} onPress={() => changeMonth(1)}>
-                            <Ionicons name="chevron-forward" size={18} color="#D4A537" />
-                        </Pressable>
-                    </View>
                     <Text style={styles.calendarHint}>Select start and end dates</Text>
-
-                    <View style={styles.weekdayRow}>
-                        {weekdayLabels.map((label) => (
-                            <Text key={label} style={styles.weekdayLabel}>
-                                {label}
-                            </Text>
-                        ))}
-                    </View>
-
-                    <View style={styles.daysGrid}>
-                        {calendarDays.map(({ date, iso, isCurrentMonth }) => {
-                            const isStart = iso === startDate;
-                            const isEnd = iso === endDate;
-                            const inRange = iso > startDate && iso < endDate;
-
-                            return (
-                                <View key={`${iso}-${isCurrentMonth ? "m" : "o"}`} style={styles.dayCell}>
-                                    {(inRange || (isStart && !isEnd) || (isEnd && !isStart)) && (
-                                        <View
-                                            style={[
-                                                styles.rangeFill,
-                                                inRange && styles.rangeFillActive,
-                                                isStart && !isEnd && styles.rangeFillStart,
-                                                isEnd && !isStart && styles.rangeFillEnd,
-                                            ]}
-                                        />
-                                    )}
-
-                                    <Pressable
-                                        style={[styles.dayButton, (isStart || isEnd) && styles.dayButtonSelected]}
-                                        onPress={() => handleDaySelect(iso)}
-                                    >
-                                        <Text
-                                            style={[
-                                                styles.dayText,
-                                                !isCurrentMonth && styles.dayTextMuted,
-                                                (isStart || isEnd) && styles.dayTextSelected,
-                                            ]}
-                                        >
-                                            {date.getDate()}
-                                        </Text>
-                                    </Pressable>
-                                </View>
-                            );
-                        })}
-                    </View>
+                    <Calendar
+                        markingType="period"
+                        markedDates={markedDates}
+                        onDayPress={(day: DateData) => handleDaySelect(day.dateString)}
+                        enableSwipeMonths
+                        firstDay={1}
+                        theme={{
+                            todayTextColor: "#D4A537",
+                            arrowColor: "#D4A537",
+                            selectedDayBackgroundColor: "#D4A537",
+                            textDayFontWeight: "600",
+                            textMonthFontWeight: "700",
+                        }}
+                    />
 
                     <View style={styles.dateRow}>
                         <Pressable
@@ -356,25 +352,41 @@ export default function LeaveRequestScreen() {
                 </View>
 
                 {showStartPicker && (
-                    <DateTimePicker
-                        value={new Date(startDate)}
-                        mode="date"
-                        display="spinner"
-                        onChange={(event :any) =>
-                            handleDateChange(event, setStartDate, () => setShowStartPicker(false))
-                        }
-                    />
+                    <View style={styles.pickerContainer}>
+                        <DateTimePicker
+                            value={new Date(startDate)}
+                            mode="date"
+                            display="spinner"
+                            onChange={(event: DateTimePickerEvent) =>
+                                handleDateChange(event, "start", () => setShowStartPicker(false))
+                            }
+                        />
+                        <Pressable
+                            style={styles.pickerCloseBtn}
+                            onPress={() => setShowStartPicker(false)}
+                        >
+                            <Text style={styles.pickerCloseText}>Close</Text>
+                        </Pressable>
+                    </View>
                 )}
 
                 {showEndPicker && (
-                    <DateTimePicker
-                        value={new Date(endDate)}
-                        mode="date"
-                        display="spinner"
-                        onChange={(event :any) =>
-                            handleDateChange(event, setEndDate, () => setShowEndPicker(false))
-                        }
-                    />
+                    <View style={styles.pickerContainer}>
+                        <DateTimePicker
+                            value={new Date(endDate)}
+                            mode="date"
+                            display="spinner"
+                            onChange={(event: DateTimePickerEvent) =>
+                                handleDateChange(event, "end", () => setShowEndPicker(false))
+                            }
+                        />
+                        <Pressable
+                            style={styles.pickerCloseBtn}
+                            onPress={() => setShowEndPicker(false)}
+                        >
+                            <Text style={styles.pickerCloseText}>Close</Text>
+                        </Pressable>
+                    </View>
                 )}
 
                 <View style={styles.card}>
@@ -392,11 +404,25 @@ export default function LeaveRequestScreen() {
                     />
                 </View>
 
-                <Pressable style={styles.attachmentRow}>
+                <Pressable style={styles.attachmentRow} onPress={handlePickAttachment}>
                     <Ionicons name="add-circle-outline" size={18} color="#D4A537" />
                     <Text style={styles.attachmentText}>Add supporting documentation</Text>
                     <Ionicons name="add" size={18} color="#D4A537" />
                 </Pressable>
+
+                {attachment && (
+                    <View style={styles.attachmentChip}>
+                        <View style={styles.attachmentInfo}>
+                            <Ionicons name="document-attach-outline" size={16} color="#6B7280" />
+                            <Text style={styles.attachmentName} numberOfLines={1}>
+                                {attachment.name || "Selected file"}
+                            </Text>
+                        </View>
+                        <Pressable onPress={() => setAttachment(null)}>
+                            <Ionicons name="close" size={16} color="#9CA3AF" />
+                        </Pressable>
+                    </View>
+                )}
 
                 <Pressable
                     style={styles.submitBtn}
@@ -542,107 +568,10 @@ const styles = StyleSheet.create({
         color: "#9CA3AF",
         fontSize: 12,
     },
-    calendarHeader: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        marginBottom: 10,
-    },
-    navBtn: {
-        height: 32,
-        width: 32,
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: "#F3E9D4",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "#FEF8EF",
-    },
-    calendarTitle: {
-        fontSize: 14,
-        fontWeight: "700",
-        color: "#111827",
-    },
     calendarHint: {
         color: "#9CA3AF",
         fontSize: 12,
         marginBottom: 12,
-    },
-    weekdayRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        marginBottom: 8,
-        paddingHorizontal: 4,
-    },
-    weekdayLabel: {
-        width: `${100 / 7}%`,
-        textAlign: "center",
-        color: "#9CA3AF",
-        fontSize: 11,
-        letterSpacing: 0.3,
-    },
-    daysGrid: {
-        flexDirection: "row",
-        flexWrap: "wrap",
-        rowGap: 6,
-        columnGap: 6,
-        marginBottom: 14,
-    },
-    dayCell: {
-        width: `${100 / 7}%`,
-        aspectRatio: 1,
-        alignItems: "center",
-        justifyContent: "center",
-        position: "relative",
-    },
-    rangeFill: {
-        position: "absolute",
-        top: "28%",
-        bottom: "28%",
-        left: 0,
-        right: 0,
-        backgroundColor: "#FEF4D6",
-        borderRadius: 10,
-        pointerEvents: "none",
-    },
-    rangeFillActive: {
-        backgroundColor: "#FEF4D6",
-    },
-    rangeFillStart: {
-        left: "50%",
-        borderTopLeftRadius: 0,
-        borderBottomLeftRadius: 0,
-    },
-    rangeFillEnd: {
-        right: "50%",
-        borderTopRightRadius: 0,
-        borderBottomRightRadius: 0,
-    },
-    dayButton: {
-        height: 36,
-        width: 36,
-        borderRadius: 18,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    dayButtonSelected: {
-        backgroundColor: "#D4A537",
-        shadowColor: "#D4A537",
-        shadowOpacity: 0.15,
-        shadowRadius: 10,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 3,
-    },
-    dayText: {
-        color: "#111827",
-        fontSize: 13,
-        fontWeight: "600",
-    },
-    dayTextMuted: {
-        color: "#D1D5DB",
-    },
-    dayTextSelected: {
-        color: "#FFFFFF",
     },
     dateRow: {
         flexDirection: "row",
@@ -722,6 +651,29 @@ const styles = StyleSheet.create({
         fontSize: 13,
         flex: 1,
     },
+    attachmentChip: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        backgroundColor: "#FFFFFF",
+        marginBottom: 20,
+    },
+    attachmentInfo: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        flex: 1,
+    },
+    attachmentName: {
+        color: "#111827",
+        fontSize: 13,
+        flex: 1,
+    },
     submitBtn: {
         backgroundColor: "#D4A537",
         borderRadius: 14,
@@ -746,5 +698,26 @@ const styles = StyleSheet.create({
     discardText: {
         color: "#6B7280",
         fontSize: 12,
+    },
+    pickerContainer: {
+        marginTop: 4,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 12,
+        backgroundColor: "#FFFFFF",
+        padding: 8,
+    },
+    pickerCloseBtn: {
+        marginTop: 4,
+        alignSelf: "flex-end",
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 10,
+        backgroundColor: "#F3F4F6",
+    },
+    pickerCloseText: {
+        color: "#111827",
+        fontWeight: "600",
     },
 });

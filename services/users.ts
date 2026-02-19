@@ -124,7 +124,7 @@ export async function fetchPendingUsers() {
 
 export async function fetchEmployees(searchTerm?: string) {
     const trimmed = (searchTerm || "").trim();
-    const url = `/employees?search=${encodeURIComponent(trimmed)}`;
+    const url = `/users/employees?search=${encodeURIComponent(trimmed)}`;
     const res = await apiClient.get<EmployeesResponse>(url);
     return res.data.data;
 }
