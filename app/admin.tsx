@@ -176,10 +176,21 @@ export default function HomeScreen() {
             return;
         }
 
-        loadLists();
         loadDailySummary();
         loadDepartments();
     }, [user, isLoading]);
+
+    useEffect(() => {
+        if (isLoading) {
+            return;
+        }
+
+        if (!user || user.role === "emp") {
+            return;
+        }
+
+        loadLists(searchTerm);
+    }, [searchTerm, user, isLoading]);
 
     const loadDepartments = async () => {
         setDepartmentsLoading(true);
@@ -194,11 +205,11 @@ export default function HomeScreen() {
         }
     };
 
-    const loadLists = async () => {
+    const loadLists = async (query: string = "") => {
         setListLoading(true);
         try {
             const [emps, pend] = await Promise.all([
-                fetchEmployees(),
+                fetchEmployees(query),
                 fetchPendingUsers(),
             ]);
             setEmployees(emps || []);
@@ -337,7 +348,7 @@ export default function HomeScreen() {
                 text: response?.message || "User converted successfully.",
                 tone: "success",
             });
-            await loadLists();
+            await loadLists(searchTerm);
             setTimeout(() => {
                 closeConvertModal();
             }, 800);
@@ -353,21 +364,12 @@ export default function HomeScreen() {
     };
 
     const filteredEmployees = useMemo(() => {
-        const term = searchTerm.toLowerCase();
         return employees.filter((emp) => {
-            const name = emp.userId?.name?.toLowerCase() || "";
-            const email = emp.userId?.email?.toLowerCase() || "";
-            const id = emp.employeeId?.toLowerCase() || "";
             const dept = emp.department || "";
-            const matchesTerm =
-                !term ||
-                name.includes(term) ||
-                email.includes(term) ||
-                id.includes(term);
             const matchesDept = department === "All" || dept === department;
-            return matchesTerm && matchesDept;
+            return matchesDept;
         });
-    }, [employees, searchTerm, department]);
+    }, [employees, department]);
 
     const filteredPending = useMemo(() => {
         const term = searchTerm.toLowerCase();
@@ -701,12 +703,18 @@ export default function HomeScreen() {
                 </View>
             </ScrollView>
 
-            <Pressable
-                style={styles.fab}
-                onPress={() => router.push("/add-employee")}
-            >
-                <Feather name="plus" size={22} color="#FFFFFF" />
-            </Pressable>
+            <View style={styles.bottomBar}>
+                <Pressable style={styles.bottomIconActive}>
+                    <Ionicons name="home" size={22} color="#D4A537" />
+                </Pressable>
+                <Pressable
+                    style={styles.bottomIcon}
+                    onPress={() => router.replace("/admin-leaves")}
+                >
+                    <Ionicons name="leaf" size={22} color="#9CA3AF" />
+                </Pressable>
+            </View>
+
 
             <Modal
                 transparent
@@ -1131,7 +1139,7 @@ const styles = StyleSheet.create({
     listContent: {
         paddingHorizontal: 24,
         paddingTop: 20,
-        paddingBottom: 112,
+        paddingBottom: 200,
     },
     searchBar: {
         flexDirection: "row",
@@ -1315,9 +1323,43 @@ const styles = StyleSheet.create({
         fontSize: 11,
         fontWeight: "700",
     },
+    bottomBar: {
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        flexDirection: "row",
+        backgroundColor: "#111827",
+        paddingVertical: 12,
+        paddingHorizontal: 40,
+        justifyContent: "space-between",
+    },
+    bottomIcon: {
+        height: 44,
+        width: 44,
+        borderRadius: 22,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#1F2937",
+        borderWidth: 1,
+        borderColor: "#374151",
+    },
+    bottomIconActive: {
+        height: 44,
+        width: 44,
+        borderRadius: 22,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#FBBF24",
+        shadowColor: "#000",
+        shadowOpacity: 0.18,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+        elevation: 4,
+    },
     fab: {
         position: "absolute",
-        bottom: 24,
+        bottom: 96,
         right: 24,
         height: 56,
         width: 56,

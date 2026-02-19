@@ -73,3 +73,68 @@ export async function fetchMyLeaves(): Promise<MyLeaveRequest[]> {
     const response = await apiClient.get<MyLeavesResponse>("/leaves/my");
     return response.data.data;
 }
+
+// Admin leave management types
+export interface AdminLeaveEmployee {
+    id: string;
+    employeeId: string;
+    name: string;
+    email: string;
+    phone?: string;
+    designation?: string;
+    department?: string;
+}
+
+export interface AdminLeaveItem {
+    id: string;
+    employee: AdminLeaveEmployee;
+    type: string;
+    startDate: string;
+    endDate: string;
+    days: number;
+    reason?: string;
+    status: LeaveRequestStatus;
+    year?: number;
+    appliedAt?: string;
+    attachmentCount?: number;
+}
+
+export interface AdminLeavesResponse {
+    success: boolean;
+    data: AdminLeaveItem[];
+}
+
+export interface LeaveDecisionResponse {
+    success: boolean;
+    message?: string;
+}
+
+export async function fetchAdminLeaves(
+    scope: "all" | "pending" = "all",
+): Promise<AdminLeaveItem[]> {
+    const path = scope === "pending" ? "/leaves/admin/pending" : "/leaves/admin/all";
+    const response = await apiClient.get<AdminLeavesResponse>(path);
+    return response.data.data ?? [];
+}
+
+export async function approveAdminLeave(
+    leaveId: string,
+    comments?: string,
+): Promise<LeaveDecisionResponse> {
+    const response = await apiClient.patch<LeaveDecisionResponse>(
+        `/leaves/admin/${leaveId}/approve`,
+        { comments },
+    );
+    return response.data;
+}
+
+export async function rejectAdminLeave(
+    leaveId: string,
+    rejectionReason?: string,
+): Promise<LeaveDecisionResponse> {
+    const response = await apiClient.patch<LeaveDecisionResponse>(
+        `/leaves/admin/${leaveId}/reject`,
+        { rejectionReason },
+    );
+    return response.data;
+}

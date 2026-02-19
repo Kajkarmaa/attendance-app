@@ -28,6 +28,10 @@ export default function RootLayout() {
                         options={{ headerShown: false }}
                     />
                     <Stack.Screen
+                        name="admin-leaves"
+                        options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
                         name="employee"
                         options={{ headerShown: false, gestureEnabled: false }}
                     />

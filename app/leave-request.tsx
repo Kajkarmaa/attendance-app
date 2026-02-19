@@ -55,7 +55,7 @@ export default function LeaveRequestScreen() {
             return;
         }
         if (user.role !== "emp") {
-            router.replace("/(tabs)");
+            router.replace("/admin");
             return;
         }
 

@@ -70,7 +70,7 @@ export default function LeaveScreen() {
             return;
         }
         if (user.role !== "emp") {
-            router.replace("/(tabs)");
+            router.replace("/admin");
             return;
         }
 

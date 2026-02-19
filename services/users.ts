@@ -122,8 +122,12 @@ export async function fetchPendingUsers() {
     return res.data.data;
 }
 
-export async function fetchEmployees() {
-    const res = await apiClient.get<EmployeesResponse>("/users/employees");
+export async function fetchEmployees(searchTerm?: string) {
+    const trimmed = (searchTerm || "").trim();
+    const url = trimmed
+        ? `/employees/search?query=${encodeURIComponent(trimmed)}`
+        : "/employees";
+    const res = await apiClient.get<EmployeesResponse>(url);
     return res.data.data;
 }
 
