@@ -140,6 +140,15 @@ export interface LeaveDecisionResponse {
     message?: string;
 }
 
+interface AttachmentDownloadResponse {
+    success: boolean;
+    message?: string;
+    data?: {
+        downloadUrl?: string;
+        expiresInSeconds?: number;
+    };
+}
+
 export async function fetchAdminLeaves(
     status: "all" | "pending" | "approved" | "rejected" = "all",
 ): Promise<AdminLeaveItem[]> {
@@ -191,4 +200,21 @@ export async function rejectAdminLeave(
         { rejectionReason },
     );
     return response.data;
+}
+
+export async function fetchLeaveAttachmentUrl(
+    leaveId: string,
+    fileName: string,
+): Promise<string | undefined> {
+    const response = await apiClient.get<AttachmentDownloadResponse>(
+        "/leaves/attachment/download",
+        {
+            params: {
+                leaveId,
+                fileName,
+            },
+        },
+    );
+
+    return response.data.data?.downloadUrl;
 }

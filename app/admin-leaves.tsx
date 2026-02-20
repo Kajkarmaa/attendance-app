@@ -3,6 +3,7 @@ import { API_BASE_URL } from "@/services/api";
 import {
     approveAdminLeave,
     fetchAdminLeaves,
+    fetchLeaveAttachmentUrl,
     rejectAdminLeave,
     type AdminLeaveItem,
 } from "@/services/leaves";
@@ -113,10 +114,12 @@ export default function AdminLeavesScreen() {
                 return;
             }
 
+            const downloadUrl = await fetchLeaveAttachmentUrl(item.id, fileName);
             const isAbsolute = fileName.startsWith("http://") || fileName.startsWith("https://");
-            const url = isAbsolute
+            const fallbackUrl = isAbsolute
                 ? fileName
                 : `${API_BASE_URL}/leaves/attachment/download?leaveId=${encodeURIComponent(item.id)}&fileName=${encodeURIComponent(fileName)}`;
+            const url = downloadUrl || fallbackUrl;
 
             const supported = await Linking.canOpenURL(url);
             if (!supported) {
