@@ -348,7 +348,7 @@ export default function AdminLeavesScreen() {
                                     {item.reason || "No reason provided"}
                                 </Text>
                                 <Text style={styles.attachmentText}>
-                                    Attachments: {item.attachmentCount ?? 0}
+                                    Attachments: {item.attachmentCount ?? item.attachments?.length ?? 0}
                                 </Text>
 
                                 {(item.attachments?.length ?? 0) > 0 || (item.attachmentCount ?? 0) > 0 ? (

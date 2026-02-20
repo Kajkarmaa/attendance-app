@@ -123,9 +123,16 @@ export interface AdminLeaveItem {
     attachments?: string[];
 }
 
+// The backend sometimes returns attachment URLs inside attachmentCount (array) instead of a number.
+// Normalize it into { attachments: string[], attachmentCount: number } for the app UI.
+interface RawAdminLeaveItem extends Omit<AdminLeaveItem, "attachmentCount" | "attachments"> {
+    attachmentCount?: number | string[];
+    attachments?: string[];
+}
+
 export interface AdminLeavesResponse {
     success: boolean;
-    data: AdminLeaveItem[];
+    data: RawAdminLeaveItem[];
 }
 
 export interface LeaveDecisionResponse {
@@ -134,11 +141,34 @@ export interface LeaveDecisionResponse {
 }
 
 export async function fetchAdminLeaves(
-    scope: "all" | "pending" = "all",
+    status: "all" | "pending" | "approved" | "rejected" = "all",
 ): Promise<AdminLeaveItem[]> {
-    const path = scope === "pending" ? "/leaves/admin/pending" : "/leaves/admin/all";
-    const response = await apiClient.get<AdminLeavesResponse>(path);
-    return response.data.data ?? [];
+    const response = await apiClient.get<AdminLeavesResponse>("/leaves/admin/all", {
+        params: status === "all" ? undefined : { status },
+    });
+    const items = response.data.data ?? [];
+    return items.map((item) => {
+        const rawAttachment = item.attachmentCount;
+        let attachments: string[] = Array.isArray(item.attachments)
+            ? [...item.attachments]
+            : [];
+
+        if (Array.isArray(rawAttachment)) {
+            attachments = rawAttachment.filter(Boolean);
+        }
+
+        const attachmentCount = Array.isArray(rawAttachment)
+            ? rawAttachment.length
+            : typeof rawAttachment === "number"
+                ? rawAttachment
+                : attachments.length;
+
+        return {
+            ...item,
+            attachments,
+            attachmentCount,
+        } as AdminLeaveItem;
+    });
 }
 
 export async function approveAdminLeave(
