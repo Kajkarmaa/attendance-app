@@ -79,8 +79,8 @@ export default function EmployeeDashboardScreen() {
         profile?.designation ?? user?.designation ?? "Software Developer";
     const salaryValue =
         typeof profile?.salary === "number"
-            ? `$${profile.salary.toLocaleString()}`
-            : "$40,000";
+            ? `₹${profile.salary.toLocaleString("en-IN")}`
+            : "₹--";
 
     const formatPayslipMonth = (
         month?: number | null,
@@ -103,7 +103,7 @@ export default function EmployeeDashboardScreen() {
         if (typeof value !== "number") {
             return "--";
         }
-        return `$${value.toLocaleString()}`;
+        return `₹${value.toLocaleString("en-IN")}`;
     };
 
     const payslipYears = useMemo(() => {

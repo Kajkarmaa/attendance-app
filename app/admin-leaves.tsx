@@ -28,6 +28,7 @@ export default function AdminLeavesScreen() {
     const [loading, setLoading] = useState(false);
     const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
     const [actionLoadingType, setActionLoadingType] = useState<"approve" | "reject" | null>(null);
+    const [downloadLoadingId, setDownloadLoadingId] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<"pending" | "approved" | "rejected">(
         "pending",
     );
@@ -114,6 +115,7 @@ export default function AdminLeavesScreen() {
                 return;
             }
 
+            setDownloadLoadingId(item.id);
             const downloadUrl = await fetchLeaveAttachmentUrl(item.id, fileName);
             const isAbsolute = fileName.startsWith("http://") || fileName.startsWith("https://");
             const fallbackUrl = isAbsolute
@@ -131,10 +133,13 @@ export default function AdminLeavesScreen() {
         } catch (error: any) {
             console.log("attachment open failed", error?.message);
             Alert.alert("Error", "Could not open the attachment.");
+        } finally {
+            setDownloadLoadingId(null);
         }
     };
 
     const handleDownloadPress = (item: AdminLeaveItem) => {
+        if (downloadLoadingId === item.id) return;
         if ((item.attachments?.length ?? 0) > 0) {
             handleDownloadAttachment(item);
             return;
@@ -322,6 +327,7 @@ export default function AdminLeavesScreen() {
                         const isWorking = actionLoadingId === item.id;
                         const isApproveWorking = isWorking && actionLoadingType === "approve";
                         const isRejectWorking = isWorking && actionLoadingType === "reject";
+                        const isDownloading = downloadLoadingId === item.id;
                         const note = (comments[item.id] || "").trim();
                         const disableReject = isRejectWorking || !note;
                         const disableApprove = isApproveWorking || !note;
@@ -366,7 +372,11 @@ export default function AdminLeavesScreen() {
                                             onPress={() => handleDownloadPress(item)}
                                             hitSlop={10}
                                         >
-                                            <Ionicons name="download-outline" size={18} color="#111827" />
+                                            {isDownloading ? (
+                                                <ActivityIndicator size="small" color="#111827" />
+                                            ) : (
+                                                <Ionicons name="download-outline" size={18} color="#111827" />
+                                            )}
                                         </Pressable>
                                         <View style={{ flex: 1, marginHorizontal: 8 }}>
                                             <Text style={styles.downloadLabel}>Download</Text>
@@ -380,7 +390,11 @@ export default function AdminLeavesScreen() {
                                             onPress={() => handleDownloadPress(item)}
                                             hitSlop={10}
                                         >
-                                            <Ionicons name="open-outline" size={16} color="#9CA3AF" />
+                                            {isDownloading ? (
+                                                <ActivityIndicator size="small" color="#9CA3AF" />
+                                            ) : (
+                                                <Ionicons name="open-outline" size={16} color="#9CA3AF" />
+                                            )}
                                         </Pressable>
                                     </Pressable>
                                 ) : null}
