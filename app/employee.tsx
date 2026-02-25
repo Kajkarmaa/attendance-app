@@ -503,14 +503,14 @@ export default function EmployeeDashboardScreen() {
                         )}
                     </Pressable>
                     <View style={styles.clockRow}>
-                        <View>
+                        <View style={styles.clockCol}>
                             <Text style={styles.clockLabel}>Clock In</Text>
                             <Text style={styles.clockValue}>
                                 {attendance?.checkIn?.time || "--:--"}
                             </Text>
                         </View>
-                        <View style={styles.divider} />
-                        <View>
+                        <View style={styles.clockDivider} />
+                        <View style={styles.clockCol}>
                             <Text style={styles.clockLabel}>Clock Out</Text>
                             <Text style={styles.clockValue}>
                                 {attendance?.checkOut?.time || "--:--"}
@@ -876,7 +876,18 @@ const styles = StyleSheet.create({
     },
     clockRow: {
         flexDirection: "row",
+        alignItems: "center",
         justifyContent: "space-between",
+    },
+    clockCol: {
+        flex: 1,
+        alignItems: "center",
+    },
+    clockDivider: {
+        width: 1,
+        height: 36,
+        backgroundColor: "#E5E7EB",
+        marginHorizontal: 12,
     },
     clockLabel: {
         color: "#9CA3AF",
@@ -890,11 +901,7 @@ const styles = StyleSheet.create({
         fontWeight: "600",
         marginTop: 4,
     },
-    divider: {
-        width: 1,
-        backgroundColor: "#E5E7EB",
-        marginHorizontal: 12,
-    },
+
     salaryCard: {
         backgroundColor: "#111827",
         borderRadius: 24,

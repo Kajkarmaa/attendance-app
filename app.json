@@ -17,7 +17,8 @@
         "foregroundImage": "./assets/logo.jpg"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.attendance"
     },
     "web": {
       "output": "static",
@@ -41,6 +42,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b0bf96a2-c8e1-482a-88cd-e81a694d90dc"
+      }
     }
   }
 }
