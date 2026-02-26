@@ -103,7 +103,26 @@ const normalizeFromAttendance = (payload: AttendanceApiData): AttendanceRecord =
     timezone: payload.timezone,
 });
 
-export async function checkIn(): Promise<AttendanceRecord> {
+export async function checkIn(image?: { uri: string; name?: string; type?: string } | null): Promise<AttendanceRecord> {
+    if (image) {
+        const form = new FormData();
+        form.append(
+            "image",
+            // React Native / Expo expects an object with uri, name and type
+            {
+                uri: image.uri,
+                name: image.name ?? "photo.jpg",
+                type: image.type ?? "image/jpeg",
+            } as any,
+        );
+
+        const response = await apiClient.post<ApiEnvelope<CheckInApiData>>("/employees/check-in", form, {
+            headers: { "Content-Type": "multipart/form-data" },
+        });
+
+        return normalizeFromCheck(response.data.data);
+    }
+
     const response = await apiClient.post<ApiEnvelope<CheckInApiData>>("/employees/check-in");
     return normalizeFromCheck(response.data.data);
 }

@@ -13,6 +13,7 @@ import {
 import { getPayslipDownloadUrl } from "@/services/payroll";
 import { fetchEmployeeProfile, type EmployeeProfile } from "@/services/profile";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import * as LocalAuthentication from "expo-local-authentication";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
@@ -373,7 +374,41 @@ export default function EmployeeDashboardScreen() {
                     checkIn: prev?.checkIn || res.checkIn || null,
                 }));
             } else {
-                const res = await checkIn();
+                // Request camera permission and launch camera to take a check-in photo
+                const permission = await ImagePicker.requestCameraPermissionsAsync();
+                if (permission.status !== "granted") {
+                    Alert.alert(
+                        "Permission required",
+                        "Camera permission is required to capture a check-in photo.",
+                    );
+                    return;
+                }
+
+                const pickerResult = await ImagePicker.launchCameraAsync({
+                    allowsEditing: false,
+                    quality: 0.6,
+                    exif: false,
+                });
+
+                if (pickerResult.canceled) {
+                    return;
+                }
+
+                const asset = (pickerResult as any).assets?.[0];
+                const localUri = asset?.uri ?? (pickerResult as any).uri;
+                if (!localUri) {
+                    Alert.alert("Capture failed", "Unable to read captured image.");
+                    return;
+                }
+
+                const filename = localUri.split("/").pop() || "photo.jpg";
+                const match = /\.(\w+)$/.exec(filename);
+                const ext = match ? match[1].toLowerCase() : "jpg";
+                const mime = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : `image/${ext}`;
+
+                const image = { uri: localUri, name: filename, type: mime };
+
+                const res = await checkIn(image);
                 setAttendance(res);
             }
         } catch (error: any) {
