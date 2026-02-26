@@ -137,6 +137,51 @@ export async function fetchAttendance(): Promise<AttendanceRecord> {
     return normalizeFromAttendance(response.data.data);
 }
 
+export interface TodayAttendanceItem {
+    employeeId: string;
+    name: string;
+    email?: string;
+    department?: string;
+    checkInTime?: string;
+    hasCheckInImage?: boolean;
+    status?: string;
+}
+
+export async function fetchTodayAttendance(status?: string): Promise<TodayAttendanceItem[]> {
+    const url = status ? `/attendance/today?status=${encodeURIComponent(status)}` : "/attendance/today";
+    const response = await apiClient.get<ApiEnvelope<TodayAttendanceItem[]>>(url);
+    return response.data.data || [];
+}
+
+export async function fetchCheckinImageUrl(employeeId: string): Promise<string | null> {
+    try {
+        const url = `/attendance/checkin-image?employeeId=${encodeURIComponent(employeeId)}`;
+        const response = await apiClient.get<ApiEnvelope<{ url?: string }>>(url);
+        return response.data?.data?.url ?? null;
+    } catch (err) {
+        console.log("fetchCheckinImageUrl failed", err);
+        return null;
+    }
+}
+
+export interface EmployeeAttendanceImageResponse {
+    employeeId: string;
+    attendanceId?: string;
+    imageUrl?: string;
+    checkInTime?: string;
+}
+
+export async function fetchEmployeeAttendanceImage(employeeId: string): Promise<EmployeeAttendanceImageResponse | null> {
+    try {
+        const url = `/attendance/employee/${encodeURIComponent(employeeId)}/image`;
+        const response = await apiClient.get<ApiEnvelope<EmployeeAttendanceImageResponse>>(url);
+        return response.data?.data ?? null;
+    } catch (err) {
+        console.log("fetchEmployeeAttendanceImage failed", err);
+        return null;
+    }
+}
+
 export interface DailyAttendanceSummary {
     date: string;
     totalEmployees: number;

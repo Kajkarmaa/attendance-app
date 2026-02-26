@@ -721,11 +721,18 @@ export default function HomeScreen() {
                 <Pressable style={styles.bottomIconActive}>
                     <Ionicons name="home" size={22} color="#D4A537" />
                 </Pressable>
+                
                 <Pressable
                     style={styles.bottomIcon}
                     onPress={() => router.replace("/admin-leaves")}
                 >
                     <Ionicons name="leaf" size={22} color="#9CA3AF" />
+                </Pressable>
+                <Pressable
+                    style={styles.bottomIcon}
+                    onPress={() => router.push("/admin-attendance")}
+                >
+                    <Ionicons name="layers-outline" size={22} color="#9CA3AF" />
                 </Pressable>
             </View>
 
