@@ -62,6 +62,7 @@ export default function LeaveScreen() {
     const [myLeaves, setMyLeaves] = useState<MyLeaveRequest[]>([]);
     const [myLeavesLoading, setMyLeavesLoading] = useState(false);
     const [showAllMyLeaves, setShowAllMyLeaves] = useState(false);
+    const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
 
     useEffect(() => {
         if (isLoading) return;
@@ -229,85 +230,32 @@ export default function LeaveScreen() {
                     <View style={{ width: 38 }} />
                 </View>
 
-                <View style={styles.balanceCard}>
-                    <Text style={styles.balanceLabel}>Available Balance</Text>
-                    <Text style={styles.balanceValue}>{leaveRemaining}</Text>
-                    <Text style={styles.balanceUnit}>days</Text>
-                    <View style={styles.balanceDivider} />
-                    <View style={styles.balanceRow}>
-                        <View style={styles.balanceCol}>
-                            <Text style={styles.balanceSubLabel}>Used</Text>
-                            <Text style={styles.balanceSubValue}>{leaveUsed} D</Text>
+                <View style={styles.bigBalanceWrap}>
+                    <View style={styles.bigBalanceCard}>
+                        <Text style={styles.bigBalanceLabel}>Available Balance</Text>
+                        <Text style={styles.bigBalanceValue}>{leaveRemaining}</Text>
+                        <Text style={styles.bigBalanceUnit}>DAYS</Text>
+                    </View>
+
+                    <View style={styles.smallBalanceRow}>
+                        <View style={styles.smallCard}>
+                            <Text style={styles.smallLabel}>Used</Text>
+                            <Text style={styles.smallValue}>{String(leaveUsed).padStart(2, '0')}</Text>
+                            <Text style={styles.smallUnit}>DAYS</Text>
                         </View>
-                        <View style={styles.balanceCol}>
-                            <Text style={styles.balanceSubLabel}>Pending</Text>
-                            <Text style={styles.balanceSubValue}>{leavePending} D</Text>
+                        <View style={styles.smallCard}>
+                            <Text style={styles.smallLabel}>Pending</Text>
+                            <Text style={styles.smallValue}>{String(leavePending).padStart(2, '0')}</Text>
+                            <Text style={styles.smallUnit}>DAYS</Text>
                         </View>
                     </View>
                 </View>
 
-                <Text style={styles.sectionLabel}>Leave Details</Text>
-
-                <View style={styles.listCard}>
-                    {leaveBalanceLoading ? (
-                        <View style={styles.inlineLoadingRow}>
-                            <ActivityIndicator size="small" color="#D4A537" />
-                            <Text style={styles.inlineLoadingText}>Loading leave balance…</Text>
-                        </View>
-                    ) : leaveByTypeRows.length === 0 ? (
-                        <View style={styles.inlineLoadingRow}>
-                            <Text style={styles.inlineLoadingText}>No leave types available.</Text>
-                        </View>
-                    ) : (
-                        leaveByTypeRows.map((item) => (
-                            <View key={item.key} style={styles.leaveRow}>
-                                <View style={styles.iconPill}>
-                                    <Ionicons name={item.icon} size={18} color="#D4A537" />
-                                </View>
-                                <View style={styles.leaveTextBlock}>
-                                    <Text style={styles.leaveTitle}>{item.title}</Text>
-                                    <Text style={styles.leaveDates}>{item.subtitle}</Text>
-                                </View>
-                                <View style={[styles.statusPill, styles.valuePill]}>
-                                    <Text style={styles.valueText}>{item.value}</Text>
-                                </View>
-                            </View>
-                        ))
-                    )}
-                </View>
-
-                <Text style={styles.sectionLabel}>Attendance Summary</Text>
-
-                <View style={styles.listCard}>
-                    {profileLoading ? (
-                        <View style={styles.inlineLoadingRow}>
-                            <ActivityIndicator size="small" color="#D4A537" />
-                            <Text style={styles.inlineLoadingText}>Loading attendance…</Text>
-                        </View>
-                    ) : (
-                        attendanceRows.map((item) => (
-                            <View key={item.title} style={styles.leaveRow}>
-                                <View style={styles.iconPill}>
-                                    <Ionicons name={item.icon} size={18} color="#D4A537" />
-                                </View>
-                                <View style={styles.leaveTextBlock}>
-                                    <Text style={styles.leaveTitle}>{item.title}</Text>
-                                    <Text style={styles.leaveDates}>{item.subtitle}</Text>
-                                </View>
-                                <View style={[styles.statusPill, styles.valuePill]}>
-                                    <Text style={styles.valueText}>{item.value}</Text>
-                                </View>
-                            </View>
-                        ))
-                    )}
-                </View>
-
-                <View style={{ height: 24 }} />
-
                 <View style={styles.sectionHeaderRow}>
-                    <Text style={[styles.sectionLabel, { marginBottom: 0 }]}>My Leave Requests</Text>
-                    <Pressable onPress={loadData} style={styles.refreshBtn}>
-                        <Ionicons name="refresh" size={18} color="#9CA3AF" />
+                    <Text style={[styles.sectionLabelLarge]}>History & Activity</Text>
+                    <Pressable style={styles.yearSelector} onPress={() => { const y = selectedYear === new Date().getFullYear() ? selectedYear - 1 : new Date().getFullYear(); setSelectedYear(y); }}>
+                        <Text style={styles.yearText}>{selectedYear}</Text>
+                        <Ionicons name="chevron-down" size={14} color="#D4A537" />
                     </Pressable>
                 </View>
 
@@ -382,6 +330,13 @@ export default function LeaveScreen() {
                 <Pressable style={styles.bottomIconActive}>
                     <Ionicons name="calendar" size={22} color="#D4A537" />
                 </Pressable>
+                <Pressable
+                    style={styles.bottomIcon}
+                    onPress={() => router.push("/profile-setting")}
+                    accessibilityRole="button"
+                >
+                    <Ionicons name="person-outline" size={22} color="#9CA3AF" />
+                </Pressable>
             </View>
         </View>
     );
@@ -446,6 +401,59 @@ const styles = StyleSheet.create({
         alignItems: "center",
         marginBottom: 24,
     },
+    bigBalanceWrap: {
+        marginBottom: 16,
+    },
+    bigBalanceCard: {
+        backgroundColor: "#FFFFFF",
+        borderRadius: 18,
+        paddingVertical: 28,
+        alignItems: "center",
+        shadowColor: "#000",
+        shadowOpacity: 0.03,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+        borderWidth: 1,
+        borderColor: "#F1F5F9",
+        marginBottom: 12,
+    },
+    bigBalanceLabel: {
+        color: "#9CA3AF",
+        fontSize: 14,
+        marginBottom: 6,
+    },
+    bigBalanceValue: {
+        fontSize: 48,
+        fontWeight: "800",
+        color: "#111827",
+    },
+    bigBalanceUnit: {
+        color: "#9CA3AF",
+        marginTop: 6,
+        letterSpacing: 1,
+    },
+    smallBalanceRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        gap: 12,
+    },
+    smallCard: {
+        flex: 1,
+        backgroundColor: "#FFFFFF",
+        borderRadius: 14,
+        paddingVertical: 14,
+        alignItems: "center",
+        marginRight: 8,
+        borderWidth: 1,
+        borderColor: "#F1F5F9",
+        shadowColor: "#000",
+        shadowOpacity: 0.02,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+    },
+    smallLabel: { color: "#9CA3AF", fontSize: 13 },
+    smallValue: { fontSize: 28, fontWeight: "800", color: "#111827", marginTop: 6 },
+    smallUnit: { color: "#9CA3AF", fontSize: 12, marginTop: 4 },
     balanceLabel: {
         color: "#A78B5C",
         letterSpacing: 1,
@@ -497,6 +505,14 @@ const styles = StyleSheet.create({
         textTransform: "uppercase",
         marginBottom: 12,
     },
+    sectionLabelLarge: {
+        color: "#111827",
+        fontSize: 18,
+        fontWeight: "700",
+        marginBottom: 8,
+    },
+    yearSelector: { flexDirection: "row", alignItems: "center", gap: 6 },
+    yearText: { color: "#D4A537", fontWeight: "700" },
     listCard: {
         backgroundColor: "#FFFFFF",
         borderRadius: 18,

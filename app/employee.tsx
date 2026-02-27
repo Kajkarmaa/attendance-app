@@ -302,6 +302,13 @@ export default function EmployeeDashboardScreen() {
         loadRecentActivity();
     }, [isLoading, user]);
 
+    const getInitials = (name?: string | null) => {
+        if (!name) return "";
+        const parts = name.trim().split(/\s+/);
+        if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+        return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+    };
+
     const loadAttendance = async () => {
         setAttLoading(true);
         try {
@@ -358,13 +365,6 @@ export default function EmployeeDashboardScreen() {
         }
     };
 
-    const handleLogout = async () => {
-        try {
-            await logout();
-        } finally {
-            router.replace("/");
-        }
-    };
 
     const isCheckedIn = attendance?.checkIn && !attendance?.checkOut;
 
@@ -436,6 +436,7 @@ export default function EmployeeDashboardScreen() {
                     allowsEditing: false,
                     quality: 0.6,
                     exif: false,
+                    cameraType: ImagePicker.CameraType.front,
                 });
 
                 if (pickerResult.canceled) {
@@ -539,16 +540,16 @@ export default function EmployeeDashboardScreen() {
                 <View style={styles.headerTop}>
                     <View style={styles.headerLeft}>
                         <Pressable onPress={() => setPreviewVisible(true)} style={styles.headerLogoWrap}>
-                            <Image
-                                source={
-                                    checkinImageUrl
-                                        ? { uri: checkinImageUrl }
-                                        : profile?.photoUrl
-                                            ? { uri: profile.photoUrl }
-                                            : APP_LOGO
-                                }
-                                style={styles.headerLogo}
-                            />
+                            {profile?.profilePicture ? (
+                                <Image
+                                    source={{ uri: profile.profilePicture }}
+                                    style={styles.headerLogo}
+                                />
+                            ) : (
+                                <View style={styles.headerLogoPlaceholder}>
+                                    <Text style={styles.headerLogoInitials}>{getInitials(profile?.name ?? user?.name)}</Text>
+                                </View>
+                            )}
                         </Pressable>
                         <View style={styles.headerTextBlock}>
                             <Text style={styles.name}>Hello, {displayName}</Text>
@@ -568,17 +569,6 @@ export default function EmployeeDashboardScreen() {
                                 name="notifications-outline"
                                 size={20}
                                 color="#D4A537"
-                            />
-                        </Pressable>
-                        <Pressable
-                            style={styles.headerIcon}
-                            onPress={handleLogout}
-                            accessibilityRole="button"
-                        >
-                            <Ionicons
-                                name="log-out-outline"
-                                size={20}
-                                color="#EF4444"
                             />
                         </Pressable>
                     </View>
@@ -653,12 +643,12 @@ export default function EmployeeDashboardScreen() {
                 >
                     <View>
                         <Text style={styles.salaryLabel}>
-                            Net Salary (Feb)
+                            Net Salary
                         </Text>
                         <Text style={styles.salaryValue}>{salaryValue}</Text>
-                        <Text style={styles.salaryDate}>
+                        {/* <Text style={styles.salaryDate}>
                             Credited 31 Dec 2025
-                        </Text>
+                        </Text> */}
                     </View>
                     <Text style={styles.salaryRupee}>₹</Text>
                 </LinearGradient>
@@ -820,6 +810,13 @@ export default function EmployeeDashboardScreen() {
                         color="#9CA3AF"
                     />
                 </Pressable>
+                <Pressable
+                    style={styles.bottomIcon}
+                    onPress={() => router.push("/profile-setting")}
+                    accessibilityRole="button"
+                >
+                    <Ionicons name="person-outline" size={22} color="#9CA3AF" />
+                </Pressable>
             </View>
 
             <Modal
@@ -887,7 +884,7 @@ export default function EmployeeDashboardScreen() {
                     onPress={() => setPreviewVisible(false)}
                 >
                     <Image
-                        source={{ uri: checkinImageUrl ?? profile?.photoUrl ?? undefined }}
+                        source={{ uri: profile?.profilePicture ?? undefined }}
                         style={{ width: "90%", height: "70%", resizeMode: "contain", borderRadius: 12 }}
                     />
                 </Pressable>
@@ -948,6 +945,21 @@ const styles = StyleSheet.create({
         width: 50,
         borderRadius: 25,
         resizeMode: "cover",
+    },
+    headerLogoPlaceholder: {
+        height: 50,
+        width: 50,
+        borderRadius: 25,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#FEF8EF",
+        borderWidth: 1,
+        borderColor: "#F8EFD6",
+    },
+    headerLogoInitials: {
+        color: "#D4A537",
+        fontWeight: "800",
+        fontSize: 16,
     },
     headerActions: {
         flexDirection: "row",
@@ -1748,5 +1760,6 @@ const styles = StyleSheet.create({
     color: "#111827",
     paddingBottom: 0,
     paddingTop: 24,
-    }
+    },
+    
 });

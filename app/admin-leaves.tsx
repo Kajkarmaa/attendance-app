@@ -455,19 +455,23 @@ export default function AdminLeavesScreen() {
 
                 <View style={{ height: 120 }} />
             </ScrollView>
-
             <View style={styles.bottomBar}>
-                <Pressable
-                    style={styles.bottomIcon}
-                    onPress={() => router.replace("/admin")}
-                >
+                <Pressable style={styles.bottomIcon}
+                    onPress={() => router.replace("/admin")}>
                     <Ionicons name="home" size={22} color="#9CA3AF" />
                 </Pressable>
+                
                 <Pressable
                     style={styles.bottomIconActive}
                     onPress={() => router.replace("/admin-leaves")}
                 >
                     <Ionicons name="leaf" size={22} color="#D4A537" />
+                </Pressable>
+                <Pressable
+                    style={styles.bottomIcon}
+                    onPress={() => router.push("/admin-attendance")}
+                >
+                    <Ionicons name="layers-outline" size={22} color="#9CA3AF" />
                 </Pressable>
             </View>
         </View>
@@ -753,16 +757,24 @@ const styles = StyleSheet.create({
         color: "#111827",
         backgroundColor: "#FFFFFF",
     },
-    bottomBar: {
+        bottomBar: {
         position: "absolute",
-        bottom: 0,
         left: 0,
         right: 0,
+        bottom: 0,
+        height: 76,
+        backgroundColor: "#FFFFFF",
+        borderTopWidth: 1,
+        borderColor: "#E5E7EB",
         flexDirection: "row",
-        backgroundColor: "#111827",
-        paddingVertical: 12,
-        paddingHorizontal: 40,
-        justifyContent: "space-between",
+        justifyContent: "space-around",
+        alignItems: "center",
+        shadowColor: "#000",
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: -4 },
+        elevation: 6,
+        paddingHorizontal: 24,
     },
     bottomIcon: {
         height: 44,
@@ -770,9 +782,6 @@ const styles = StyleSheet.create({
         borderRadius: 22,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#1F2937",
-        borderWidth: 1,
-        borderColor: "#374151",
     },
     bottomIconActive: {
         height: 44,
@@ -780,11 +789,6 @@ const styles = StyleSheet.create({
         borderRadius: 22,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#FBBF24",
-        shadowColor: "#000",
-        shadowOpacity: 0.18,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 6 },
-        elevation: 4,
+        backgroundColor: "#FEF8EF",
     },
 });

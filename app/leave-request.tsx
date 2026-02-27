@@ -10,13 +10,14 @@ import { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    KeyboardAvoidingView,
     Platform,
     Pressable,
     ScrollView,
     StyleSheet,
     Text,
     TextInput,
-    View,
+    View
 } from "react-native";
 import { Calendar, type DateData } from "react-native-calendars";
 
@@ -245,8 +246,16 @@ export default function LeaveRequestScreen() {
     }
 
     return (
-        <View style={styles.container}>
-            <ScrollView contentContainerStyle={styles.content}>
+        <KeyboardAvoidingView
+            style={styles.container}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
+        >
+            <ScrollView
+                contentContainerStyle={styles.content}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="interactive"
+            >
                 <View style={styles.headerRow}>
                     <Pressable
                         style={styles.headerIcon}
@@ -443,7 +452,7 @@ export default function LeaveRequestScreen() {
                     <Text style={styles.discardText}>Discard Draft</Text>
                 </Pressable>
             </ScrollView>
-        </View>
+        </KeyboardAvoidingView>
     );
 }
 

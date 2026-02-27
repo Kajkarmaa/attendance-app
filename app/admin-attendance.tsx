@@ -1,6 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchCheckinImageUrl, fetchEmployeeAttendanceImage, fetchTodayAttendance, TodayAttendanceItem } from "@/services/attendance";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -176,6 +177,26 @@ export default function AdminAttendanceScreen() {
                     />
                 )}
             </View>
+            
+                        <View style={styles.bottomBar}>
+                            <Pressable style={styles.bottomIcon}
+                                onPress={() => router.replace("/admin")}>
+                                <Ionicons name="home" size={22} color="#9CA3AF" />
+                            </Pressable>
+                            
+                            <Pressable
+                                style={styles.bottomIcon}
+                                onPress={() => router.replace("/admin-leaves")}
+                            >
+                                <Ionicons name="leaf" size={22} color="#9CA3AF" />
+                            </Pressable>
+                            <Pressable
+                                style={styles.bottomIconActive}
+                                onPress={() => router.push("/admin-attendance")}
+                            >
+                                <Ionicons name="layers-outline" size={22} color="#D4A537" />
+                            </Pressable>
+                        </View>
             <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={closeModal}>
                 <Pressable style={styles.modalOverlay} onPress={closeModal}>
                     <View style={styles.modalCard}>
@@ -224,6 +245,40 @@ const styles = StyleSheet.create({
     sep: { height: 1, backgroundColor: "#F3F4F6" },
     thumb: { width: 44, height: 44, borderRadius: 6, marginTop: 6 },
     thumbSmall: { width: 36, height: 36, borderRadius: 8, marginTop: 8 },
+        bottomBar: {
+        position: "absolute",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        height: 76,
+        backgroundColor: "#FFFFFF",
+        borderTopWidth: 1,
+        borderColor: "#E5E7EB",
+        flexDirection: "row",
+        justifyContent: "space-around",
+        alignItems: "center",
+        shadowColor: "#000",
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: -4 },
+        elevation: 6,
+        paddingHorizontal: 24,
+    },
+    bottomIcon: {
+        height: 44,
+        width: 44,
+        borderRadius: 22,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    bottomIconActive: {
+        height: 44,
+        width: 44,
+        borderRadius: 22,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#FEF8EF",
+    },
     /* Card styles */
     card: {
         backgroundColor: "#FFFFFF",
