@@ -8,22 +8,26 @@ import {
     checkIn,
     checkOut,
     fetchAttendance,
+    fetchEmployeeAttendanceImage,
     type AttendanceRecord,
 } from "@/services/attendance";
 import { getPayslipDownloadUrl } from "@/services/payroll";
 import { fetchEmployeeProfile, type EmployeeProfile } from "@/services/profile";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import { LinearGradient } from "expo-linear-gradient";
 import * as LocalAuthentication from "expo-local-authentication";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
+    Animated,
     Image,
     Linking,
     Modal,
+    PanResponder,
     Pressable,
     ScrollView,
     StyleSheet,
@@ -67,6 +71,39 @@ export default function EmployeeDashboardScreen() {
         null,
     );
     const [activityLoading, setActivityLoading] = useState(false);
+    const [checkinImageUrl, setCheckinImageUrl] = useState<string | null>(
+        null,
+    );
+    const [checkinImageLoading, setCheckinImageLoading] = useState(false);
+    const [previewVisible, setPreviewVisible] = useState(false);
+
+    // Swipe gesture state
+    const pan = useRef(new Animated.Value(0)).current;
+    const trackWidth = useRef(0);
+    const HANDLE_WIDTH = 48;
+    const panResponder = useRef(
+        PanResponder.create({
+            onStartShouldSetPanResponder: () => !punching && !attLoading,
+            onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 6 && !punching && !attLoading,
+            onPanResponderMove: (_, gesture) => {
+                const max = Math.max(0, Math.min(gesture.dx, (trackWidth.current || 0) - HANDLE_WIDTH));
+                pan.setValue(max);
+            },
+            onPanResponderRelease: (_, gesture) => {
+                const maxPos = (trackWidth.current || 0) - HANDLE_WIDTH;
+                const threshold = Math.max(30, Math.floor(maxPos * 0.6));
+                if (gesture.dx >= threshold) {
+                    Animated.timing(pan, { toValue: maxPos, duration: 120, useNativeDriver: true }).start(() => {
+                        // trigger punch
+                        handlePunch();
+                        Animated.timing(pan, { toValue: 0, duration: 300, useNativeDriver: true }).start();
+                    });
+                } else {
+                    Animated.timing(pan, { toValue: 0, duration: 180, useNativeDriver: true }).start();
+                }
+            },
+        }),
+    ).current;
     const [selectedPayslipYear, setSelectedPayslipYear] = useState<
         number | null
     >(null);
@@ -75,7 +112,8 @@ export default function EmployeeDashboardScreen() {
         string | null
     >(null);
 
-    const displayName = profile?.name ?? user?.name ?? "Employee";
+    const _fullName = profile?.name ?? user?.name ?? "Employee";
+    const displayName = (_fullName || "").split(" ")[0] || _fullName;
     const displayDesignation =
         profile?.designation ?? user?.designation ?? "Software Developer";
     const salaryValue =
@@ -189,6 +227,16 @@ export default function EmployeeDashboardScreen() {
             normalized.includes(key),
         );
         return found?.[1] ?? DEFAULT_ACTIVITY_COLOR;
+    };
+
+    const getActivityIcon = (type?: string) => {
+        if (!type) return "notifications-outline";
+        const t = type.toLowerCase();
+        if (t.includes("present") || t.includes("attendance")) return "checkmark-circle-outline";
+        if (t.includes("wfh") || t.includes("work from home") || t.includes("remote")) return "home-outline";
+        if (t.includes("salary") || t.includes("payroll") || t.includes("credited")) return "cash-outline";
+        if (t.includes("leave")) return "beer-outline";
+        return "notifications-outline";
     };
 
     const formatActivityTitle = (type?: string) => {
@@ -410,6 +458,19 @@ export default function EmployeeDashboardScreen() {
 
                 const res = await checkIn(image);
                 setAttendance(res);
+
+                try {
+                    const eid = profile?.employeeId || user.employeeId;
+                    if (eid) {
+                        setCheckinImageLoading(true);
+                        const imgResp = await fetchEmployeeAttendanceImage(eid);
+                        setCheckinImageUrl(imgResp?.imageUrl ?? null);
+                    }
+                } catch (err) {
+                    console.log("fetch employee checkin image failed", err);
+                } finally {
+                    setCheckinImageLoading(false);
+                }
             }
         } catch (error: any) {
             const msg =
@@ -427,6 +488,19 @@ export default function EmployeeDashboardScreen() {
         try {
             const data = await fetchEmployeeProfile();
             setProfile(data);
+            // also fetch last check-in image for this employee
+            try {
+                const eid = data?.employeeId || user?.employeeId;
+                if (eid) {
+                    setCheckinImageLoading(true);
+                    const img = await fetchEmployeeAttendanceImage(eid);
+                    setCheckinImageUrl(img?.imageUrl ?? null);
+                }
+            } catch (err) {
+                console.log("fetch employee checkin image failed", err);
+            } finally {
+                setCheckinImageLoading(false);
+            }
         } catch (error: any) {
             console.log("profile fetch failed", error?.message);
         } finally {
@@ -463,15 +537,26 @@ export default function EmployeeDashboardScreen() {
         <View style={styles.container}>
             <View style={styles.header}>
                 <View style={styles.headerTop}>
-                    {/* <Pressable
-                        style={styles.headerIcon}
-                        accessibilityRole="button"
-                    >
-                        <Ionicons name="menu" size={22} color="#111827" />
-                    </Pressable> */}
-
-                    <View style={styles.headerLogoWrap}>
-                        <Image source={APP_LOGO} style={styles.headerLogo} />
+                    <View style={styles.headerLeft}>
+                        <Pressable onPress={() => setPreviewVisible(true)} style={styles.headerLogoWrap}>
+                            <Image
+                                source={
+                                    checkinImageUrl
+                                        ? { uri: checkinImageUrl }
+                                        : profile?.photoUrl
+                                            ? { uri: profile.photoUrl }
+                                            : APP_LOGO
+                                }
+                                style={styles.headerLogo}
+                            />
+                        </Pressable>
+                        <View style={styles.headerTextBlock}>
+                            <Text style={styles.name}>Hello, {displayName}</Text>
+                            <Text style={styles.subtitle}>{displayDesignation}</Text>
+                            <Text style={styles.metaTextSmall}>
+                                {profile?.employeeId || user?.employeeId || "--"} • {profile?.department || "Department"}
+                            </Text>
+                        </View>
                     </View>
 
                     <View style={styles.headerActions}>
@@ -498,152 +583,164 @@ export default function EmployeeDashboardScreen() {
                         </Pressable>
                     </View>
                 </View>
-                <Text style={styles.name}>{displayName}</Text>
-                <Text style={styles.subtitle}>{displayDesignation}</Text>
-                <Text style={styles.metaText}>
-                    ID: {profile?.employeeId || user?.employeeId || "--"} •{" "}
-                    {profile?.department || "Department"}
-                </Text>
-                <Text style={styles.metaText}>
-                    Joined: {profile?.joinDate || "--"}
-                </Text>
+                {checkinImageLoading ? (
+                    <ActivityIndicator style={{ marginTop: 12 }} />
+                ) : checkinImageUrl ? (
+                    <View style={styles.bannerWrap}>
+                        <Image
+                            source={{ uri: checkinImageUrl }}
+                            style={styles.bannerImage}
+                        />
+                    </View>
+                ) : null}
             </View>
 
             <ScrollView
                 contentContainerStyle={styles.content}
                 showsVerticalScrollIndicator={false}
             >
-                <View style={styles.attendanceCard}>
-                    <View style={styles.attendanceText}>
-                        <Text style={styles.sectionLabel}>Attendance</Text>
-                        <Text style={styles.attendanceTime}>
-                            {attendance?.checkIn?.time || "--:--"}
-                        </Text>
-                        <Text style={styles.attendanceShift}>
-                            Standard shift: 09:30 AM - 06:30 PM
-                        </Text>
-                    </View>
-                    <Pressable
-                        style={styles.punchButton}
-                        onPress={handlePunch}
-                        disabled={punching || attLoading}
-                        accessibilityRole="button"
-                    >
-                        {punching ? (
-                            <ActivityIndicator color="#111827" />
-                        ) : (
-                            <Text style={styles.punchText}>
-                                {isCheckedIn ? "Check Out" : "Check In"}
-                            </Text>
-                        )}
-                    </Pressable>
-                    <View style={styles.clockRow}>
-                        <View style={styles.clockCol}>
-                            <Text style={styles.clockLabel}>Clock In</Text>
-                            <Text style={styles.clockValue}>
+                <View>
+                    <View style={styles.tilesRow}>
+                        <View style={styles.tileCard}>
+                            <View style={styles.tileIconWrap}>
+                                <Ionicons name="log-in-outline" size={16} color="#F6C84C" />
+                            </View>
+                            <Text style={styles.tileTitle}>Check In</Text>
+                            <Text style={styles.tileTime}>
                                 {attendance?.checkIn?.time || "--:--"}
                             </Text>
+                            <Text style={styles.tileNote}>On Time</Text>
                         </View>
-                        <View style={styles.clockDivider} />
-                        <View style={styles.clockCol}>
-                            <Text style={styles.clockLabel}>Clock Out</Text>
-                            <Text style={styles.clockValue}>
+                        <View style={styles.tileCard}>
+                            <View style={styles.tileIconWrap}>
+                                <Ionicons name="log-out-outline" size={16} color="#F6C84C" />
+                            </View>
+                            <Text style={styles.tileTitle}>Check Out</Text>
+                            <Text style={styles.tileTime}>
                                 {attendance?.checkOut?.time || "--:--"}
                             </Text>
+                            <Text style={styles.tileNote}>Go Home</Text>
                         </View>
                     </View>
+                    <View style={styles.tilesRow}>
+                        <View style={styles.tileCard}>
+                            <View style={styles.tileIconWrap}>
+                                <Ionicons name="cafe-outline" size={16} color="#F6C84C" />
+                            </View>
+                            <Text style={styles.tileTitle}>Break Time</Text>
+                            <Text style={styles.tileTime}>00:30 min</Text>
+                            <Text style={styles.tileNote}>Avg Time 30 min</Text>
+                        </View>
+                        <View style={styles.tileCard}>
+                            <View style={styles.tileIconWrap}>
+                                <Ionicons name="calendar-outline" size={16} color="#F6C84C" />
+                            </View>
+                            <Text style={styles.tileTitle}>Total Days</Text>
+                            <Text style={styles.tileTime}>28</Text>
+                            <Text style={styles.tileNote}>Working Days</Text>
+                        </View>
+                    </View>
+
                 </View>
 
-                <View style={styles.salaryCard}>
+
+ <Text style={styles.salaryCardTitle}>Salary Overview</Text>
+                <LinearGradient
+                    colors={["#FFF7EA", "#F8D99A"]}
+                    start={[0, 0]}
+                    end={[1, 1]}
+                    style={styles.salaryCard}
+                >
                     <View>
                         <Text style={styles.salaryLabel}>
-                            Estimated net salary (FYE)
+                            Net Salary (Feb)
                         </Text>
                         <Text style={styles.salaryValue}>{salaryValue}</Text>
                         <Text style={styles.salaryDate}>
-                            Last credited 31 Dec 2025
+                            Credited 31 Dec 2025
                         </Text>
                     </View>
-                </View>
-
-                <View style={styles.payslipCard}>
+                    <Text style={styles.salaryRupee}>₹</Text>
+                </LinearGradient>
+                <View>
                     <View style={styles.cardHeaderRow}>
                         <Text style={styles.cardHeader}>Payslips</Text>
                         <Pressable
-                            style={styles.yearFilter}
+                            style={styles.yearFilterCompact}
                             onPress={() => setYearPickerVisible(true)}
                             accessibilityRole="button"
                         >
-                            <Text style={styles.yearFilterLabel}>Year</Text>
-                            <View style={styles.yearFilterValue}>
-                                <Text style={styles.yearFilterText}>
-                                    {payslipYearLabel}
-                                </Text>
-                                <Ionicons
-                                    name="chevron-down"
-                                    size={14}
-                                    color="#6B7280"
-                                />
-                            </View>
+                            <Text style={styles.yearFilterTextCompact}>
+                                {payslipYearLabel}
+                            </Text>
+                            <Ionicons
+                                name="chevron-down"
+                                size={14}
+                                color="#D4A537"
+                            />
                         </Pressable>
                     </View>
+
                     {payslipEntries.length === 0 ? (
                         <Text style={styles.payslipEmptyText}>
                             {payslipEmptyMessage}
                         </Text>
                     ) : (
-                        payslipEntries.map((item) => (
-                            <View key={item.id} style={styles.payslipRow}>
-                                <View>
-                                    <Text style={styles.payslipMonth}>
-                                        {item.monthLabel}
-                                    </Text>
-                                    <Text style={styles.payslipLabel}>
-                                        {item.detail}
-                                    </Text>
+                        <View style={styles.payslipList}>
+                            {payslipEntries.map((item) => (
+                                <View key={item.id} style={styles.payslipItem}>
+                                    <View style={styles.payslipLeft}>
+                                        <View style={styles.payslipIconWrap}>
+                                            <Ionicons
+                                                name="document-text-outline"
+                                                size={16}
+                                                color="#F6C84C"
+                                            />
+                                        </View>
+                                        <View style={styles.payslipTextBlock}>
+                                            <Text style={styles.payslipMonth} numberOfLines={1}>
+                                                {item.monthLabel}
+                                            </Text>
+                                            <Text style={styles.payslipLabel} numberOfLines={1}>
+                                                {item.detail}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                    <Pressable
+                                        style={[
+                                            styles.payslipDownload,
+                                            (!item.canDownload ||
+                                                downloadingPayslipId === item.id) &&
+                                            styles.payslipDownloadDisabled,
+                                        ]}
+                                        disabled={
+                                            !item.canDownload ||
+                                            downloadingPayslipId === item.id
+                                        }
+                                        onPress={() => handleDownloadPayslip(item)}
+                                    >
+                                        {downloadingPayslipId === item.id ? (
+                                            <ActivityIndicator size="small" color="#9CA3AF" />
+                                        ) : (
+                                            <Ionicons name="download-outline" size={16} color="#111827" />
+                                        )}
+                                    </Pressable>
                                 </View>
-                                <Pressable
-                                    style={[
-                                        styles.downloadBadge,
-                                        (!item.canDownload ||
-                                            downloadingPayslipId === item.id) &&
-                                            styles.downloadBadgeDisabled,
-                                    ]}
-                                    disabled={
-                                        !item.canDownload ||
-                                        downloadingPayslipId === item.id
-                                    }
-                                    accessibilityRole="button"
-                                    onPress={() => handleDownloadPayslip(item)}
-                                >
-                                    {downloadingPayslipId === item.id ? (
-                                        <ActivityIndicator
-                                            size="small"
-                                            color="#9CA3AF"
-                                        />
-                                    ) : (
-                                        <Text
-                                            style={[
-                                                styles.downloadText,
-                                                !item.canDownload &&
-                                                    styles.downloadTextDisabled,
-                                            ]}
-                                        >
-                                            {item.buttonLabel}
-                                        </Text>
-                                    )}
-                                </Pressable>
-                            </View>
-                        ))
+                            ))}
+                        </View>
                     )}
                 </View>
 
-                <View style={styles.activityCard}>
+                <View style={{ marginBottom: 24 }}>
                     <View style={styles.cardHeaderRow}>
                         <Text style={styles.cardHeader}>Recent Activity</Text>
-                        <Text style={styles.cardSubtle}>
-                            {activityCountLabel}
-                        </Text>
+                        <Pressable
+                            style={styles.activityAllWrap}
+                            accessibilityRole="button"
+                        >
+                            <Text style={styles.activityAllText}>All</Text>
+                            <Ionicons name="chevron-down" size={14} color="#D4A537" />
+                        </Pressable>
                     </View>
                     {activityLoading ? (
                         <View style={styles.activityState}>
@@ -656,55 +753,54 @@ export default function EmployeeDashboardScreen() {
                             </Text>
                         </View>
                     ) : (
-                        activityData?.activities?.map(
-                            (activity: EmployeeActivity, index: number) => {
+                        <View style={styles.activityList}>
+                            {activityData?.activities?.map((activity: EmployeeActivity, index: number) => {
                                 const color = getActivityColor(activity.type);
+                                const iconName = getActivityIcon(activity.type);
                                 return (
-                                    <View
-                                        key={`${activity.type}-${activity.date}-${index}`}
-                                        style={[
-                                            styles.activityRow,
-                                            index === 0 &&
-                                                styles.activityRowFirst,
-                                        ]}
-                                    >
-                                        <View
-                                            style={[
-                                                styles.activityMarker,
-                                                {
-                                                    backgroundColor: `${color}33`,
-                                                },
-                                            ]}
-                                        >
-                                            <View
-                                                style={[
-                                                    styles.activityDot,
-                                                    { backgroundColor: color },
-                                                ]}
-                                            />
+                                    <View key={`${activity.type}-${activity.date}-${index}`} style={styles.activityItem}>
+                                        <View style={[styles.activityItemIcon, { backgroundColor: `${color}22`, borderColor: `${color}33` }]}>
+                                            <Ionicons name={iconName as any} size={20} color={color} />
                                         </View>
-                                        <View style={styles.activityTextBlock}>
-                                            <Text style={styles.activityTitle}>
-                                                {formatActivityTitle(
-                                                    activity.type,
-                                                )}
-                                            </Text>
-                                            <Text style={styles.activityLabel}>
-                                                {formatActivitySubtitle(
-                                                    activity,
-                                                )}
-                                            </Text>
+                                        <View style={styles.activityItemText}>
+                                            <Text style={styles.activityItemTitle}>{formatActivityTitle(activity.type)}</Text>
+                                            <Text style={styles.activityItemSubtitle}>{formatActivitySubtitle(activity)}</Text>
                                         </View>
-                                        <Text style={styles.activityTime}>
-                                            {formatActivityTime(activity.date)}
-                                        </Text>
+                                        <Text style={styles.activityItemTime}>{formatActivityTime(activity.date)}</Text>
                                     </View>
                                 );
-                            },
-                        )
+                            })}
+                        </View>
                     )}
                 </View>
+                {/* swipe placeholder removed (moved out of ScrollView for fixed positioning) */}
             </ScrollView>
+
+            <View style={styles.swipeFloatingWrap} pointerEvents="box-none">
+                <View style={styles.swipeContainerFixed}>
+                    <View
+                        style={styles.swipeTrack}
+                        onLayout={(e) => {
+                            trackWidth.current = e.nativeEvent.layout.width;
+                        }}
+                    >
+                        <Text style={styles.swipeLabel}>{isCheckedIn ? "Swipe to Check Out" : "Swipe to Check In"}</Text>
+                        <Animated.View
+                            style={[
+                                styles.swipeHandle,
+                                { transform: [{ translateX: pan }] },
+                            ]}
+                            {...panResponder.panHandlers}
+                        >
+                            {punching || attLoading ? (
+                                <ActivityIndicator color="#F2C94C" />
+                            ) : (
+                                <Ionicons name="arrow-forward" size={20} color="#F2C94C" />
+                            )}
+                        </Animated.View>
+                    </View>
+                </View>
+            </View>
 
             <View style={styles.bottomBar}>
                 <Pressable
@@ -750,7 +846,7 @@ export default function EmployeeDashboardScreen() {
                                     style={[
                                         styles.yearOption,
                                         selectedPayslipYear === year &&
-                                            styles.yearOptionActive,
+                                        styles.yearOptionActive,
                                     ]}
                                     onPress={() => {
                                         setSelectedPayslipYear(year);
@@ -762,7 +858,7 @@ export default function EmployeeDashboardScreen() {
                                         style={[
                                             styles.yearOptionText,
                                             selectedPayslipYear === year &&
-                                                styles.yearOptionTextActive,
+                                            styles.yearOptionTextActive,
                                         ]}
                                     >
                                         {year}
@@ -780,6 +876,22 @@ export default function EmployeeDashboardScreen() {
                     </View>
                 </Pressable>
             </Modal>
+            <Modal
+                visible={previewVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setPreviewVisible(false)}
+            >
+                <Pressable
+                    style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.8)", justifyContent: "center", alignItems: "center" }}
+                    onPress={() => setPreviewVisible(false)}
+                >
+                    <Image
+                        source={{ uri: checkinImageUrl ?? profile?.photoUrl ?? undefined }}
+                        style={{ width: "90%", height: "70%", resizeMode: "contain", borderRadius: 12 }}
+                    />
+                </Pressable>
+            </Modal>
         </View>
     );
 }
@@ -787,7 +899,7 @@ export default function EmployeeDashboardScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#FFFFFF",
+        backgroundColor: "#F3F4F6",
     },
     loadingContainer: {
         flex: 1,
@@ -806,6 +918,21 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         marginBottom: 12,
     },
+    headerLeft: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        flex: 1,
+    },
+    headerTextBlock: {
+        flexDirection: "column",
+        justifyContent: "center",
+    },
+    metaTextSmall: {
+        marginTop: 4,
+        fontSize: 12,
+        color: "#9CA3AF",
+    },
     headerLogoWrap: {
         height: 42,
         width: 42,
@@ -817,9 +944,10 @@ const styles = StyleSheet.create({
         borderColor: "#E5E7EB",
     },
     headerLogo: {
-        height: 28,
-        width: 28,
-        resizeMode: "contain",
+        height: 50,
+        width: 50,
+        borderRadius: 25,
+        resizeMode: "cover",
     },
     headerActions: {
         flexDirection: "row",
@@ -839,18 +967,18 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     name: {
-        fontSize: 28,
+        fontSize: 20,
         fontWeight: "700",
         color: "#111827",
     },
     subtitle: {
         color: "#6B7280",
         fontSize: 14,
-        marginTop: 4,
+        marginTop: 2,
     },
     metaText: {
-        marginTop: 4,
-        fontSize: 12,
+        marginTop: 2,
+        fontSize: 8,
         color: "#9CA3AF",
         letterSpacing: 0.5,
     },
@@ -937,31 +1065,157 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
 
-    salaryCard: {
-        backgroundColor: "#111827",
-        borderRadius: 24,
-        padding: 20,
+    checkinImageWrap: {
+        alignSelf: "center",
+        marginTop: 12,
+        borderRadius: 12,
+        overflow: "hidden",
+        borderWidth: 1,
+        borderColor: "#F1F5F9",
+    },
+    checkinImage: {
+        width: 84,
+        height: 84,
+        resizeMode: "cover",
+    },
+    bannerWrap: {
+        marginTop: 12,
+        borderRadius: 14,
+        overflow: "hidden",
+        borderWidth: 1,
+        borderColor: "#F3E9D4",
+    },
+    bannerImage: {
+        width: "100%",
+        height: 110,
+        resizeMode: "cover",
+    },
+    tilesRow: {
         flexDirection: "row",
         justifyContent: "space-between",
+        marginTop: 12,
+    },
+    tileCard: {
+        flex: 1,
+        backgroundColor: "#FFFFFF",
+        borderRadius: 14,
+        padding: 12,
+        marginRight: 10,
+        borderWidth: 1,
+        borderColor: "#F1F5F9",
+        shadowColor: "#000",
+        shadowOpacity: 0.03,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+        position: "relative",
+    },
+    tileTitle: {
+        color: "#9CA3AF",
+        fontSize: 12,
+        textTransform: "uppercase",
+        letterSpacing: 0.6,
+    },
+    tileTime: {
+        fontSize: 20,
+        fontWeight: "700",
+        color: "#111827",
+        marginTop: 6,
+    },
+    tileNote: {
+        color: "#6B7280",
+        fontSize: 12,
+        marginTop: 4,
+    },
+    swipeWrap: {
+        marginTop: 16,
         alignItems: "center",
+    },
+    swipeButton: {
+        width: "92%",
+        backgroundColor: "#F2C94C",
+        paddingVertical: 14,
+        borderRadius: 28,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        shadowColor: "#000",
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 6 },
+        elevation: 6,
+    },
+    swipeIcon: {
+        marginRight: 12,
+    },
+    swipeText: {
+        color: "#111827",
+        fontWeight: "700",
+        fontSize: 16,
+    },
+    swipeLeftCircle: {
+        width: 42,
+        height: 42,
+        borderRadius: 21,
+        backgroundColor: "#FFFFFF",
+        alignItems: "center",
+        justifyContent: "center",
+        marginRight: 12,
+        shadowColor: "#000",
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+    },
+    tileIconWrap: {
+        position: "absolute",
+        right: 12,
+        top: 12,
+        width: 32,
+        height: 32,
+        borderRadius: 8,
+        backgroundColor: "#FEF8EF",
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1,
+        borderColor: "#FEEBC8",
+    },
+
+    salaryCard: {
+        borderRadius: 24,
+        padding: 20,
         marginBottom: 16,
+        position: "relative",
+        marginTop: 24,
+        overflow: "hidden",
+        shadowColor: "#F2C94C",
+        shadowOpacity: 0.10,
+        shadowRadius: 16,
+        shadowOffset: { width: 0, height: 8 },
+        elevation: 6,
     },
     salaryLabel: {
         fontSize: 12,
-        color: "#E5E7EB",
-        letterSpacing: 1,
-        textTransform: "uppercase",
+        color: "#6B7280",
+        letterSpacing: 0.6,
         marginBottom: 8,
     },
     salaryValue: {
         fontSize: 36,
-        color: "#F8FAFE",
-        fontWeight: "700",
+        color: "#111827",
+        fontWeight: "800",
     },
     salaryDate: {
-        color: "#9CA3AF",
+        color: "#6B7280",
         marginTop: 4,
         fontSize: 12,
+    },
+    salaryRupee: {
+        position: "absolute",
+        right: 12,
+        top: 8,
+        fontSize: 92,
+        color: "rgba(255,255,255,0.12)",
+        fontWeight: "800",
+        transform: [{ rotate: "6deg" }],
     },
     balanceCard: {
         backgroundColor: "#FDFBF7",
@@ -1028,23 +1282,25 @@ const styles = StyleSheet.create({
         fontSize: 11,
     },
     payslipCard: {
-        backgroundColor: "#FFFFFF",
-        borderRadius: 24,
-        padding: 20,
-        borderWidth: 1,
-        borderColor: "#F1F5F9",
-        marginBottom: 16,
+        // backgroundColor: "#FFFFFF",
+        // borderRadius: 24,
+        // padding: 20,
+        // borderWidth: 1,
+        // borderColor: "#F1F5F9",
+        // marginBottom: 16,
     },
     cardHeaderRow: {
         flexDirection: "row",
         justifyContent: "space-between",
-        alignItems: "baseline",
-        marginBottom: 12,
+        alignItems: "center",
+        marginBottom: 4,
     },
     cardHeader: {
         fontSize: 16,
         fontWeight: "600",
         color: "#111827",
+        margin: 0,
+        padding: 0,
     },
     cardSubtle: {
         fontSize: 12,
@@ -1111,6 +1367,83 @@ const styles = StyleSheet.create({
         borderColor: "#E5E7EB",
         backgroundColor: "#F9FAFB",
     },
+    /* New payslip list styles */
+    yearFilterCompact: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: "#F2C94C",
+        backgroundColor: "#FFFFFF",
+    },
+    yearFilterTextCompact: {
+        fontSize: 13,
+        color: "#D4A537",
+        fontWeight: "700",
+    },
+    payslipList: {
+        marginTop: 12,
+        backgroundColor: "transparent",
+        borderRadius: 14,
+        padding: 0,
+        borderWidth: 0,
+        shadowColor: "transparent",
+    },
+    payslipItem: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingVertical: 14,
+        paddingHorizontal: 12,
+        backgroundColor: "#FFFFFF",
+        borderRadius: 12,
+        marginBottom: 12,
+        shadowColor: "#000",
+        shadowOpacity: 0.02,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 4 },
+        borderWidth: 1,
+        borderColor: "#F7F5F3",
+    },
+    payslipLeft: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
+    payslipIconWrap: {
+        width: 40,
+        height: 40,
+        borderRadius: 8,
+        backgroundColor: "#FFF7EB",
+        alignItems: "center",
+        justifyContent: "center",
+        marginRight: 12,
+        borderWidth: 1,
+        borderColor: "#FAEFD6",
+    },
+    payslipTextBlock: {
+        maxWidth: 220,
+    },
+    payslipDownload: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1,
+        borderColor: "#E6E9EE",
+        backgroundColor: "#FFFFFF",
+        shadowColor: "#000",
+        shadowOpacity: 0.02,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 4 },
+    },
+    payslipDownloadDisabled: {
+        borderColor: "#F1F5F9",
+        backgroundColor: "#F9FAFB",
+    },
     downloadTextDisabled: {
         color: "#9CA3AF",
     },
@@ -1118,6 +1451,63 @@ const styles = StyleSheet.create({
         color: "#9CA3AF",
         fontSize: 12,
         paddingVertical: 8,
+    },
+    /* Swipe track styles */
+    swipeContainer: {
+        margin: 20,
+        alignItems: "center",
+    },
+    swipeTrack: {
+        width: "94%",
+        height: 55,
+        borderRadius: 27.5,
+        backgroundColor: "#F2C94C",
+        justifyContent: "center",
+        paddingLeft: 0,
+        paddingRight: 0,
+        paddingTop: 0,
+        shadowColor: "#000",
+        shadowOpacity: 0.06,
+        shadowRadius: 0,
+        shadowOffset: { width: 0, height: 0 },
+    },
+    swipeLabel: {
+        position: "absolute",
+        alignSelf: "center",
+        color: "#FFFFFF",
+        fontWeight: "700",
+        fontSize: 15,
+    },
+    swipeHandle: {
+        position: "absolute",
+        left: 6,
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: "#FFFFFF",
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1,
+        borderColor: "#F2C94C",
+        shadowColor: "#000",
+        shadowOpacity: 0.06,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 6 },
+    },
+
+    /* fixed swipe wrapper above bottom bar */
+    swipeFloatingWrap: {
+        position: "absolute",
+        left: 0,
+        right: 0,
+        bottom: 86,
+        alignItems: "center",
+        pointerEvents: "box-none",
+    },
+    swipeContainerFixed: {
+        width: "100%",
+        alignItems: "center",
+        paddingHorizontal: 12,
     },
     yearModalBackdrop: {
         flex: 1,
@@ -1218,6 +1608,106 @@ const styles = StyleSheet.create({
         color: "#9CA3AF",
         fontSize: 12,
     },
+    activityList: {
+        marginTop: 6,
+    },
+    activityAllWrap: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+    },
+    activityAllText: {
+        color: "#D4A537",
+        fontWeight: "700",
+        fontSize: 13,
+        marginRight: 2,
+    },
+    activityItem: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#FFFFFF",
+        borderRadius: 12,
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+        marginBottom: 10,
+        shadowColor: "#000",
+        shadowOpacity: 0.03,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+    },
+    activityItemIcon: {
+        width: 44,
+        height: 44,
+        borderRadius: 10,
+        alignItems: "center",
+        justifyContent: "center",
+        marginRight: 12,
+        borderWidth: 1,
+    },
+    activityItemText: {
+        flex: 1,
+    },
+    activityItemTitle: {
+        fontSize: 14,
+        fontWeight: "600",
+        color: "#111827",
+    },
+    activityItemSubtitle: {
+        color: "#6B7280",
+        fontSize: 12,
+        marginTop: 4,
+    },
+    activityItemTime: {
+        color: "#6B7280",
+        fontSize: 12,
+        marginLeft: 8,
+    },
+
+    /* checkin thumbnail row */
+    checkinRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginTop: 12,
+        marginBottom: 8,
+    },
+    checkinThumbWrap: {
+        width: 64,
+        height: 64,
+        borderRadius: 12,
+        backgroundColor: "#FFFFFF",
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1,
+        borderColor: "#F3E9D4",
+        overflow: "hidden",
+        marginRight: 12,
+        shadowColor: "#000",
+        shadowOpacity: 0.03,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+    },
+    checkinThumb: {
+        width: 60,
+        height: 60,
+        borderRadius: 10,
+        resizeMode: "cover",
+    },
+    checkinTextBlock: {
+        flexDirection: "column",
+        justifyContent: "center",
+    },
+    checkinLabel: {
+        color: "#9CA3AF",
+        fontSize: 12,
+    },
+    checkinTime: {
+        fontSize: 16,
+        fontWeight: "700",
+        color: "#111827",
+        marginTop: 2,
+    },
     bottomBar: {
         position: "absolute",
         left: 0,
@@ -1252,4 +1742,11 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         backgroundColor: "#FEF8EF",
     },
+    salaryCardTitle:{
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#111827",
+    paddingBottom: 0,
+    paddingTop: 24,
+    }
 });
