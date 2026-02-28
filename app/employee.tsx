@@ -9,7 +9,7 @@ import {
     checkIn,
     checkOut,
     fetchAttendance,
-    fetchEmployeeAttendanceImage,
+
     type AttendanceRecord,
 } from "@/services/attendance";
 import { getPayslipDownloadUrl } from "@/services/payroll";
@@ -72,7 +72,6 @@ export default function EmployeeDashboardScreen() {
         null,
     );
     const [activityLoading, setActivityLoading] = useState(false);
-    const [checkinImageUrl, setCheckinImageUrl] = useState<string | null>(null);
     const [checkinImageLoading, setCheckinImageLoading] = useState(false);
     const [previewVisible, setPreviewVisible] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
@@ -497,19 +496,6 @@ export default function EmployeeDashboardScreen() {
 
                 const res = await checkIn(image);
                 setAttendance(res);
-
-                try {
-                    const eid = profile?.employeeId || user.employeeId;
-                    if (eid) {
-                        setCheckinImageLoading(true);
-                        const imgResp = await fetchEmployeeAttendanceImage(eid);
-                        setCheckinImageUrl(imgResp?.imageUrl ?? null);
-                    }
-                } catch (err) {
-                    console.log("fetch employee checkin image failed", err);
-                } finally {
-                    setCheckinImageLoading(false);
-                }
             }
         } catch (error: any) {
             const msg =
@@ -528,18 +514,6 @@ export default function EmployeeDashboardScreen() {
             const data = await fetchEmployeeProfile();
             setProfile(data);
             // also fetch last check-in image for this employee
-            try {
-                const eid = data?.employeeId || user?.employeeId;
-                if (eid) {
-                    setCheckinImageLoading(true);
-                    const img = await fetchEmployeeAttendanceImage(eid);
-                    setCheckinImageUrl(img?.imageUrl ?? null);
-                }
-            } catch (err) {
-                console.log("fetch employee checkin image failed", err);
-            } finally {
-                setCheckinImageLoading(false);
-            }
         } catch (error: any) {
             console.log("profile fetch failed", error?.message);
         } finally {
@@ -707,16 +681,6 @@ export default function EmployeeDashboardScreen() {
                         </Pressable>
                     </View> */}
                 </View>
-                {checkinImageLoading ? (
-                    <ActivityIndicator style={{ marginTop: 12 }} />
-                ) : checkinImageUrl ? (
-                    <View style={styles.bannerWrap}>
-                        <Image
-                            source={{ uri: checkinImageUrl }}
-                            style={styles.bannerImage}
-                        />
-                    </View>
-                ) : null}
             </View>
 
             <ScrollView
@@ -1055,7 +1019,7 @@ export default function EmployeeDashboardScreen() {
                 </Pressable>
                 <Pressable
                     style={styles.bottomIcon}
-                    onPress={() => router.replace("/leave")}
+                    onPress={() => router.push("/leave")}
                     accessibilityRole="button"
                 >
                     <Ionicons

@@ -430,14 +430,14 @@ export default function ProfileSettingScreen() {
             <View style={styles.bottomBar}>
                 <Pressable
                     style={styles.bottomIcon}
-                    onPress={() => router.replace("/employee")}
+                    onPress={() => router.push("/employee")}
                     accessibilityRole="button"
                 >
                     <Ionicons name="home-outline" size={22} color="#9CA3AF" />
                 </Pressable>
                 <Pressable
                     style={styles.bottomIcon}
-                    onPress={() => router.replace("/leave")}
+                    onPress={() => router.push("/leave")}
                     accessibilityRole="button"
                 >
                     <Ionicons

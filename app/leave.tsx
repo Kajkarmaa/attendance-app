@@ -487,7 +487,7 @@ export default function LeaveScreen() {
             <View style={styles.bottomBar}>
                 <Pressable
                     style={styles.bottomIcon}
-                    onPress={() => router.replace("/employee")}
+                    onPress={() => router.push("/employee")}
                 >
                     <Ionicons name="home-outline" size={22} color="#9CA3AF" />
                 </Pressable>
