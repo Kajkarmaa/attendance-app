@@ -34,10 +34,9 @@ import {
     ScrollView,
     StyleSheet,
     Text,
-    View
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
 
 const ACTIVITY_COLOR_MAP: Record<string, string> = {
     attendance: "#34D399",
@@ -73,9 +72,7 @@ export default function EmployeeDashboardScreen() {
         null,
     );
     const [activityLoading, setActivityLoading] = useState(false);
-    const [checkinImageUrl, setCheckinImageUrl] = useState<string | null>(
-        null,
-    );
+    const [checkinImageUrl, setCheckinImageUrl] = useState<string | null>(null);
     const [checkinImageLoading, setCheckinImageLoading] = useState(false);
     const [previewVisible, setPreviewVisible] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
@@ -87,22 +84,41 @@ export default function EmployeeDashboardScreen() {
     const panResponder = useRef(
         PanResponder.create({
             onStartShouldSetPanResponder: () => !punching && !attLoading,
-            onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 6 && !punching && !attLoading,
+            onMoveShouldSetPanResponder: (_, gesture) =>
+                Math.abs(gesture.dx) > 6 && !punching && !attLoading,
             onPanResponderMove: (_, gesture) => {
-                const max = Math.max(0, Math.min(gesture.dx, (trackWidth.current || 0) - HANDLE_WIDTH));
+                const max = Math.max(
+                    0,
+                    Math.min(
+                        gesture.dx,
+                        (trackWidth.current || 0) - HANDLE_WIDTH,
+                    ),
+                );
                 pan.setValue(max);
             },
             onPanResponderRelease: (_, gesture) => {
                 const maxPos = (trackWidth.current || 0) - HANDLE_WIDTH;
                 const threshold = Math.max(30, Math.floor(maxPos * 0.6));
                 if (gesture.dx >= threshold) {
-                    Animated.timing(pan, { toValue: maxPos, duration: 120, useNativeDriver: true }).start(() => {
+                    Animated.timing(pan, {
+                        toValue: maxPos,
+                        duration: 120,
+                        useNativeDriver: true,
+                    }).start(() => {
                         // trigger punch
                         handlePunch();
-                        Animated.timing(pan, { toValue: 0, duration: 300, useNativeDriver: true }).start();
+                        Animated.timing(pan, {
+                            toValue: 0,
+                            duration: 300,
+                            useNativeDriver: true,
+                        }).start();
                     });
                 } else {
-                    Animated.timing(pan, { toValue: 0, duration: 180, useNativeDriver: true }).start();
+                    Animated.timing(pan, {
+                        toValue: 0,
+                        duration: 180,
+                        useNativeDriver: true,
+                    }).start();
                 }
             },
         }),
@@ -235,9 +251,20 @@ export default function EmployeeDashboardScreen() {
     const getActivityIcon = (type?: string) => {
         if (!type) return "notifications-outline";
         const t = type.toLowerCase();
-        if (t.includes("present") || t.includes("attendance")) return "checkmark-circle-outline";
-        if (t.includes("wfh") || t.includes("work from home") || t.includes("remote")) return "home-outline";
-        if (t.includes("salary") || t.includes("payroll") || t.includes("credited")) return "cash-outline";
+        if (t.includes("present") || t.includes("attendance"))
+            return "checkmark-circle-outline";
+        if (
+            t.includes("wfh") ||
+            t.includes("work from home") ||
+            t.includes("remote")
+        )
+            return "home-outline";
+        if (
+            t.includes("salary") ||
+            t.includes("payroll") ||
+            t.includes("credited")
+        )
+            return "cash-outline";
         if (t.includes("leave")) return "beer-outline";
         return "notifications-outline";
     };
@@ -309,7 +336,9 @@ export default function EmployeeDashboardScreen() {
         if (!name) return "";
         const parts = name.trim().split(/\s+/);
         if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
-        return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+        return (
+            parts[0].charAt(0) + parts[parts.length - 1].charAt(0)
+        ).toUpperCase();
     };
 
     const loadAttendance = async () => {
@@ -368,7 +397,6 @@ export default function EmployeeDashboardScreen() {
         }
     };
 
-
     const isCheckedIn = attendance?.checkIn && !attendance?.checkOut;
 
     const handlePunch = async () => {
@@ -426,7 +454,8 @@ export default function EmployeeDashboardScreen() {
                 }));
             } else {
                 // Request camera permission and launch camera to take a check-in photo
-                const permission = await ImagePicker.requestCameraPermissionsAsync();
+                const permission =
+                    await ImagePicker.requestCameraPermissionsAsync();
                 if (permission.status !== "granted") {
                     Alert.alert(
                         "Permission required",
@@ -449,14 +478,20 @@ export default function EmployeeDashboardScreen() {
                 const asset = (pickerResult as any).assets?.[0];
                 const localUri = asset?.uri ?? (pickerResult as any).uri;
                 if (!localUri) {
-                    Alert.alert("Capture failed", "Unable to read captured image.");
+                    Alert.alert(
+                        "Capture failed",
+                        "Unable to read captured image.",
+                    );
                     return;
                 }
 
                 const filename = localUri.split("/").pop() || "photo.jpg";
                 const match = /\.(\w+)$/.exec(filename);
                 const ext = match ? match[1].toLowerCase() : "jpg";
-                const mime = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : `image/${ext}`;
+                const mime =
+                    ext === "jpg" || ext === "jpeg"
+                        ? "image/jpeg"
+                        : `image/${ext}`;
 
                 const image = { uri: localUri, name: filename, type: mime };
 
@@ -527,7 +562,11 @@ export default function EmployeeDashboardScreen() {
     const onRefresh = async () => {
         setRefreshing(true);
         try {
-            await Promise.all([loadAttendance(), loadProfile(), loadRecentActivity()]);
+            await Promise.all([
+                loadAttendance(),
+                loadProfile(),
+                loadRecentActivity(),
+            ]);
         } catch (err) {
             console.log("refresh failed", err);
         } finally {
@@ -541,16 +580,46 @@ export default function EmployeeDashboardScreen() {
                 <ScrollView
                     contentContainerStyle={[styles.content, { paddingTop: 32 }]}
                     showsVerticalScrollIndicator={false}
-                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#D4A537"]} />}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            colors={["#D4A537"]}
+                        />
+                    }
                 >
-                    <SkeletonBlock style={{ height: 200, borderRadius: 12, marginBottom: 16 }} />
-                    <SkeletonBlock style={{ height: 24, width: "60%", marginBottom: 8 }} />
-                    <SkeletonBlock style={{ height: 18, width: "40%", marginBottom: 16 }} />
-                    <SkeletonBlock style={{ height: 100, borderRadius: 12, marginBottom: 12 }} />
-                    <SkeletonBlock style={{ height: 16, width: "80%", marginBottom: 8 }} />
-                    <SkeletonBlock style={{ height: 16, width: "70%", marginBottom: 8 }} />
-                    <SkeletonBlock style={{ height: 16, width: "90%", marginBottom: 8 }} />
-                    <SkeletonBlock style={{ height: 200, borderRadius: 12, marginTop: 12 }} />
+                    <SkeletonBlock
+                        style={{
+                            height: 200,
+                            borderRadius: 12,
+                            marginBottom: 16,
+                        }}
+                    />
+                    <SkeletonBlock
+                        style={{ height: 24, width: "60%", marginBottom: 8 }}
+                    />
+                    <SkeletonBlock
+                        style={{ height: 18, width: "40%", marginBottom: 16 }}
+                    />
+                    <SkeletonBlock
+                        style={{
+                            height: 100,
+                            borderRadius: 12,
+                            marginBottom: 12,
+                        }}
+                    />
+                    <SkeletonBlock
+                        style={{ height: 16, width: "80%", marginBottom: 8 }}
+                    />
+                    <SkeletonBlock
+                        style={{ height: 16, width: "70%", marginBottom: 8 }}
+                    />
+                    <SkeletonBlock
+                        style={{ height: 16, width: "90%", marginBottom: 8 }}
+                    />
+                    <SkeletonBlock
+                        style={{ height: 200, borderRadius: 12, marginTop: 12 }}
+                    />
                 </ScrollView>
             </SafeAreaView>
         );
@@ -566,7 +635,10 @@ export default function EmployeeDashboardScreen() {
             <View style={styles.header}>
                 <View style={styles.headerTop}>
                     <View style={styles.headerLeft}>
-                        <Pressable onPress={() => setPreviewVisible(true)} style={styles.headerLogoWrap}>
+                        <Pressable
+                            onPress={() => setPreviewVisible(true)}
+                            style={styles.headerLogoWrap}
+                        >
                             {profile?.profilePicture ? (
                                 <Image
                                     source={{ uri: profile.profilePicture }}
@@ -574,23 +646,48 @@ export default function EmployeeDashboardScreen() {
                                 />
                             ) : (
                                 <View style={styles.headerLogoPlaceholder}>
-                                    <Text style={styles.headerLogoInitials}>{getInitials(profile?.name ?? user?.name)}</Text>
+                                    <Text style={styles.headerLogoInitials}>
+                                        {getInitials(
+                                            profile?.name ?? user?.name,
+                                        )}
+                                    </Text>
                                 </View>
                             )}
                         </Pressable>
                         <View style={styles.headerTextBlock}>
                             {profileLoading ? (
                                 <>
-                                    <SkeletonBlock style={{ height: 20, width: 160, marginBottom: 6 }} />
-                                    <SkeletonBlock style={{ height: 16, width: 120, marginBottom: 6 }} />
-                                    <SkeletonBlock style={{ height: 12, width: 200 }} />
+                                    <SkeletonBlock
+                                        style={{
+                                            height: 20,
+                                            width: 160,
+                                            marginBottom: 6,
+                                        }}
+                                    />
+                                    <SkeletonBlock
+                                        style={{
+                                            height: 16,
+                                            width: 120,
+                                            marginBottom: 6,
+                                        }}
+                                    />
+                                    <SkeletonBlock
+                                        style={{ height: 12, width: 200 }}
+                                    />
                                 </>
                             ) : (
                                 <>
-                                    <Text style={styles.name}>Hello, {displayName}</Text>
-                                    <Text style={styles.subtitle}>{displayDesignation}</Text>
+                                    <Text style={styles.name}>
+                                        Hello, {displayName}
+                                    </Text>
+                                    <Text style={styles.subtitle}>
+                                        {displayDesignation}
+                                    </Text>
                                     <Text style={styles.metaTextSmall}>
-                                        {profile?.employeeId || user?.employeeId || "--"} • {profile?.department || "Department"}
+                                        {profile?.employeeId ||
+                                            user?.employeeId ||
+                                            "--"}{" "}
+                                        • {profile?.department || "Department"}
                                     </Text>
                                 </>
                             )}
@@ -637,12 +734,18 @@ export default function EmployeeDashboardScreen() {
                     <View style={styles.tilesRow}>
                         <View style={styles.tileCard}>
                             <View style={styles.tileIconWrap}>
-                                <Ionicons name="log-in-outline" size={16} color="#F6C84C" />
+                                <Ionicons
+                                    name="log-in-outline"
+                                    size={16}
+                                    color="#F6C84C"
+                                />
                             </View>
                             <Text style={styles.tileTitle}>Check In</Text>
                             <Text style={styles.tileTime}>
                                 {attLoading || profileLoading ? (
-                                    <SkeletonBlock style={{ height: 18, width: 80 }} />
+                                    <SkeletonBlock
+                                        style={{ height: 18, width: 80 }}
+                                    />
                                 ) : (
                                     attendance?.checkIn?.time || "--:--"
                                 )}
@@ -651,12 +754,18 @@ export default function EmployeeDashboardScreen() {
                         </View>
                         <View style={styles.tileCard}>
                             <View style={styles.tileIconWrap}>
-                                <Ionicons name="log-out-outline" size={16} color="#F6C84C" />
+                                <Ionicons
+                                    name="log-out-outline"
+                                    size={16}
+                                    color="#F6C84C"
+                                />
                             </View>
                             <Text style={styles.tileTitle}>Check Out</Text>
                             <Text style={styles.tileTime}>
                                 {attLoading || profileLoading ? (
-                                    <SkeletonBlock style={{ height: 18, width: 80 }} />
+                                    <SkeletonBlock
+                                        style={{ height: 18, width: 80 }}
+                                    />
                                 ) : (
                                     attendance?.checkOut?.time || "--:--"
                                 )}
@@ -667,26 +776,48 @@ export default function EmployeeDashboardScreen() {
                     <View style={styles.tilesRow}>
                         <View style={styles.tileCard}>
                             <View style={styles.tileIconWrap}>
-                                <Ionicons name="cafe-outline" size={16} color="#F6C84C" />
+                                <Ionicons
+                                    name="cafe-outline"
+                                    size={16}
+                                    color="#F6C84C"
+                                />
                             </View>
                             <Text style={styles.tileTitle}>Break Time</Text>
-                            <Text style={styles.tileTime}>{profileLoading ? <SkeletonBlock style={{ height: 18, width: 80 }} /> : "00:30 min"}</Text>
+                            <Text style={styles.tileTime}>
+                                {profileLoading ? (
+                                    <SkeletonBlock
+                                        style={{ height: 18, width: 80 }}
+                                    />
+                                ) : (
+                                    "00:30 min"
+                                )}
+                            </Text>
                             <Text style={styles.tileNote}>Avg Time 30 min</Text>
                         </View>
                         <View style={styles.tileCard}>
                             <View style={styles.tileIconWrap}>
-                                <Ionicons name="calendar-outline" size={16} color="#F6C84C" />
+                                <Ionicons
+                                    name="calendar-outline"
+                                    size={16}
+                                    color="#F6C84C"
+                                />
                             </View>
                             <Text style={styles.tileTitle}>Total Days</Text>
-                            <Text style={styles.tileTime}>{profileLoading ? <SkeletonBlock style={{ height: 18, width: 40 }} /> : String((attendance as any)?.totalDays ?? 0)}</Text>
+                            <Text style={styles.tileTime}>
+                                {profileLoading ? (
+                                    <SkeletonBlock
+                                        style={{ height: 18, width: 40 }}
+                                    />
+                                ) : (
+                                    String((attendance as any)?.totalDays ?? 0)
+                                )}
+                            </Text>
                             <Text style={styles.tileNote}>Working Days</Text>
                         </View>
                     </View>
-
                 </View>
 
-
- <Text style={styles.salaryCardTitle}>Salary Overview</Text>
+                <Text style={styles.salaryCardTitle}>Salary Overview</Text>
                 <LinearGradient
                     colors={["#FFF7EA", "#F8D99A"]}
                     start={[0, 0]}
@@ -694,9 +825,7 @@ export default function EmployeeDashboardScreen() {
                     style={styles.salaryCard}
                 >
                     <View>
-                        <Text style={styles.salaryLabel}>
-                            Net Salary
-                        </Text>
+                        <Text style={styles.salaryLabel}>Net Salary</Text>
                         <Text style={styles.salaryValue}>{salaryValue}</Text>
                         {/* <Text style={styles.salaryDate}>
                             Credited 31 Dec 2025
@@ -740,10 +869,16 @@ export default function EmployeeDashboardScreen() {
                                             />
                                         </View>
                                         <View style={styles.payslipTextBlock}>
-                                            <Text style={styles.payslipMonth} numberOfLines={1}>
+                                            <Text
+                                                style={styles.payslipMonth}
+                                                numberOfLines={1}
+                                            >
                                                 {item.monthLabel}
                                             </Text>
-                                            <Text style={styles.payslipLabel} numberOfLines={1}>
+                                            <Text
+                                                style={styles.payslipLabel}
+                                                numberOfLines={1}
+                                            >
                                                 {item.detail}
                                             </Text>
                                         </View>
@@ -752,19 +887,29 @@ export default function EmployeeDashboardScreen() {
                                         style={[
                                             styles.payslipDownload,
                                             (!item.canDownload ||
-                                                downloadingPayslipId === item.id) &&
-                                            styles.payslipDownloadDisabled,
+                                                downloadingPayslipId ===
+                                                    item.id) &&
+                                                styles.payslipDownloadDisabled,
                                         ]}
                                         disabled={
                                             !item.canDownload ||
                                             downloadingPayslipId === item.id
                                         }
-                                        onPress={() => handleDownloadPayslip(item)}
+                                        onPress={() =>
+                                            handleDownloadPayslip(item)
+                                        }
                                     >
                                         {downloadingPayslipId === item.id ? (
-                                            <ActivityIndicator size="small" color="#9CA3AF" />
+                                            <ActivityIndicator
+                                                size="small"
+                                                color="#9CA3AF"
+                                            />
                                         ) : (
-                                            <Ionicons name="download-outline" size={16} color="#111827" />
+                                            <Ionicons
+                                                name="download-outline"
+                                                size={16}
+                                                color="#111827"
+                                            />
                                         )}
                                     </Pressable>
                                 </View>
@@ -781,7 +926,11 @@ export default function EmployeeDashboardScreen() {
                             accessibilityRole="button"
                         >
                             <Text style={styles.activityAllText}>All</Text>
-                            <Ionicons name="chevron-down" size={14} color="#D4A537" />
+                            <Ionicons
+                                name="chevron-down"
+                                size={14}
+                                color="#D4A537"
+                            />
                         </Pressable>
                     </View>
                     {activityLoading ? (
@@ -796,22 +945,67 @@ export default function EmployeeDashboardScreen() {
                         </View>
                     ) : (
                         <View style={styles.activityList}>
-                            {activityData?.activities?.map((activity: EmployeeActivity, index: number) => {
-                                const color = getActivityColor(activity.type);
-                                const iconName = getActivityIcon(activity.type);
-                                return (
-                                    <View key={`${activity.type}-${activity.date}-${index}`} style={styles.activityItem}>
-                                        <View style={[styles.activityItemIcon, { backgroundColor: `${color}22`, borderColor: `${color}33` }]}>
-                                            <Ionicons name={iconName as any} size={20} color={color} />
+                            {activityData?.activities?.map(
+                                (activity: EmployeeActivity, index: number) => {
+                                    const color = getActivityColor(
+                                        activity.type,
+                                    );
+                                    const iconName = getActivityIcon(
+                                        activity.type,
+                                    );
+                                    return (
+                                        <View
+                                            key={`${activity.type}-${activity.date}-${index}`}
+                                            style={styles.activityItem}
+                                        >
+                                            <View
+                                                style={[
+                                                    styles.activityItemIcon,
+                                                    {
+                                                        backgroundColor: `${color}22`,
+                                                        borderColor: `${color}33`,
+                                                    },
+                                                ]}
+                                            >
+                                                <Ionicons
+                                                    name={iconName as any}
+                                                    size={20}
+                                                    color={color}
+                                                />
+                                            </View>
+                                            <View
+                                                style={styles.activityItemText}
+                                            >
+                                                <Text
+                                                    style={
+                                                        styles.activityItemTitle
+                                                    }
+                                                >
+                                                    {formatActivityTitle(
+                                                        activity.type,
+                                                    )}
+                                                </Text>
+                                                <Text
+                                                    style={
+                                                        styles.activityItemSubtitle
+                                                    }
+                                                >
+                                                    {formatActivitySubtitle(
+                                                        activity,
+                                                    )}
+                                                </Text>
+                                            </View>
+                                            <Text
+                                                style={styles.activityItemTime}
+                                            >
+                                                {formatActivityTime(
+                                                    activity.date,
+                                                )}
+                                            </Text>
                                         </View>
-                                        <View style={styles.activityItemText}>
-                                            <Text style={styles.activityItemTitle}>{formatActivityTitle(activity.type)}</Text>
-                                            <Text style={styles.activityItemSubtitle}>{formatActivitySubtitle(activity)}</Text>
-                                        </View>
-                                        <Text style={styles.activityItemTime}>{formatActivityTime(activity.date)}</Text>
-                                    </View>
-                                );
-                            })}
+                                    );
+                                },
+                            )}
                         </View>
                     )}
                 </View>
@@ -826,7 +1020,11 @@ export default function EmployeeDashboardScreen() {
                             trackWidth.current = e.nativeEvent.layout.width;
                         }}
                     >
-                        <Text style={styles.swipeLabel}>{isCheckedIn ? "Swipe to Check Out" : "Swipe to Check In"}</Text>
+                        <Text style={styles.swipeLabel}>
+                            {isCheckedIn
+                                ? "Swipe to Check Out"
+                                : "Swipe to Check In"}
+                        </Text>
                         <Animated.View
                             style={[
                                 styles.swipeHandle,
@@ -837,7 +1035,11 @@ export default function EmployeeDashboardScreen() {
                             {punching || attLoading ? (
                                 <ActivityIndicator color="#F2C94C" />
                             ) : (
-                                <Ionicons name="arrow-forward" size={20} color="#F2C94C" />
+                                <Ionicons
+                                    name="arrow-forward"
+                                    size={20}
+                                    color="#F2C94C"
+                                />
                             )}
                         </Animated.View>
                     </View>
@@ -895,7 +1097,7 @@ export default function EmployeeDashboardScreen() {
                                     style={[
                                         styles.yearOption,
                                         selectedPayslipYear === year &&
-                                        styles.yearOptionActive,
+                                            styles.yearOptionActive,
                                     ]}
                                     onPress={() => {
                                         setSelectedPayslipYear(year);
@@ -907,7 +1109,7 @@ export default function EmployeeDashboardScreen() {
                                         style={[
                                             styles.yearOptionText,
                                             selectedPayslipYear === year &&
-                                            styles.yearOptionTextActive,
+                                                styles.yearOptionTextActive,
                                         ]}
                                     >
                                         {year}
@@ -932,12 +1134,22 @@ export default function EmployeeDashboardScreen() {
                 onRequestClose={() => setPreviewVisible(false)}
             >
                 <Pressable
-                    style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.8)", justifyContent: "center", alignItems: "center" }}
+                    style={{
+                        flex: 1,
+                        backgroundColor: "rgba(0,0,0,0.8)",
+                        justifyContent: "center",
+                        alignItems: "center",
+                    }}
                     onPress={() => setPreviewVisible(false)}
                 >
                     <Image
                         source={{ uri: profile?.profilePicture ?? undefined }}
-                        style={{ width: "90%", height: "70%", resizeMode: "contain", borderRadius: 12 }}
+                        style={{
+                            width: "90%",
+                            height: "70%",
+                            resizeMode: "contain",
+                            borderRadius: 12,
+                        }}
                     />
                 </Pressable>
             </Modal>
@@ -957,7 +1169,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#FFFFFF",
     },
     header: {
-        paddingTop: 56,
+        paddingTop: 20,
         paddingHorizontal: 24,
         paddingBottom: 16,
     },
@@ -1251,7 +1463,7 @@ const styles = StyleSheet.create({
         marginTop: 24,
         overflow: "hidden",
         shadowColor: "#F2C94C",
-        shadowOpacity: 0.10,
+        shadowOpacity: 0.1,
         shadowRadius: 16,
         shadowOffset: { width: 0, height: 8 },
         elevation: 6,
@@ -1806,12 +2018,11 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         backgroundColor: "#FEF8EF",
     },
-    salaryCardTitle:{
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#111827",
-    paddingBottom: 0,
-    paddingTop: 24,
+    salaryCardTitle: {
+        fontSize: 16,
+        fontWeight: "600",
+        color: "#111827",
+        paddingBottom: 0,
+        paddingTop: 24,
     },
-    
 });

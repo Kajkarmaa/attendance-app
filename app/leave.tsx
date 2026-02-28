@@ -28,7 +28,8 @@ const formatNumber = (value: unknown, fallback = 0) => {
 
 const formatWorkHours = (value: unknown) => {
     if (typeof value === "string" && value.trim().length > 0) return value;
-    if (typeof value === "number" && Number.isFinite(value)) return value.toFixed(2);
+    if (typeof value === "number" && Number.isFinite(value))
+        return value.toFixed(2);
     return "0.00";
 };
 
@@ -60,12 +61,16 @@ export default function LeaveScreen() {
     const { user, isLoading } = useAuth();
     const [profile, setProfile] = useState<EmployeeProfile | null>(null);
     const [profileLoading, setProfileLoading] = useState(false);
-    const [leaveBalance, setLeaveBalance] = useState<LeaveBalanceData | null>(null);
+    const [leaveBalance, setLeaveBalance] = useState<LeaveBalanceData | null>(
+        null,
+    );
     const [leaveBalanceLoading, setLeaveBalanceLoading] = useState(false);
     const [myLeaves, setMyLeaves] = useState<MyLeaveRequest[]>([]);
     const [myLeavesLoading, setMyLeavesLoading] = useState(false);
     const [showAllMyLeaves, setShowAllMyLeaves] = useState(false);
-    const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+    const [selectedYear, setSelectedYear] = useState<number>(
+        new Date().getFullYear(),
+    );
     const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
@@ -111,19 +116,28 @@ export default function LeaveScreen() {
             if (profileResult.status === "fulfilled") {
                 setProfile(profileResult.value);
             } else {
-                console.log("profile fetch failed", profileResult.reason?.message);
+                console.log(
+                    "profile fetch failed",
+                    profileResult.reason?.message,
+                );
             }
 
             if (leaveBalanceResult.status === "fulfilled") {
                 setLeaveBalance(leaveBalanceResult.value);
             } else {
-                console.log("leave balance fetch failed", leaveBalanceResult.reason?.message);
+                console.log(
+                    "leave balance fetch failed",
+                    leaveBalanceResult.reason?.message,
+                );
             }
 
             if (myLeavesResult.status === "fulfilled") {
                 setMyLeaves(myLeavesResult.value ?? []);
             } else {
-                console.log("my leaves fetch failed", myLeavesResult.reason?.message);
+                console.log(
+                    "my leaves fetch failed",
+                    myLeavesResult.reason?.message,
+                );
                 setMyLeaves([]);
             }
         } catch (error: any) {
@@ -156,12 +170,21 @@ export default function LeaveScreen() {
     const statusStyleFor = (status: string) => {
         switch (status) {
             case "approved":
-                return { pill: styles.statusApproved, text: styles.statusApprovedText };
+                return {
+                    pill: styles.statusApproved,
+                    text: styles.statusApprovedText,
+                };
             case "rejected":
-                return { pill: styles.statusRejected, text: styles.statusRejectedText };
+                return {
+                    pill: styles.statusRejected,
+                    text: styles.statusRejectedText,
+                };
             case "pending":
             default:
-                return { pill: styles.statusPending, text: styles.statusPendingText };
+                return {
+                    pill: styles.statusPending,
+                    text: styles.statusPendingText,
+                };
         }
     };
 
@@ -210,30 +233,63 @@ export default function LeaveScreen() {
     const leaveTotal = leaveBalance?.total ?? 0;
     const leavePending = Math.max(leaveTotal - leaveUsed - leaveRemaining, 0);
 
-    const leaveByTypeRows = Object.entries(leaveBalance?.byType ?? {}).map(([type, values]) => {
-        const total = formatNumber(values?.total);
-        const used = formatNumber(values?.used);
-        const remaining = formatNumber(values?.remaining);
-        return {
-            key: type,
-            title: formatTypeLabel(type),
-            subtitle: `Used ${used} / Total ${total}`,
-            value: `${remaining} Days`,
-            icon: leaveTypeIcon(type),
-        };
-    });
+    const leaveByTypeRows = Object.entries(leaveBalance?.byType ?? {}).map(
+        ([type, values]) => {
+            const total = formatNumber(values?.total);
+            const used = formatNumber(values?.used);
+            const remaining = formatNumber(values?.remaining);
+            return {
+                key: type,
+                title: formatTypeLabel(type),
+                subtitle: `Used ${used} / Total ${total}`,
+                value: `${remaining} Days`,
+                icon: leaveTypeIcon(type),
+            };
+        },
+    );
 
     if (isLoading) {
         return (
             <SafeAreaView style={styles.container}>
-                <ScrollView contentContainerStyle={[styles.content, { paddingTop: 32 }]} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#D4A537"]} />}>
-                    <SkeletonBlock style={{ height: 160, borderRadius: 12, marginBottom: 16 }} />
-                    <SkeletonBlock style={{ height: 24, width: "60%", marginBottom: 8 }} />
-                    <SkeletonBlock style={{ height: 18, width: "40%", marginBottom: 16 }} />
-                    <SkeletonBlock style={{ height: 120, borderRadius: 12, marginBottom: 12 }} />
-                    <SkeletonBlock style={{ height: 16, width: "80%", marginBottom: 8 }} />
-                    <SkeletonBlock style={{ height: 16, width: "70%", marginBottom: 8 }} />
-                    <SkeletonBlock style={{ height: 16, width: "90%", marginBottom: 8 }} />
+                <ScrollView
+                    contentContainerStyle={[styles.content, { paddingTop: 32 }]}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={handleRefresh}
+                            colors={["#D4A537"]}
+                        />
+                    }
+                >
+                    <SkeletonBlock
+                        style={{
+                            height: 160,
+                            borderRadius: 12,
+                            marginBottom: 16,
+                        }}
+                    />
+                    <SkeletonBlock
+                        style={{ height: 24, width: "60%", marginBottom: 8 }}
+                    />
+                    <SkeletonBlock
+                        style={{ height: 18, width: "40%", marginBottom: 16 }}
+                    />
+                    <SkeletonBlock
+                        style={{
+                            height: 120,
+                            borderRadius: 12,
+                            marginBottom: 12,
+                        }}
+                    />
+                    <SkeletonBlock
+                        style={{ height: 16, width: "80%", marginBottom: 8 }}
+                    />
+                    <SkeletonBlock
+                        style={{ height: 16, width: "70%", marginBottom: 8 }}
+                    />
+                    <SkeletonBlock
+                        style={{ height: 16, width: "90%", marginBottom: 8 }}
+                    />
                 </ScrollView>
             </SafeAreaView>
         );
@@ -249,13 +305,26 @@ export default function LeaveScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#D4A537"]} />}>
+            <ScrollView
+                contentContainerStyle={styles.content}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={handleRefresh}
+                        colors={["#D4A537"]}
+                    />
+                }
+            >
                 <View style={styles.headerRow}>
                     <Pressable
                         style={styles.backBtn}
-                        onPress={() => router.replace("/employee")}
+                        onPress={() => router.back()}
                     >
-                        <Ionicons name="chevron-back" size={22} color="#111827" />
+                        <Ionicons
+                            name="chevron-back"
+                            size={22}
+                            color="#111827"
+                        />
                     </Pressable>
                     <Text style={styles.headerTitle}>Leave Management</Text>
                     <View style={{ width: 38 }} />
@@ -263,11 +332,17 @@ export default function LeaveScreen() {
 
                 <View style={styles.bigBalanceWrap}>
                     <View style={styles.bigBalanceCard}>
-                        <Text style={styles.bigBalanceLabel}>Available Balance</Text>
+                        <Text style={styles.bigBalanceLabel}>
+                            Available Balance
+                        </Text>
                         {leaveBalanceLoading ? (
-                            <SkeletonBlock style={{ height: 40, width: 120, marginTop: 8 }} />
+                            <SkeletonBlock
+                                style={{ height: 40, width: 120, marginTop: 8 }}
+                            />
                         ) : (
-                            <Text style={styles.bigBalanceValue}>{leaveRemaining}</Text>
+                            <Text style={styles.bigBalanceValue}>
+                                {leaveRemaining}
+                            </Text>
                         )}
                         <Text style={styles.bigBalanceUnit}>DAYS</Text>
                     </View>
@@ -276,18 +351,26 @@ export default function LeaveScreen() {
                         <View style={styles.smallCard}>
                             <Text style={styles.smallLabel}>Used</Text>
                             {leaveBalanceLoading ? (
-                                <SkeletonBlock style={{ height: 30, width: 60 }} />
+                                <SkeletonBlock
+                                    style={{ height: 30, width: 60 }}
+                                />
                             ) : (
-                                <Text style={styles.smallValue}>{String(leaveUsed).padStart(2, '0')}</Text>
+                                <Text style={styles.smallValue}>
+                                    {String(leaveUsed).padStart(2, "0")}
+                                </Text>
                             )}
                             <Text style={styles.smallUnit}>DAYS</Text>
                         </View>
                         <View style={styles.smallCard}>
                             <Text style={styles.smallLabel}>Pending</Text>
                             {leaveBalanceLoading ? (
-                                <SkeletonBlock style={{ height: 30, width: 60 }} />
+                                <SkeletonBlock
+                                    style={{ height: 30, width: 60 }}
+                                />
                             ) : (
-                                <Text style={styles.smallValue}>{String(leavePending).padStart(2, '0')}</Text>
+                                <Text style={styles.smallValue}>
+                                    {String(leavePending).padStart(2, "0")}
+                                </Text>
                             )}
                             <Text style={styles.smallUnit}>DAYS</Text>
                         </View>
@@ -295,10 +378,25 @@ export default function LeaveScreen() {
                 </View>
 
                 <View style={styles.sectionHeaderRow}>
-                    <Text style={[styles.sectionLabelLarge]}>History & Activity</Text>
-                    <Pressable style={styles.yearSelector} onPress={() => { const y = selectedYear === new Date().getFullYear() ? selectedYear - 1 : new Date().getFullYear(); setSelectedYear(y); }}>
+                    <Text style={[styles.sectionLabelLarge]}>
+                        History & Activity
+                    </Text>
+                    <Pressable
+                        style={styles.yearSelector}
+                        onPress={() => {
+                            const y =
+                                selectedYear === new Date().getFullYear()
+                                    ? selectedYear - 1
+                                    : new Date().getFullYear();
+                            setSelectedYear(y);
+                        }}
+                    >
                         <Text style={styles.yearText}>{selectedYear}</Text>
-                        <Ionicons name="chevron-down" size={14} color="#D4A537" />
+                        <Ionicons
+                            name="chevron-down"
+                            size={14}
+                            color="#D4A537"
+                        />
                     </Pressable>
                 </View>
 
@@ -306,15 +404,21 @@ export default function LeaveScreen() {
                     {myLeavesLoading ? (
                         <View style={styles.inlineLoadingRow}>
                             <ActivityIndicator size="small" color="#D4A537" />
-                            <Text style={styles.inlineLoadingText}>Loading your requests…</Text>
+                            <Text style={styles.inlineLoadingText}>
+                                Loading your requests…
+                            </Text>
                         </View>
                     ) : myLeaves.length === 0 ? (
                         <View style={styles.inlineLoadingRow}>
-                            <Text style={styles.inlineLoadingText}>No leave requests yet.</Text>
+                            <Text style={styles.inlineLoadingText}>
+                                No leave requests yet.
+                            </Text>
                         </View>
                     ) : (
                         myLeavesVisible.map((item) => {
-                            const status = (item.status || "pending").toLowerCase();
+                            const status = (
+                                item.status || "pending"
+                            ).toLowerCase();
                             const statusStyles = statusStyleFor(status);
 
                             return (
@@ -327,13 +431,24 @@ export default function LeaveScreen() {
                                         />
                                     </View>
                                     <View style={styles.leaveTextBlock}>
-                                        <Text style={styles.leaveTitle}>{formatTypeLabel(item.type)}</Text>
+                                        <Text style={styles.leaveTitle}>
+                                            {formatTypeLabel(item.type)}
+                                        </Text>
                                         <Text style={styles.leaveDates}>
-                                            {formatDateShort(item.startDate)} - {formatDateShort(item.endDate)} · {formatNumber(item.days)} day(s)
+                                            {formatDateShort(item.startDate)} -{" "}
+                                            {formatDateShort(item.endDate)} ·{" "}
+                                            {formatNumber(item.days)} day(s)
                                         </Text>
                                     </View>
-                                    <View style={[styles.statusPill, statusStyles.pill]}>
-                                        <Text style={statusStyles.text}>{formatTypeLabel(status)}</Text>
+                                    <View
+                                        style={[
+                                            styles.statusPill,
+                                            statusStyles.pill,
+                                        ]}
+                                    >
+                                        <Text style={statusStyles.text}>
+                                            {formatTypeLabel(status)}
+                                        </Text>
                                     </View>
                                 </View>
                             );
@@ -345,9 +460,15 @@ export default function LeaveScreen() {
                             onPress={() => setShowAllMyLeaves((v) => !v)}
                             style={styles.moreLessBtn}
                         >
-                            <Text style={styles.moreLessText}>{showAllMyLeaves ? "Less" : "More"}</Text>
+                            <Text style={styles.moreLessText}>
+                                {showAllMyLeaves ? "Less" : "More"}
+                            </Text>
                             <Ionicons
-                                name={showAllMyLeaves ? "chevron-up" : "chevron-down"}
+                                name={
+                                    showAllMyLeaves
+                                        ? "chevron-up"
+                                        : "chevron-down"
+                                }
                                 size={18}
                                 color="#D4A537"
                             />
@@ -495,7 +616,12 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
     },
     smallLabel: { color: "#9CA3AF", fontSize: 13 },
-    smallValue: { fontSize: 28, fontWeight: "800", color: "#111827", marginTop: 6 },
+    smallValue: {
+        fontSize: 28,
+        fontWeight: "800",
+        color: "#111827",
+        marginTop: 6,
+    },
     smallUnit: { color: "#9CA3AF", fontSize: 12, marginTop: 4 },
     balanceLabel: {
         color: "#A78B5C",

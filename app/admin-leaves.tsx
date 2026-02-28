@@ -32,11 +32,15 @@ export default function AdminLeavesScreen() {
 
     const [refreshing, setRefreshing] = useState(false);
     const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
-    const [actionLoadingType, setActionLoadingType] = useState<"approve" | "reject" | null>(null);
-    const [downloadLoadingId, setDownloadLoadingId] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<"pending" | "approved" | "rejected">(
-        "pending",
+    const [actionLoadingType, setActionLoadingType] = useState<
+        "approve" | "reject" | null
+    >(null);
+    const [downloadLoadingId, setDownloadLoadingId] = useState<string | null>(
+        null,
     );
+    const [activeTab, setActiveTab] = useState<
+        "pending" | "approved" | "rejected"
+    >("pending");
     const [comments, setComments] = useState<Record<string, string>>({});
 
     useEffect(() => {
@@ -111,11 +115,20 @@ export default function AdminLeavesScreen() {
     const statusStylesFor = (status: string) => {
         switch (status) {
             case "approved":
-                return { pill: styles.statusApproved, text: styles.statusApprovedText };
+                return {
+                    pill: styles.statusApproved,
+                    text: styles.statusApprovedText,
+                };
             case "rejected":
-                return { pill: styles.statusRejected, text: styles.statusRejectedText };
+                return {
+                    pill: styles.statusRejected,
+                    text: styles.statusRejectedText,
+                };
             default:
-                return { pill: styles.statusPending, text: styles.statusPendingText };
+                return {
+                    pill: styles.statusPending,
+                    text: styles.statusPendingText,
+                };
         }
     };
 
@@ -124,16 +137,27 @@ export default function AdminLeavesScreen() {
             const fileName = item.attachments?.[0];
             if (!fileName) {
                 if ((item.attachmentCount ?? 0) > 0) {
-                    Alert.alert("Unavailable", "Attachment metadata missing. Please refresh and try again.");
+                    Alert.alert(
+                        "Unavailable",
+                        "Attachment metadata missing. Please refresh and try again.",
+                    );
                     return;
                 }
-                Alert.alert("No attachment", "This request has no downloadable file.");
+                Alert.alert(
+                    "No attachment",
+                    "This request has no downloadable file.",
+                );
                 return;
             }
 
             setDownloadLoadingId(item.id);
-            const downloadUrl = await fetchLeaveAttachmentUrl(item.id, fileName);
-            const isAbsolute = fileName.startsWith("http://") || fileName.startsWith("https://");
+            const downloadUrl = await fetchLeaveAttachmentUrl(
+                item.id,
+                fileName,
+            );
+            const isAbsolute =
+                fileName.startsWith("http://") ||
+                fileName.startsWith("https://");
             const fallbackUrl = isAbsolute
                 ? fileName
                 : `${API_BASE_URL}/leaves/attachment/download?leaveId=${encodeURIComponent(item.id)}&fileName=${encodeURIComponent(fileName)}`;
@@ -141,7 +165,10 @@ export default function AdminLeavesScreen() {
 
             const supported = await Linking.canOpenURL(url);
             if (!supported) {
-                Alert.alert("Unavailable", "Unable to open the attachment link.");
+                Alert.alert(
+                    "Unavailable",
+                    "Unable to open the attachment link.",
+                );
                 return;
             }
 
@@ -160,13 +187,19 @@ export default function AdminLeavesScreen() {
             handleDownloadAttachment(item);
             return;
         }
-        Alert.alert("Unavailable", "Attachment link not available yet. Please refresh and try again.");
+        Alert.alert(
+            "Unavailable",
+            "Attachment link not available yet. Please refresh and try again.",
+        );
     };
 
     const handleApprove = async (id: string, note: string) => {
         const trimmed = note.trim();
         if (!trimmed) {
-            Alert.alert("Comment required", "Please add a comment before approving.");
+            Alert.alert(
+                "Comment required",
+                "Please add a comment before approving.",
+            );
             return;
         }
         const previous = [...allLeaves];
@@ -198,7 +231,10 @@ export default function AdminLeavesScreen() {
     const handleReject = async (id: string, note: string) => {
         const trimmed = note.trim();
         if (!trimmed) {
-            Alert.alert("Comment required", "Please add a comment before rejecting.");
+            Alert.alert(
+                "Comment required",
+                "Please add a comment before rejecting.",
+            );
             return;
         }
         const previous = [...allLeaves];
@@ -230,12 +266,43 @@ export default function AdminLeavesScreen() {
     if (isLoading) {
         return (
             <SafeAreaView style={styles.container}>
-                <ScrollView contentContainerStyle={{ padding: 20 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#D4A537"]} />}>
-                    <SkeletonBlock style={{ height: 28, width: 220, marginBottom: 8 }} />
-                    <SkeletonBlock style={{ height: 18, width: 140, marginBottom: 16 }} />
-                    <SkeletonBlock style={{ height: 80, borderRadius: 12, marginBottom: 12 }} />
-                    <SkeletonBlock style={{ height: 80, borderRadius: 12, marginBottom: 12 }} />
-                    <SkeletonBlock style={{ height: 80, borderRadius: 12, marginBottom: 12 }} />
+                <ScrollView
+                    contentContainerStyle={{ padding: 20 }}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            colors={["#D4A537"]}
+                        />
+                    }
+                >
+                    <SkeletonBlock
+                        style={{ height: 28, width: 220, marginBottom: 8 }}
+                    />
+                    <SkeletonBlock
+                        style={{ height: 18, width: 140, marginBottom: 16 }}
+                    />
+                    <SkeletonBlock
+                        style={{
+                            height: 80,
+                            borderRadius: 12,
+                            marginBottom: 12,
+                        }}
+                    />
+                    <SkeletonBlock
+                        style={{
+                            height: 80,
+                            borderRadius: 12,
+                            marginBottom: 12,
+                        }}
+                    />
+                    <SkeletonBlock
+                        style={{
+                            height: 80,
+                            borderRadius: 12,
+                            marginBottom: 12,
+                        }}
+                    />
                 </ScrollView>
             </SafeAreaView>
         );
@@ -252,7 +319,7 @@ export default function AdminLeavesScreen() {
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.headerRow}>
-                <Pressable onPress={() => router.replace("/admin")} style={styles.backBtn}>
+                <Pressable onPress={() => router.back()} style={styles.backBtn}>
                     <Ionicons name="chevron-back" size={22} color="#111827" />
                 </Pressable>
                 <Text style={styles.heading}>Leave Requests</Text>
@@ -269,7 +336,9 @@ export default function AdminLeavesScreen() {
                 <View style={styles.statCard}>
                     <Text style={styles.statLabel}>Total</Text>
                     {loading ? (
-                        <SkeletonBlock style={{ height: 20, width: 80, marginTop: 6 }} />
+                        <SkeletonBlock
+                            style={{ height: 20, width: 20, marginTop: 6 }}
+                        />
                     ) : (
                         <Text style={styles.statValue}>{counts.total}</Text>
                     )}
@@ -277,25 +346,37 @@ export default function AdminLeavesScreen() {
                 <View style={styles.statCard}>
                     <Text style={styles.statLabel}>Pending</Text>
                     {loading ? (
-                        <SkeletonBlock style={{ height: 20, width: 80, marginTop: 6 }} />
+                        <SkeletonBlock
+                            style={{ height: 20, width: 20, marginTop: 6 }}
+                        />
                     ) : (
-                        <Text style={styles.statValuePending}>{counts.pending}</Text>
+                        <Text style={styles.statValuePending}>
+                            {counts.pending}
+                        </Text>
                     )}
                 </View>
                 <View style={styles.statCard}>
                     <Text style={styles.statLabel}>Approved</Text>
                     {loading ? (
-                        <SkeletonBlock style={{ height: 20, width: 80, marginTop: 6 }} />
+                        <SkeletonBlock
+                            style={{ height: 20, width: 20, marginTop: 6 }}
+                        />
                     ) : (
-                        <Text style={styles.statValueApproved}>{counts.approved}</Text>
+                        <Text style={styles.statValueApproved}>
+                            {counts.approved}
+                        </Text>
                     )}
                 </View>
                 <View style={styles.statCard}>
                     <Text style={styles.statLabel}>Rejected</Text>
                     {loading ? (
-                        <SkeletonBlock style={{ height: 20, width: 80, marginTop: 6 }} />
+                        <SkeletonBlock
+                            style={{ height: 20, width: 20, marginTop: 6 }}
+                        />
                     ) : (
-                        <Text style={styles.statValueRejected}>{counts.rejected}</Text>
+                        <Text style={styles.statValueRejected}>
+                            {counts.rejected}
+                        </Text>
                     )}
                 </View>
             </View>
@@ -354,16 +435,29 @@ export default function AdminLeavesScreen() {
                 </Pressable>
             </View>
 
-            <ScrollView contentContainerStyle={styles.listContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#D4A537"]} />}>
+            <ScrollView
+                contentContainerStyle={styles.listContent}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={["#D4A537"]}
+                    />
+                }
+            >
                 {loading && (
                     <View style={styles.inlineLoadingRow}>
                         <ActivityIndicator size="small" color="#D4A537" />
-                        <Text style={styles.inlineLoadingText}>Loading requests…</Text>
+                        <Text style={styles.inlineLoadingText}>
+                            Loading requests…
+                        </Text>
                     </View>
                 )}
 
                 {!loading && leavesForTab.length === 0 && (
-                    <Text style={styles.emptyText}>No leave requests found.</Text>
+                    <Text style={styles.emptyText}>
+                        No leave requests found.
+                    </Text>
                 )}
 
                 {!loading &&
@@ -371,8 +465,10 @@ export default function AdminLeavesScreen() {
                         const status = (item.status || "pending").toLowerCase();
                         const statusStyles = statusStylesFor(status);
                         const isWorking = actionLoadingId === item.id;
-                        const isApproveWorking = isWorking && actionLoadingType === "approve";
-                        const isRejectWorking = isWorking && actionLoadingType === "reject";
+                        const isApproveWorking =
+                            isWorking && actionLoadingType === "approve";
+                        const isRejectWorking =
+                            isWorking && actionLoadingType === "reject";
                         const isDownloading = downloadLoadingId === item.id;
                         const note = (comments[item.id] || "").trim();
                         const disableReject = isRejectWorking || !note;
@@ -385,61 +481,110 @@ export default function AdminLeavesScreen() {
                                             {item.employee?.name || "Unknown"}
                                         </Text>
                                         <Text style={styles.employeeMeta}>
-                                            {item.employee?.employeeId || ""} • {item.type}
+                                            {item.employee?.employeeId || ""} •{" "}
+                                            {item.type}
                                         </Text>
                                         <Text style={styles.employeeMeta}>
                                             {item.employee?.department || ""}
                                         </Text>
                                     </View>
-                                    <View style={[styles.statusPill, statusStyles.pill]}>
-                                        <Text style={statusStyles.text}>{status}</Text>
+                                    <View
+                                        style={[
+                                            styles.statusPill,
+                                            statusStyles.pill,
+                                        ]}
+                                    >
+                                        <Text style={statusStyles.text}>
+                                            {status}
+                                        </Text>
                                     </View>
                                 </View>
 
                                 <Text style={styles.dateText}>
-                                    {formatDate(item.startDate)} - {formatDate(item.endDate)} · {item.days} day(s)
+                                    {formatDate(item.startDate)} -{" "}
+                                    {formatDate(item.endDate)} · {item.days}{" "}
+                                    day(s)
                                 </Text>
-                                <Text style={styles.reasonText} numberOfLines={2}>
+                                <Text
+                                    style={styles.reasonText}
+                                    numberOfLines={2}
+                                >
                                     {item.reason || "No reason provided"}
                                 </Text>
                                 <Text style={styles.attachmentText}>
-                                    Attachments: {item.attachmentCount ?? item.attachments?.length ?? 0}
+                                    Attachments:{" "}
+                                    {item.attachmentCount ??
+                                        item.attachments?.length ??
+                                        0}
                                 </Text>
 
-                                {(item.attachments?.length ?? 0) > 0 || (item.attachmentCount ?? 0) > 0 ? (
+                                {(item.attachments?.length ?? 0) > 0 ||
+                                (item.attachmentCount ?? 0) > 0 ? (
                                     <Pressable
                                         style={[
                                             styles.downloadRow,
-                                            (item.attachments?.length ?? 0) === 0 && { opacity: 0.6 },
+                                            (item.attachments?.length ?? 0) ===
+                                                0 && { opacity: 0.6 },
                                         ]}
-                                        onPress={() => handleDownloadPress(item)}
+                                        onPress={() =>
+                                            handleDownloadPress(item)
+                                        }
                                     >
                                         <Pressable
-                                            onPress={() => handleDownloadPress(item)}
+                                            onPress={() =>
+                                                handleDownloadPress(item)
+                                            }
                                             hitSlop={10}
                                         >
                                             {isDownloading ? (
-                                                <ActivityIndicator size="small" color="#111827" />
+                                                <ActivityIndicator
+                                                    size="small"
+                                                    color="#111827"
+                                                />
                                             ) : (
-                                                <Ionicons name="download-outline" size={18} color="#111827" />
+                                                <Ionicons
+                                                    name="download-outline"
+                                                    size={18}
+                                                    color="#111827"
+                                                />
                                             )}
                                         </Pressable>
-                                        <View style={{ flex: 1, marginHorizontal: 8 }}>
-                                            <Text style={styles.downloadLabel}>Download</Text>
-                                            <Text style={styles.downloadFile} numberOfLines={1}>
-                                                {(item.attachments?.length ?? 0) > 0
+                                        <View
+                                            style={{
+                                                flex: 1,
+                                                marginHorizontal: 8,
+                                            }}
+                                        >
+                                            <Text style={styles.downloadLabel}>
+                                                Download
+                                            </Text>
+                                            <Text
+                                                style={styles.downloadFile}
+                                                numberOfLines={1}
+                                            >
+                                                {(item.attachments?.length ??
+                                                    0) > 0
                                                     ? item.attachments?.[0]
                                                     : "Attachment link not available"}
                                             </Text>
                                         </View>
                                         <Pressable
-                                            onPress={() => handleDownloadPress(item)}
+                                            onPress={() =>
+                                                handleDownloadPress(item)
+                                            }
                                             hitSlop={10}
                                         >
                                             {isDownloading ? (
-                                                <ActivityIndicator size="small" color="#9CA3AF" />
+                                                <ActivityIndicator
+                                                    size="small"
+                                                    color="#9CA3AF"
+                                                />
                                             ) : (
-                                                <Ionicons name="open-outline" size={16} color="#9CA3AF" />
+                                                <Ionicons
+                                                    name="open-outline"
+                                                    size={16}
+                                                    color="#9CA3AF"
+                                                />
                                             )}
                                         </Pressable>
                                     </Pressable>
@@ -447,14 +592,19 @@ export default function AdminLeavesScreen() {
 
                                 {status === "pending" && (
                                     <View style={styles.commentBlock}>
-                                        <Text style={styles.commentLabel}>Comment</Text>
+                                        <Text style={styles.commentLabel}>
+                                            Comment
+                                        </Text>
                                         <TextInput
                                             style={styles.commentInput}
                                             placeholder="Add a note for this decision"
                                             placeholderTextColor="#9CA3AF"
                                             value={comments[item.id] || ""}
                                             onChangeText={(text) =>
-                                                setComments((prev) => ({ ...prev, [item.id]: text }))
+                                                setComments((prev) => ({
+                                                    ...prev,
+                                                    [item.id]: text,
+                                                }))
                                             }
                                             multiline
                                         />
@@ -467,30 +617,48 @@ export default function AdminLeavesScreen() {
                                             style={[
                                                 styles.actionBtn,
                                                 styles.rejectBtn,
-                                                disableReject && styles.actionBtnDisabled,
+                                                disableReject &&
+                                                    styles.actionBtnDisabled,
                                             ]}
-                                            onPress={() => handleReject(item.id, note)}
+                                            onPress={() =>
+                                                handleReject(item.id, note)
+                                            }
                                             disabled={disableReject}
                                         >
                                             {isRejectWorking ? (
-                                                <ActivityIndicator size="small" color="#DC2626" />
+                                                <ActivityIndicator
+                                                    size="small"
+                                                    color="#DC2626"
+                                                />
                                             ) : (
-                                                <Text style={styles.rejectText}>Reject</Text>
+                                                <Text style={styles.rejectText}>
+                                                    Reject
+                                                </Text>
                                             )}
                                         </Pressable>
                                         <Pressable
                                             style={[
                                                 styles.actionBtn,
                                                 styles.approveBtn,
-                                                disableApprove && styles.actionBtnDisabled,
+                                                disableApprove &&
+                                                    styles.actionBtnDisabled,
                                             ]}
-                                            onPress={() => handleApprove(item.id, note)}
+                                            onPress={() =>
+                                                handleApprove(item.id, note)
+                                            }
                                             disabled={disableApprove}
                                         >
                                             {isApproveWorking ? (
-                                                <ActivityIndicator size="small" color="#FFFFFF" />
+                                                <ActivityIndicator
+                                                    size="small"
+                                                    color="#FFFFFF"
+                                                />
                                             ) : (
-                                                <Text style={styles.approveText}>Approve</Text>
+                                                <Text
+                                                    style={styles.approveText}
+                                                >
+                                                    Approve
+                                                </Text>
                                             )}
                                         </Pressable>
                                     </View>
@@ -502,11 +670,13 @@ export default function AdminLeavesScreen() {
                 <View style={{ height: 120 }} />
             </ScrollView>
             <View style={styles.bottomBar}>
-                <Pressable style={styles.bottomIcon}
-                    onPress={() => router.replace("/admin")}>
+                <Pressable
+                    style={styles.bottomIcon}
+                    onPress={() => router.replace("/admin")}
+                >
                     <Ionicons name="home" size={22} color="#9CA3AF" />
                 </Pressable>
-                
+
                 <Pressable
                     style={styles.bottomIconActive}
                     onPress={() => router.replace("/admin-leaves")}
@@ -540,7 +710,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "space-between",
         paddingHorizontal: 20,
-        paddingTop: 52,
+        paddingTop: 20,
         paddingBottom: 12,
     },
     heading: {
@@ -816,7 +986,7 @@ const styles = StyleSheet.create({
         color: "#111827",
         backgroundColor: "#FFFFFF",
     },
-        bottomBar: {
+    bottomBar: {
         position: "absolute",
         left: 0,
         right: 0,

@@ -1,15 +1,34 @@
 import SkeletonBlock from "@/components/SkeletonBlock";
 import { useAuth } from "@/contexts/AuthContext";
-import { fetchCheckinImageUrl, fetchEmployeeAttendanceImage, fetchTodayAttendance, TodayAttendanceItem } from "@/services/attendance";
+import {
+    fetchCheckinImageUrl,
+    fetchEmployeeAttendanceImage,
+    fetchTodayAttendance,
+    TodayAttendanceItem,
+} from "@/services/attendance";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Image,
+    Modal,
+    Pressable,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function AdminAttendanceScreen() {
     const { user, isLoading } = useAuth();
-    const [status, setStatus] = useState<"checkedin" | "checkedout" | "notcheckedin">("checkedin");
+    const [status, setStatus] = useState<
+        "checkedin" | "checkedout" | "notcheckedin"
+    >("checkedin");
     const [data, setData] = useState<TodayAttendanceItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
@@ -31,11 +50,20 @@ export default function AdminAttendanceScreen() {
     const load = async () => {
         setLoading(true);
         try {
-            const items = await fetchTodayAttendance(status === "checkedin" ? "checkedin" : status === "checkedout" ? "checkedout" : "notcheckedin");
+            const items = await fetchTodayAttendance(
+                status === "checkedin"
+                    ? "checkedin"
+                    : status === "checkedout"
+                      ? "checkedout"
+                      : "notcheckedin",
+            );
             setData(items || []);
         } catch (error: any) {
             console.log("fetch today attendance failed", error?.message);
-            Alert.alert("Load failed", error?.message || "Unable to load attendance");
+            Alert.alert(
+                "Load failed",
+                error?.message || "Unable to load attendance",
+            );
         } finally {
             setLoading(false);
         }
@@ -55,12 +83,43 @@ export default function AdminAttendanceScreen() {
     if (isLoading) {
         return (
             <SafeAreaView style={styles.container}>
-                <ScrollView contentContainerStyle={{ padding: 16 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#D4A537"]} />}>
-                    <SkeletonBlock style={{ height: 28, width: 220, marginBottom: 8 }} />
-                    <SkeletonBlock style={{ height: 18, width: 140, marginBottom: 16 }} />
-                    <SkeletonBlock style={{ height: 120, borderRadius: 12, marginBottom: 12 }} />
-                    <SkeletonBlock style={{ height: 120, borderRadius: 12, marginBottom: 12 }} />
-                    <SkeletonBlock style={{ height: 120, borderRadius: 12, marginBottom: 12 }} />
+                <ScrollView
+                    contentContainerStyle={{ padding: 16 }}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            colors={["#D4A537"]}
+                        />
+                    }
+                >
+                    <SkeletonBlock
+                        style={{ height: 28, width: 220, marginBottom: 8 }}
+                    />
+                    <SkeletonBlock
+                        style={{ height: 18, width: 140, marginBottom: 16 }}
+                    />
+                    <SkeletonBlock
+                        style={{
+                            height: 120,
+                            borderRadius: 12,
+                            marginBottom: 12,
+                        }}
+                    />
+                    <SkeletonBlock
+                        style={{
+                            height: 120,
+                            borderRadius: 12,
+                            marginBottom: 12,
+                        }}
+                    />
+                    <SkeletonBlock
+                        style={{
+                            height: 120,
+                            borderRadius: 12,
+                            marginBottom: 12,
+                        }}
+                    />
                 </ScrollView>
             </SafeAreaView>
         );
@@ -106,7 +165,9 @@ export default function AdminAttendanceScreen() {
             setModalContent({ employeeId: item.employeeId, name: item.name });
             setModalVisible(true);
             try {
-                const data = await fetchEmployeeAttendanceImage(item.employeeId);
+                const data = await fetchEmployeeAttendanceImage(
+                    item.employeeId,
+                );
                 setModalContent((prev) => {
                     if (!prev) return null;
                     return {
@@ -130,21 +191,35 @@ export default function AdminAttendanceScreen() {
 
                 <View style={styles.cardBody}>
                     <Text style={styles.cardName}>{item.name}</Text>
-                    <Text style={styles.cardRole}>{item.department || "-"} • {item.employeeId}</Text>
+                    <Text style={styles.cardRole}>
+                        {item.department || "-"} • {item.employeeId}
+                    </Text>
                 </View>
 
                 <View style={styles.cardRight}>
-                    <Text style={styles.approvedLabel}>{item.checkInTime ? "" : (item.status || "")}</Text>
+                    <Text style={styles.approvedLabel}>
+                        {item.checkInTime ? "" : item.status || ""}
+                    </Text>
                     {item.checkInTime ? (
-                        <Text style={styles.approvedDate}>{new Date(item.checkInTime).toLocaleDateString()}</Text>
+                        <Text style={styles.approvedDate}>
+                            {new Date(item.checkInTime).toLocaleDateString()}
+                        </Text>
                     ) : null}
                     {item.hasCheckInImage ? (
                         imgUri ? (
-                            <Image source={{ uri: imgUri }} style={styles.thumbSmall} />
+                            <Image
+                                source={{ uri: imgUri }}
+                                style={styles.thumbSmall}
+                            />
                         ) : loadingImg ? (
                             <ActivityIndicator style={{ marginTop: 6 }} />
                         ) : (
-                            <Ionicons name="image" size={20} color="#6B7280" style={{ marginTop: 8 }} />
+                            <Ionicons
+                                name="image"
+                                size={20}
+                                color="#6B7280"
+                                style={{ marginTop: 8 }}
+                            />
                         )
                     ) : null}
                 </View>
@@ -159,35 +234,65 @@ export default function AdminAttendanceScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-             <View style={styles.headerRow}>
-                                <Pressable
-                                    style={styles.backBtn}
-                                    onPress={() => router.replace("/employee")}
-                                >
-                                    <Ionicons name="chevron-back" size={22} color="#111827" />
-                                </Pressable>
-                                <Text style={styles.headerTitle}>Today's Attendance</Text>
-                                <View style={{ width: 38 }} />
-                            </View>
+            <View style={styles.headerRow}>
+                <Pressable style={styles.backBtn} onPress={() => router.back()}>
+                    <Ionicons name="chevron-back" size={22} color="#111827" />
+                </Pressable>
+                <Text style={styles.headerTitle}>Today's Attendance</Text>
+                <View style={{ width: 38 }} />
+            </View>
 
             <View style={styles.tabs}>
                 <Pressable
-                    style={[styles.tab, status === "checkedin" && styles.tabActive]}
+                    style={[
+                        styles.tab,
+                        status === "checkedin" && styles.tabActive,
+                    ]}
                     onPress={() => setStatus("checkedin")}
                 >
-                    <Text style={status === "checkedin" ? styles.tabTextActive : styles.tabText}>Checked In</Text>
+                    <Text
+                        style={
+                            status === "checkedin"
+                                ? styles.tabTextActive
+                                : styles.tabText
+                        }
+                    >
+                        Checked In
+                    </Text>
                 </Pressable>
                 <Pressable
-                    style={[styles.tab, status === "checkedout" && styles.tabActive]}
+                    style={[
+                        styles.tab,
+                        status === "checkedout" && styles.tabActive,
+                    ]}
                     onPress={() => setStatus("checkedout")}
                 >
-                    <Text style={status === "checkedout" ? styles.tabTextActive : styles.tabText}>Checked Out</Text>
+                    <Text
+                        style={
+                            status === "checkedout"
+                                ? styles.tabTextActive
+                                : styles.tabText
+                        }
+                    >
+                        Checked Out
+                    </Text>
                 </Pressable>
                 <Pressable
-                    style={[styles.tab, status === "notcheckedin" && styles.tabActive]}
+                    style={[
+                        styles.tab,
+                        status === "notcheckedin" && styles.tabActive,
+                    ]}
                     onPress={() => setStatus("notcheckedin")}
                 >
-                    <Text style={status === "notcheckedin" ? styles.tabTextActive : styles.tabText}>Not Checked In</Text>
+                    <Text
+                        style={
+                            status === "notcheckedin"
+                                ? styles.tabTextActive
+                                : styles.tabText
+                        }
+                    >
+                        Not Checked In
+                    </Text>
                 </Pressable>
             </View>
 
@@ -205,48 +310,85 @@ export default function AdminAttendanceScreen() {
                         data={data}
                         keyExtractor={(i) => i.employeeId}
                         renderItem={renderItem}
-                        ItemSeparatorComponent={() => <View style={styles.sep} />}
+                        ItemSeparatorComponent={() => (
+                            <View style={styles.sep} />
+                        )}
                         refreshing={refreshing}
                         onRefresh={onRefresh}
                     />
                 )}
             </View>
-            
-                        <View style={styles.bottomBar}>
-                            <Pressable style={styles.bottomIcon}
-                                onPress={() => router.replace("/admin")}>
-                                <Ionicons name="home" size={22} color="#9CA3AF" />
-                            </Pressable>
-                            
-                            <Pressable
-                                style={styles.bottomIcon}
-                                onPress={() => router.replace("/admin-leaves")}
-                            >
-                                <Ionicons name="leaf" size={22} color="#9CA3AF" />
-                            </Pressable>
-                            <Pressable
-                                style={styles.bottomIconActive}
-                                onPress={() => router.push("/admin-attendance")}
-                            >
-                                <Ionicons name="layers-outline" size={22} color="#D4A537" />
-                            </Pressable>
-                        </View>
-            <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={closeModal}>
+
+            <View style={styles.bottomBar}>
+                <Pressable
+                    style={styles.bottomIcon}
+                    onPress={() => router.replace("/admin")}
+                >
+                    <Ionicons name="home" size={22} color="#9CA3AF" />
+                </Pressable>
+
+                <Pressable
+                    style={styles.bottomIcon}
+                    onPress={() => router.replace("/admin-leaves")}
+                >
+                    <Ionicons name="leaf" size={22} color="#9CA3AF" />
+                </Pressable>
+                <Pressable
+                    style={styles.bottomIconActive}
+                    onPress={() => router.push("/admin-attendance")}
+                >
+                    <Ionicons name="layers-outline" size={22} color="#D4A537" />
+                </Pressable>
+            </View>
+            <Modal
+                visible={modalVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={closeModal}
+            >
                 <Pressable style={styles.modalOverlay} onPress={closeModal}>
                     <View style={styles.modalCard}>
                         {modalContent?.imageUrl ? (
-                            <Image source={{ uri: modalContent.imageUrl }} style={styles.modalImage} resizeMode="contain" />
+                            <Image
+                                source={{ uri: modalContent.imageUrl }}
+                                style={styles.modalImage}
+                                resizeMode="contain"
+                            />
                         ) : (
                             <View style={styles.modalPlaceholder}>
-                                <Ionicons name="image" size={48} color="#9CA3AF" />
-                                <Text style={styles.modalNoImage}>No image available</Text>
+                                <Ionicons
+                                    name="image"
+                                    size={48}
+                                    color="#9CA3AF"
+                                />
+                                <Text style={styles.modalNoImage}>
+                                    No image available
+                                </Text>
                             </View>
                         )}
-                        <Text style={styles.modalName}>{modalContent?.name}</Text>
-                        <Text style={styles.modalMeta}>ID: {modalContent?.employeeId}</Text>
-                        {modalContent?.attendanceId ? <Text style={styles.modalMeta}>Attendance: {modalContent.attendanceId}</Text> : null}
-                        {modalContent?.checkInTime ? <Text style={styles.modalMeta}>Time: {new Date(modalContent.checkInTime).toLocaleString()}</Text> : null}
-                        <Pressable style={styles.modalClose} onPress={closeModal}>
+                        <Text style={styles.modalName}>
+                            {modalContent?.name}
+                        </Text>
+                        <Text style={styles.modalMeta}>
+                            ID: {modalContent?.employeeId}
+                        </Text>
+                        {modalContent?.attendanceId ? (
+                            <Text style={styles.modalMeta}>
+                                Attendance: {modalContent.attendanceId}
+                            </Text>
+                        ) : null}
+                        {modalContent?.checkInTime ? (
+                            <Text style={styles.modalMeta}>
+                                Time:{" "}
+                                {new Date(
+                                    modalContent.checkInTime,
+                                ).toLocaleString()}
+                            </Text>
+                        ) : null}
+                        <Pressable
+                            style={styles.modalClose}
+                            onPress={closeModal}
+                        >
                             <Text style={styles.modalCloseText}>Close</Text>
                         </Pressable>
                     </View>
@@ -257,7 +399,12 @@ export default function AdminAttendanceScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: "#FFFFFF", paddingTop: 48 },
+    container: {
+        flex: 1,
+        backgroundColor: "#FFFFFF",
+        paddingTop: 10,
+        paddingHorizontal: 12,
+    },
     headerRow: {
         flexDirection: "row",
         alignItems: "center",
@@ -270,15 +417,31 @@ const styles = StyleSheet.create({
         color: "#1F2937",
         fontWeight: "600",
     },
-    tabs: { flexDirection: "row", paddingHorizontal: 12, gap: 8, marginBottom: 8 },
-    tab: { flex: 1, paddingVertical: 10, alignItems: "center", borderRadius: 8, backgroundColor: "#F3F4F6" },
+    tabs: {
+        flexDirection: "row",
+        paddingHorizontal: 12,
+        gap: 8,
+        marginBottom: 8,
+    },
+    tab: {
+        flex: 1,
+        paddingVertical: 10,
+        alignItems: "center",
+        borderRadius: 8,
+        backgroundColor: "#F3F4F6",
+    },
     tabActive: { backgroundColor: "#D4A537" },
     tabText: { color: "#374151", fontWeight: "600" },
     tabTextActive: { color: "#111827", fontWeight: "700" },
     content: { flex: 1, paddingHorizontal: 12, paddingTop: 8 },
     center: { flex: 1, justifyContent: "center", alignItems: "center" },
     empty: { color: "#6B7280" },
-    row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 12 },
+    row: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingVertical: 12,
+    },
     rowLeft: {},
     rowRight: { alignItems: "flex-end" },
     name: { fontWeight: "700", color: "#111827" },
@@ -288,7 +451,7 @@ const styles = StyleSheet.create({
     sep: { height: 1, backgroundColor: "#F3F4F6" },
     thumb: { width: 44, height: 44, borderRadius: 6, marginTop: 6 },
     thumbSmall: { width: 36, height: 36, borderRadius: 8, marginTop: 8 },
-        bottomBar: {
+    bottomBar: {
         position: "absolute",
         left: 0,
         right: 0,
@@ -337,23 +500,59 @@ const styles = StyleSheet.create({
         elevation: 2,
     },
     cardLeft: { width: 56, alignItems: "center", justifyContent: "center" },
-    avatarPlaceholder: { width: 48, height: 48, borderRadius: 24, backgroundColor: "#F8FAFC", borderWidth: 1, borderColor: "#E6EEF5" },
+    avatarPlaceholder: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: "#F8FAFC",
+        borderWidth: 1,
+        borderColor: "#E6EEF5",
+    },
     cardBody: { flex: 1, paddingHorizontal: 12 },
     cardName: { fontWeight: "700", color: "#111827" },
     cardRole: { color: "#6B7280", marginTop: 4, fontSize: 12 },
     cardRight: { alignItems: "flex-end", minWidth: 100 },
     approvedLabel: { color: "#D4A537", fontWeight: "700", fontSize: 12 },
     approvedDate: { color: "#D4A537", fontWeight: "700", marginTop: 6 },
-    modalOverlay: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "rgba(0,0,0,0.5)" },
-    modalCard: { width: "90%", backgroundColor: "#FFF", borderRadius: 12, padding: 16, alignItems: "center" },
-    modalImage: { width: "100%", height: 320, borderRadius: 8, backgroundColor: "#F3F4F6" },
-    modalPlaceholder: { width: "100%", height: 320, borderRadius: 8, backgroundColor: "#F8FAFC", justifyContent: "center", alignItems: "center" },
+    modalOverlay: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "rgba(0,0,0,0.5)",
+    },
+    modalCard: {
+        width: "90%",
+        backgroundColor: "#FFF",
+        borderRadius: 12,
+        padding: 16,
+        alignItems: "center",
+    },
+    modalImage: {
+        width: "100%",
+        height: 320,
+        borderRadius: 8,
+        backgroundColor: "#F3F4F6",
+    },
+    modalPlaceholder: {
+        width: "100%",
+        height: 320,
+        borderRadius: 8,
+        backgroundColor: "#F8FAFC",
+        justifyContent: "center",
+        alignItems: "center",
+    },
     modalNoImage: { color: "#6B7280", marginTop: 8 },
     modalName: { fontWeight: "700", marginTop: 12, color: "#111827" },
     modalMeta: { color: "#6B7280", marginTop: 6 },
-    modalClose: { marginTop: 12, backgroundColor: "#D4A537", paddingVertical: 8, paddingHorizontal: 20, borderRadius: 8 },
+    modalClose: {
+        marginTop: 12,
+        backgroundColor: "#D4A537",
+        paddingVertical: 8,
+        paddingHorizontal: 20,
+        borderRadius: 8,
+    },
     modalCloseText: { color: "#111827", fontWeight: "700" },
-        backBtn: {
+    backBtn: {
         height: 38,
         width: 38,
         borderRadius: 12,

@@ -28,7 +28,7 @@ import {
     Text,
     TextInput,
     View,
-    useWindowDimensions
+    useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -43,10 +43,11 @@ export default function HomeScreen() {
     const [departments, setDepartments] = useState<string[]>([]);
     const [departmentsLoading, setDepartmentsLoading] = useState(false);
     const [showConvertDepartment, setShowConvertDepartment] = useState(false);
-    const [showConvertCustomDepartmentInput, setShowConvertCustomDepartmentInput] =
-        useState(false);
-    const [customConvertDepartment, setCustomConvertDepartment] =
-        useState("");
+    const [
+        showConvertCustomDepartmentInput,
+        setShowConvertCustomDepartmentInput,
+    ] = useState(false);
+    const [customConvertDepartment, setCustomConvertDepartment] = useState("");
     const [activeTab, setActiveTab] = useState<"employees" | "pending">(
         "employees",
     );
@@ -415,9 +416,8 @@ export default function HomeScreen() {
 
     const convertDepartmentOptions = useMemo(() => {
         return [
-            ...(
-                departments || []
-            ).map((item) => (typeof item === "string" ? item.trim() : ""))
+            ...(departments || [])
+                .map((item) => (typeof item === "string" ? item.trim() : ""))
                 .filter(Boolean),
             "Other",
         ];
@@ -484,7 +484,13 @@ export default function HomeScreen() {
                         </Text>
                         <View style={styles.statsHeaderRight}>
                             {summaryLoading ? (
-                                <SkeletonBlock style={{ height: 18, width: 100, borderRadius: 6 }} />
+                                <SkeletonBlock
+                                    style={{
+                                        height: 18,
+                                        width: 100,
+                                        borderRadius: 6,
+                                    }}
+                                />
                             ) : (
                                 <>
                                     <Text style={styles.statsMonth}>
@@ -511,12 +517,26 @@ export default function HomeScreen() {
                                           <View
                                               style={[
                                                   styles.statBar,
-                                                  { backgroundColor: "#E6E9EE" },
+                                                  {
+                                                      backgroundColor:
+                                                          "#E6E9EE",
+                                                  },
                                               ]}
                                           />
                                           <View style={styles.statTextBlock}>
-                                              <SkeletonBlock style={{ height: 18, width: 60, marginBottom: 6 }} />
-                                              <SkeletonBlock style={{ height: 12, width: 120 }} />
+                                              <SkeletonBlock
+                                                  style={{
+                                                      height: 18,
+                                                      width: 60,
+                                                      marginBottom: 6,
+                                                  }}
+                                              />
+                                              <SkeletonBlock
+                                                  style={{
+                                                      height: 12,
+                                                      width: 120,
+                                                  }}
+                                              />
                                           </View>
                                       </View>
                                   </View>
@@ -530,7 +550,10 @@ export default function HomeScreen() {
                                           <View
                                               style={[
                                                   styles.statBar,
-                                                  { backgroundColor: item.color },
+                                                  {
+                                                      backgroundColor:
+                                                          item.color,
+                                                  },
                                               ]}
                                           />
                                           <View style={styles.statTextBlock}>
@@ -551,7 +574,13 @@ export default function HomeScreen() {
             <ScrollView
                 style={styles.flex}
                 contentContainerStyle={styles.listContent}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#D4A537"]} />}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={["#D4A537"]}
+                    />
+                }
             >
                 <View style={styles.searchBar}>
                     <Feather name="search" size={16} color="#9CA3AF" />
@@ -754,7 +783,7 @@ export default function HomeScreen() {
                 <Pressable style={styles.bottomIconActive}>
                     <Ionicons name="home" size={22} color="#D4A537" />
                 </Pressable>
-                
+
                 <Pressable
                     style={styles.bottomIcon}
                     onPress={() => router.replace("/admin-leaves")}
@@ -768,7 +797,6 @@ export default function HomeScreen() {
                     <Ionicons name="layers-outline" size={22} color="#9CA3AF" />
                 </Pressable>
             </View>
-
 
             <Modal
                 transparent
@@ -949,7 +977,9 @@ export default function HomeScreen() {
                                                             styles.dropdownItem
                                                         }
                                                         onPress={() => {
-                                                            if (item === "Other") {
+                                                            if (
+                                                                item === "Other"
+                                                            ) {
                                                                 setShowConvertCustomDepartmentInput(
                                                                     true,
                                                                 );
@@ -1200,7 +1230,6 @@ export default function HomeScreen() {
                     </View>
                 </Pressable>
             </Modal>
-
         </SafeAreaView>
     );
 }
@@ -1216,7 +1245,7 @@ const styles = StyleSheet.create({
     header: {
         backgroundColor: "#2F2F2F",
         paddingHorizontal: 24,
-        paddingTop: 56,
+        paddingTop: 20,
         paddingBottom: 32,
     },
     headerRow: {
@@ -1513,7 +1542,7 @@ const styles = StyleSheet.create({
         fontSize: 11,
         fontWeight: "700",
     },
-        bottomBar: {
+    bottomBar: {
         position: "absolute",
         left: 0,
         right: 0,
