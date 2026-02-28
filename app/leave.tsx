@@ -12,11 +12,13 @@ import { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     Pressable,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
     View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const formatNumber = (value: unknown, fallback = 0) => {
     const num = typeof value === "number" ? value : Number(value);
@@ -63,6 +65,7 @@ export default function LeaveScreen() {
     const [myLeavesLoading, setMyLeavesLoading] = useState(false);
     const [showAllMyLeaves, setShowAllMyLeaves] = useState(false);
     const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+    const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
         if (isLoading) return;
@@ -77,6 +80,17 @@ export default function LeaveScreen() {
 
         loadData();
     }, [isLoading, user]);
+
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        try {
+            await loadData();
+        } catch (err) {
+            // loadData already logs errors
+        } finally {
+            setRefreshing(false);
+        }
+    };
 
     const loadData = async () => {
         setProfileLoading(true);
@@ -217,8 +231,8 @@ export default function LeaveScreen() {
     }
 
     return (
-        <View style={styles.container}>
-            <ScrollView contentContainerStyle={styles.content}>
+        <SafeAreaView style={styles.container}>
+            <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#D4A537"]} />}>
                 <View style={styles.headerRow}>
                     <Pressable
                         style={styles.backBtn}
@@ -338,7 +352,7 @@ export default function LeaveScreen() {
                     <Ionicons name="person-outline" size={22} color="#9CA3AF" />
                 </Pressable>
             </View>
-        </View>
+        </SafeAreaView>
     );
 }
 

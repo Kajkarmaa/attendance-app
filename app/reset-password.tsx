@@ -103,11 +103,11 @@ export default function ResetPasswordScreen() {
                 <Text style={[styles.label, { marginTop: 12 }]}>OTP</Text>
                 <TextInput style={styles.input} value={otp} onChangeText={setOtp} keyboardType="number-pad" editable={!loading} />
 
-                <Text style={[styles.label, { marginTop: 12 }]}>NEW PASSWORD</Text>
-                <TextInput style={styles.input} value={newPass} onChangeText={setNewPass} secureTextEntry editable={!loading} />
+                <Text style={[styles.label, { marginTop: 12 }]}>NEW PASSCODE</Text>
+                <TextInput keyboardType="number-pad" style={styles.input} value={newPass} onChangeText={setNewPass} secureTextEntry editable={!loading} />
 
-                <Text style={[styles.label, { marginTop: 12 }]}>CONFIRM PASSWORD</Text>
-                <TextInput style={styles.input} value={confirmPass} onChangeText={setConfirmPass} secureTextEntry editable={!loading} />
+                <Text style={[styles.label, { marginTop: 12 }]}>CONFIRM PASSCODE</Text>
+                <TextInput keyboardType="number-pad" style={styles.input} value={confirmPass} onChangeText={setConfirmPass} secureTextEntry editable={!loading} />
 
                 <Pressable style={[styles.primaryButton, loading && styles.disabled]} onPress={handleReset} disabled={loading}>
                   {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryText}>Submit</Text>}

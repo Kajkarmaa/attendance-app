@@ -94,6 +94,7 @@ export default function LoginScreen() {
                             <TextInput
                                 style={styles.passwordInput}
                                 placeholder="••••••••"
+                                keyboardType="number-pad"
                                 placeholderTextColor="#A0A0A0"
                                 secureTextEntry={!showPassword}
                                 value={password}

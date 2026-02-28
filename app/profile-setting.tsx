@@ -4,7 +4,8 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ProfileSettingScreen() {
     const { user, logout } = useAuth();
@@ -31,6 +32,19 @@ export default function ProfileSettingScreen() {
 
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
+    const [refreshing, setRefreshing] = useState(false);
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        try {
+            await load();
+        } catch (err) {
+            console.log("refresh failed", err);
+        } finally {
+            setRefreshing(false);
+        }
+    };
+
     const getInitials = (name?: string | null) => {
         if (!name) return "";
         const parts = name.trim().split(/\s+/);
@@ -51,6 +65,7 @@ export default function ProfileSettingScreen() {
                 const asset = (result as any).assets?.[0];
                 const uri = asset?.uri ?? (result as any).uri;
                 if (uri) {
+                    const previous = photoUri;
                     setPhotoUri(uri);
                     // upload to server
                     setUploadingPhoto(true);
@@ -63,6 +78,8 @@ export default function ProfileSettingScreen() {
                         await load();
                     } catch (err: any) {
                         console.log("upload failed", err?.message || err);
+                        // revert to previous image from backend/local state
+                        setPhotoUri(previous);
                         Alert.alert("Upload failed", err?.message || "Could not upload photo.");
                     } finally {
                         setUploadingPhoto(false);
@@ -85,6 +102,7 @@ export default function ProfileSettingScreen() {
                 const asset = (result as any).assets?.[0];
                 const uri = asset?.uri ?? (result as any).uri;
                 if (uri) {
+                    const previous = photoUri;
                     setPhotoUri(uri);
                     // upload to server
                     setUploadingPhoto(true);
@@ -96,6 +114,7 @@ export default function ProfileSettingScreen() {
                         await load();
                     } catch (err: any) {
                         console.log("upload failed", err?.message || err);
+                        setPhotoUri(previous);
                         Alert.alert("Upload failed", err?.message || "Could not upload photo.");
                     } finally {
                         setUploadingPhoto(false);
@@ -164,18 +183,22 @@ export default function ProfileSettingScreen() {
 
     if (loading) {
         return (
-            <View style={styles.loading}><ActivityIndicator color="#D4A537" /></View>
+            <SafeAreaView style={styles.loading}><ActivityIndicator color="#D4A537" /></SafeAreaView>
         );
     }
 
     return (
-        <View style={styles.screen}>
-        <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-            <View style={styles.topRow}>
-                <Pressable onPress={() => router.back()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={20} color="#111827" />
+        <SafeAreaView style={styles.screen}>
+        <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#D4A537"]} />}>
+            <View style={styles.headerRow}>
+                <Pressable
+                    style={styles.backBtn}
+                    onPress={() => router.replace("/employee")}
+                >
+                    <Ionicons name="chevron-back" size={22} color="#111827" />
                 </Pressable>
                 <Text style={styles.headerTitle}>My Profile</Text>
+                <View style={{ width: 38 }} />
             </View>
 
             <View style={styles.avatarWrap}>
@@ -265,25 +288,29 @@ export default function ProfileSettingScreen() {
                 </Pressable>
                 <View style={styles.modalCard}>
                     <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>Change Password</Text>
+                        <Text  style={styles.modalTitle}>Change Passcode</Text>
                         <Pressable onPress={() => setChangePwdVisible(false)} style={styles.modalClose}><Ionicons name="close" size={18} color="#6B7280" /></Pressable>
                     </View>
                     <View style={{ paddingHorizontal: 16, paddingBottom: 18 }}>
-                        <Text style={styles.fieldLabel}>Current Password</Text>
+                        <Text style={styles.fieldLabel}>Current Passcode</Text>
                         <View style={styles.inputRow}>
-                            <TextInput style={styles.input} placeholder="Enter Current Password" secureTextEntry={!showCurrent} value={currentPwd} onChangeText={setCurrentPwd} />
+                            <TextInput  placeholder="123456"
+                                    keyboardType="number-pad"
+                                    style={styles.input} secureTextEntry={!showCurrent} value={currentPwd} onChangeText={setCurrentPwd} />
                             <Pressable onPress={() => setShowCurrent(!showCurrent)} style={styles.inputRight}><Ionicons name={showCurrent ? "eye" : "eye-off"} size={18} color="#6B7280" /></Pressable>
                         </View>
 
-                        <Text style={[styles.fieldLabel, { marginTop: 12 }]}>New Password</Text>
+                        <Text style={[styles.fieldLabel, { marginTop: 12 }]}>New Passcode</Text>
                         <View style={styles.inputRow}>
-                            <TextInput style={styles.input} placeholder="Enter New Password" secureTextEntry={!showNew} value={newPwd} onChangeText={setNewPwd} />
+                            <TextInput style={styles.input}  placeholder="123456"
+                                    keyboardType="number-pad" secureTextEntry={!showNew} value={newPwd} onChangeText={setNewPwd} />
                             <Pressable onPress={() => setShowNew(!showNew)} style={styles.inputRight}><Ionicons name={showNew ? "eye" : "eye-off"} size={18} color="#6B7280" /></Pressable>
                         </View>
 
-                        <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Confirm Password</Text>
+                        <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Confirm Passcode</Text>
                         <View style={styles.inputRow}>
-                            <TextInput style={styles.input} placeholder="Confirm Password" secureTextEntry={!showConfirm} value={confirmPwd} onChangeText={setConfirmPwd} />
+                            <TextInput style={styles.input}  placeholder="123456"
+                                    keyboardType="number-pad" secureTextEntry={!showConfirm} value={confirmPwd} onChangeText={setConfirmPwd} />
                             <Pressable onPress={() => setShowConfirm(!showConfirm)} style={styles.inputRight}><Ionicons name={showConfirm ? "eye" : "eye-off"} size={18} color="#6B7280" /></Pressable>
                         </View>
 
@@ -298,7 +325,7 @@ export default function ProfileSettingScreen() {
                     </View>
                 </View>
             </Modal>
-                    </View>
+                    </SafeAreaView>
             
        
     );
@@ -315,6 +342,25 @@ const styles = StyleSheet.create({
     loading: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" },
     topRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12 },
     backButton: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#F1F5F9", backgroundColor: "#fff" },
+    headerRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 24,
+    },
+    backBtn: {
+        height: 38,
+        width: 38,
+        borderRadius: 12,
+        backgroundColor: "#FFFFFF",
+        alignItems: "center",
+        justifyContent: "center",
+        shadowColor: "#000000",
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 2,
+    },
     headerTitle: { fontSize: 18, fontWeight: "700", color: "#111827", marginLeft: 8 },
     avatarWrap: { alignItems: "center", marginTop: 12, marginBottom: 18 },
     avatarCircle: { width: 160, height: 160, borderRadius: 80, backgroundColor: "#fff", alignItems: "center", justifyContent: "center", borderWidth: 6, borderColor: "#F2C94C", overflow: "hidden" },

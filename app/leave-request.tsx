@@ -13,13 +13,15 @@ import {
     KeyboardAvoidingView,
     Platform,
     Pressable,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
     TextInput,
-    View
+    View,
 } from "react-native";
 import { Calendar, type DateData } from "react-native-calendars";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 type MarkedDates = {
     [key: string]: {
@@ -53,6 +55,7 @@ export default function LeaveRequestScreen() {
     const [showStartPicker, setShowStartPicker] = useState(false);
     const [showEndPicker, setShowEndPicker] = useState(false);
     const [attachment, setAttachment] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
+    const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
         if (isLoading) return;
@@ -85,9 +88,19 @@ export default function LeaveRequestScreen() {
         }
     };
 
+    const onRefresh = async () => {
+        setRefreshing(true);
+        try {
+            await loadLeaveBalance();
+        } catch (err) {
+            console.log("refresh failed", err);
+        } finally {
+            setRefreshing(false);
+        }
+    };
+
     const leaveTypeOptions = useMemo(() => {
         const entries = Object.entries(leaveBalance?.byType ?? {});
-        // Keep stable order if backend already provides it; otherwise sort with remaining desc.
         return entries.map(([type, values]) => ({
             type,
             remaining: values?.remaining ?? 0,
@@ -163,7 +176,12 @@ export default function LeaveRequestScreen() {
         const result = await DocumentPicker.getDocumentAsync({
             multiple: false,
             copyToCacheDirectory: true,
-            type: ["application/pdf", "image/*", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+            type: [
+                "application/pdf",
+                "image/*",
+                "application/msword",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ],
         });
 
         if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -216,10 +234,10 @@ export default function LeaveRequestScreen() {
                 reason: reason.trim(),
                 attachment: attachment
                     ? {
-                        uri: attachment.uri,
-                        name: attachment.name ?? "attachment",
-                        type: attachment.mimeType ?? "application/octet-stream",
-                    }
+                          uri: attachment.uri,
+                          name: attachment.name ?? "attachment",
+                          type: attachment.mimeType ?? "application/octet-stream",
+                      }
                     : undefined,
             });
 
@@ -239,220 +257,193 @@ export default function LeaveRequestScreen() {
 
     if (isLoading || !user || user.role !== "emp") {
         return (
-            <View style={styles.loadingContainer}>
+            <SafeAreaView style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#D4A537" />
-            </View>
+            </SafeAreaView>
         );
     }
 
     return (
-        <KeyboardAvoidingView
-            style={styles.container}
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
-            keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
-        >
-            <ScrollView
-                contentContainerStyle={styles.content}
-                keyboardShouldPersistTaps="handled"
-                keyboardDismissMode="interactive"
+        <SafeAreaView style={styles.container}>
+            <KeyboardAvoidingView
+                style={{ flex: 1 }}
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
             >
-                <View style={styles.headerRow}>
-                    <Pressable
-                        style={styles.headerIcon}
-                        onPress={() => router.replace("/leave")}
-                    >
-                        <Ionicons name="chevron-back" size={22} color="#111827" />
-                    </Pressable>
-                    <Text style={styles.headerTitle}>New Leave Request</Text>
-                    <View style={styles.headerDots}>
-                        {/* <Ionicons name="ellipsis-horizontal" size={20} color="#111827" /> */}
+                <ScrollView
+                    contentContainerStyle={styles.content}
+                    keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="interactive"
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            colors={["#D4A537"]}
+                            tintColor="#D4A537"
+                        />
+                    }
+                >
+                    <View style={styles.headerRow}>
+                        <Pressable style={styles.headerIcon} onPress={() => router.replace("/leave")}> 
+                            <Ionicons name="chevron-back" size={22} color="#111827" />
+                        </Pressable>
+                        <Text style={styles.headerTitle}>New Leave Request</Text>
+                        <View style={styles.headerDots} />
                     </View>
-                </View>
 
-                <Text style={styles.sectionLabel}>Jewelry House Administration</Text>
-                <Text style={styles.sectionTitle}>Absence Details</Text>
+                    <Text style={styles.sectionLabel}>Jewelry House Administration</Text>
+                    <Text style={styles.sectionTitle}>Absence Details</Text>
 
-                <View style={styles.card}>
-                    <Text style={styles.cardLabel}>Leave Category</Text>
-                    <Pressable
-                        style={styles.selector}
-                        onPress={() => setShowCategory((v) => !v)}
-                    >
-                        <Text style={styles.selectorValue}>
-                            {leaveBalanceLoading ? "Loading…" : selectedTypeLabel}
-                        </Text>
-                        <Ionicons name={showCategory ? "chevron-up" : "chevron-down"} size={18} color="#9CA3AF" />
-                    </Pressable>
-                    {showCategory && (
-                        <View style={styles.dropdown}>
-                            {leaveBalanceLoading ? (
-                                <View style={styles.dropdownItem}>
-                                    <Text style={styles.dropdownText}>Loading leave types…</Text>
-                                </View>
-                            ) : leaveTypeOptions.length === 0 ? (
-                                <View style={styles.dropdownItem}>
-                                    <Text style={styles.dropdownText}>No leave types available</Text>
-                                </View>
-                            ) : (
-                                leaveTypeOptions.map((item) => (
-                                    <Pressable
-                                        key={item.type}
-                                        style={styles.dropdownItem}
-                                        onPress={() => {
-                                            setLeaveType(item.type);
-                                            setShowCategory(false);
-                                        }}
-                                    >
-                                        <View style={styles.dropdownRow}>
-                                            <Text style={styles.dropdownText}>{formatTypeLabel(item.type)}</Text>
-                                            <Text style={styles.dropdownMeta}>{item.remaining} left</Text>
-                                        </View>
-                                    </Pressable>
-                                ))
-                            )}
+                    <View style={styles.card}>
+                        <Text style={styles.cardLabel}>Leave Category</Text>
+                        <Pressable style={styles.selector} onPress={() => setShowCategory((v) => !v)}>
+                            <Text style={styles.selectorValue}>{leaveBalanceLoading ? "Loading…" : selectedTypeLabel}</Text>
+                            <Ionicons name={showCategory ? "chevron-up" : "chevron-down"} size={18} color="#9CA3AF" />
+                        </Pressable>
+                        {showCategory && (
+                            <View style={styles.dropdown}>
+                                {leaveBalanceLoading ? (
+                                    <View style={styles.dropdownItem}>
+                                        <Text style={styles.dropdownText}>Loading leave types…</Text>
+                                    </View>
+                                ) : leaveTypeOptions.length === 0 ? (
+                                    <View style={styles.dropdownItem}>
+                                        <Text style={styles.dropdownText}>No leave types available</Text>
+                                    </View>
+                                ) : (
+                                    leaveTypeOptions.map((item) => (
+                                        <Pressable
+                                            key={item.type}
+                                            style={styles.dropdownItem}
+                                            onPress={() => {
+                                                setLeaveType(item.type);
+                                                setShowCategory(false);
+                                            }}
+                                        >
+                                            <View style={styles.dropdownRow}>
+                                                <Text style={styles.dropdownText}>{formatTypeLabel(item.type)}</Text>
+                                                <Text style={styles.dropdownMeta}>{item.remaining} left</Text>
+                                            </View>
+                                        </Pressable>
+                                    ))
+                                )}
+                            </View>
+                        )}
+                    </View>
+
+                    <View style={styles.card}>
+                        <Text style={styles.calendarHint}>Select start and end dates</Text>
+                        <Calendar
+                            markingType="period"
+                            markedDates={markedDates}
+                            onDayPress={(day: DateData) => handleDaySelect(day.dateString)}
+                            enableSwipeMonths
+                            firstDay={1}
+                            theme={{
+                                todayTextColor: "#D4A537",
+                                arrowColor: "#D4A537",
+                                selectedDayBackgroundColor: "#D4A537",
+                                textDayFontWeight: "600",
+                                textMonthFontWeight: "700",
+                            }}
+                        />
+
+                        <View style={styles.dateRow}>
+                            <Pressable style={styles.dateInput} onPress={() => setShowStartPicker(true)}>
+                                <Text style={styles.dateLabel}>Start Date</Text>
+                                <Text style={styles.dateValue}>{formatDateValue(startDate, true)}</Text>
+                            </Pressable>
+                            <Pressable style={styles.dateInput} onPress={() => setShowEndPicker(true)}>
+                                <Text style={styles.dateLabel}>End Date</Text>
+                                <Text style={styles.dateValue}>{formatDateValue(endDate, true)}</Text>
+                            </Pressable>
+                        </View>
+
+                        <View style={styles.summaryRow}>
+                            <View>
+                                <Text style={styles.summaryLabel}>Duration</Text>
+                                <Text style={styles.summaryValue}>{rangeLabel}</Text>
+                            </View>
+                            <View>
+                                <Text style={styles.summaryLabel}>Total</Text>
+                                <Text style={styles.summaryValue}>{durationLabel}</Text>
+                            </View>
+                        </View>
+                    </View>
+
+                    {showStartPicker && (
+                        <View style={styles.pickerContainer}>
+                            <DateTimePicker
+                                value={new Date(startDate)}
+                                mode="date"
+                                display="spinner"
+                                onChange={(event: DateTimePickerEvent) => handleDateChange(event, "start", () => setShowStartPicker(false))}
+                            />
+                            <Pressable style={styles.pickerCloseBtn} onPress={() => setShowStartPicker(false)}>
+                                <Text style={styles.pickerCloseText}>Close</Text>
+                            </Pressable>
                         </View>
                     )}
-                </View>
 
-                <View style={styles.card}>
-                    <Text style={styles.calendarHint}>Select start and end dates</Text>
-                    <Calendar
-                        markingType="period"
-                        markedDates={markedDates}
-                        onDayPress={(day: DateData) => handleDaySelect(day.dateString)}
-                        enableSwipeMonths
-                        firstDay={1}
-                        theme={{
-                            todayTextColor: "#D4A537",
-                            arrowColor: "#D4A537",
-                            selectedDayBackgroundColor: "#D4A537",
-                            textDayFontWeight: "600",
-                            textMonthFontWeight: "700",
-                        }}
-                    />
-
-                    <View style={styles.dateRow}>
-                        <Pressable
-                            style={styles.dateInput}
-                            onPress={() => setShowStartPicker(true)}
-                        >
-                            <Text style={styles.dateLabel}>Start Date</Text>
-                            <Text style={styles.dateValue}>{formatDateValue(startDate, true)}</Text>
-                        </Pressable>
-                        <Pressable
-                            style={styles.dateInput}
-                            onPress={() => setShowEndPicker(true)}
-                        >
-                            <Text style={styles.dateLabel}>End Date</Text>
-                            <Text style={styles.dateValue}>{formatDateValue(endDate, true)}</Text>
-                        </Pressable>
-                    </View>
-
-                    <View style={styles.summaryRow}>
-                        <View>
-                            <Text style={styles.summaryLabel}>Duration</Text>
-                            <Text style={styles.summaryValue}>{rangeLabel}</Text>
+                    {showEndPicker && (
+                        <View style={styles.pickerContainer}>
+                            <DateTimePicker
+                                value={new Date(endDate)}
+                                mode="date"
+                                display="spinner"
+                                onChange={(event: DateTimePickerEvent) => handleDateChange(event, "end", () => setShowEndPicker(false))}
+                            />
+                            <Pressable style={styles.pickerCloseBtn} onPress={() => setShowEndPicker(false)}>
+                                <Text style={styles.pickerCloseText}>Close</Text>
+                            </Pressable>
                         </View>
-                        <View>
-                            <Text style={styles.summaryLabel}>Total</Text>
-                            <Text style={styles.summaryValue}>{durationLabel}</Text>
-                        </View>
-                    </View>
-                </View>
-
-                {showStartPicker && (
-                    <View style={styles.pickerContainer}>
-                        <DateTimePicker
-                            value={new Date(startDate)}
-                            mode="date"
-                            display="spinner"
-                            onChange={(event: DateTimePickerEvent) =>
-                                handleDateChange(event, "start", () => setShowStartPicker(false))
-                            }
-                        />
-                        <Pressable
-                            style={styles.pickerCloseBtn}
-                            onPress={() => setShowStartPicker(false)}
-                        >
-                            <Text style={styles.pickerCloseText}>Close</Text>
-                        </Pressable>
-                    </View>
-                )}
-
-                {showEndPicker && (
-                    <View style={styles.pickerContainer}>
-                        <DateTimePicker
-                            value={new Date(endDate)}
-                            mode="date"
-                            display="spinner"
-                            onChange={(event: DateTimePickerEvent) =>
-                                handleDateChange(event, "end", () => setShowEndPicker(false))
-                            }
-                        />
-                        <Pressable
-                            style={styles.pickerCloseBtn}
-                            onPress={() => setShowEndPicker(false)}
-                        >
-                            <Text style={styles.pickerCloseText}>Close</Text>
-                        </Pressable>
-                    </View>
-                )}
-
-                <View style={styles.card}>
-                    <View style={styles.reasonHeader}>
-                        <Text style={styles.cardLabel}>Reason for Request</Text>
-                        <Text style={styles.optional}>Optional</Text>
-                    </View>
-                    <TextInput
-                        style={styles.textArea}
-                        multiline
-                        placeholder="Please describe the nature of your absence..."
-                        placeholderTextColor="#9CA3AF"
-                        value={reason}
-                        onChangeText={setReason}
-                    />
-                </View>
-
-                <Pressable style={styles.attachmentRow} onPress={handlePickAttachment}>
-                    <Ionicons name="add-circle-outline" size={18} color="#D4A537" />
-                    <Text style={styles.attachmentText}>Add supporting documentation</Text>
-                    <Ionicons name="add" size={18} color="#D4A537" />
-                </Pressable>
-
-                {attachment && (
-                    <View style={styles.attachmentChip}>
-                        <View style={styles.attachmentInfo}>
-                            <Ionicons name="document-attach-outline" size={16} color="#6B7280" />
-                            <Text style={styles.attachmentName} numberOfLines={1}>
-                                {attachment.name || "Selected file"}
-                            </Text>
-                        </View>
-                        <Pressable onPress={() => setAttachment(null)}>
-                            <Ionicons name="close" size={16} color="#9CA3AF" />
-                        </Pressable>
-                    </View>
-                )}
-
-                <Pressable
-                    style={styles.submitBtn}
-                    onPress={handleSubmit}
-                    disabled={submitting}
-                >
-                    {submitting ? (
-                        <ActivityIndicator color="#FFFFFF" />
-                    ) : (
-                        <Text style={styles.submitText}>Submit Application</Text>
                     )}
-                </Pressable>
 
-                <Pressable
-                    style={styles.discardBtn}
-                    onPress={() => router.replace("/leave")}
-                >
-                    <Text style={styles.discardText}>Discard Draft</Text>
-                </Pressable>
-            </ScrollView>
-        </KeyboardAvoidingView>
+                    <View style={styles.card}>
+                        <View style={styles.reasonHeader}>
+                            <Text style={styles.cardLabel}>Reason for Request</Text>
+                            <Text style={styles.optional}>Optional</Text>
+                        </View>
+                        <TextInput
+                            style={styles.textArea}
+                            multiline
+                            placeholder="Please describe the nature of your absence..."
+                            placeholderTextColor="#9CA3AF"
+                            value={reason}
+                            onChangeText={setReason}
+                        />
+                    </View>
+
+                    <Pressable style={styles.attachmentRow} onPress={handlePickAttachment}>
+                        <Ionicons name="add-circle-outline" size={18} color="#D4A537" />
+                        <Text style={styles.attachmentText}>Add supporting documentation</Text>
+                        <Ionicons name="add" size={18} color="#D4A537" />
+                    </Pressable>
+
+                    {attachment && (
+                        <View style={styles.attachmentChip}>
+                            <View style={styles.attachmentInfo}>
+                                <Ionicons name="document-attach-outline" size={16} color="#6B7280" />
+                                <Text style={styles.attachmentName} numberOfLines={1}>
+                                    {attachment.name || "Selected file"}
+                                </Text>
+                            </View>
+                            <Pressable onPress={() => setAttachment(null)}>
+                                <Ionicons name="close" size={16} color="#9CA3AF" />
+                            </Pressable>
+                        </View>
+                    )}
+
+                    <Pressable style={styles.submitBtn} onPress={handleSubmit} disabled={submitting}>
+                        {submitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitText}>Submit Application</Text>}
+                    </Pressable>
+
+                    <Pressable style={styles.discardBtn} onPress={() => router.replace("/leave")}>
+                        <Text style={styles.discardText}>Discard Draft</Text>
+                    </Pressable>
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </SafeAreaView>
     );
 }
 
@@ -500,7 +491,6 @@ const styles = StyleSheet.create({
         height: 38,
         width: 38,
         borderRadius: 12,
-        // backgroundColor: "#FFFFFF",
         alignItems: "center",
         justifyContent: "center",
         shadowColor: "#000000",
