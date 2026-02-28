@@ -265,7 +265,7 @@ export default function LeaveRequestScreen() {
                     </Pressable>
                     <Text style={styles.headerTitle}>New Leave Request</Text>
                     <View style={styles.headerDots}>
-                        <Ionicons name="ellipsis-horizontal" size={20} color="#111827" />
+                        {/* <Ionicons name="ellipsis-horizontal" size={20} color="#111827" /> */}
                     </View>
                 </View>
 
@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
         height: 38,
         width: 38,
         borderRadius: 12,
-        backgroundColor: "#FFFFFF",
+        // backgroundColor: "#FFFFFF",
         alignItems: "center",
         justifyContent: "center",
         shadowColor: "#000000",
