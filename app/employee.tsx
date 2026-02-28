@@ -35,7 +35,6 @@ import {
     View,
 } from "react-native";
 
-const APP_LOGO = require("../assets/logo.jpg");
 
 const ACTIVITY_COLOR_MAP: Record<string, string> = {
     attendance: "#34D399",
