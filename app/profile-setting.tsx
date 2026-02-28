@@ -143,7 +143,7 @@ export default function ProfileSettingScreen() {
         try {
             const email = profile?.email ?? user?.email;
             if (!email) throw new Error("Email not available for this user.");
-            const resp = await changePassword({ email, oldPassword: currentPwd, newPassword: newPwd });
+            const resp = await changePassword({ email, oldPasscode: currentPwd, newPasscode: newPwd });
             if (resp?.success) {
                 Alert.alert("Success", resp.message || "Password updated successfully.");
                 setChangePwdVisible(false);

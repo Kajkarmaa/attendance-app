@@ -134,8 +134,13 @@ export default function LoginScreen() {
                                 <Text style={styles.loginText}>Login</Text>
                             )}
                         </Pressable>
+                         <Pressable
+                            style={styles.registerTrigger}
+                            onPress={() => router.push("/reset-password")}
+                        >
 
                         <Text style={styles.forgot}>Forgot password?</Text>
+                        </Pressable>
 
                         <Pressable
                             style={styles.registerTrigger}

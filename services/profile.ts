@@ -68,11 +68,11 @@ export async function updateProfileImage(file: { uri: string; name?: string; typ
 }
 
 // Added changePassword function
-export async function changePassword(payload: { email: string; oldPassword: string; newPassword: string }) {
+export async function changePassword(payload: { email: string; oldPasscode: string; newPasscode: string }) {
     const response = await apiClient.post("/users/reset-password", {
         email: payload.email,
-        oldPassword: payload.oldPassword,
-        newPassword: payload.newPassword,
+        oldPasscode: payload.oldPasscode,
+        newPasscode: payload.newPasscode,
     });
     return response.data;
 }

@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
         opacity: 0.6,
     },
     registerButton: {
-        backgroundColor: "#4B5563",
+         backgroundColor: "#D4A537",
         borderRadius: 14,
         paddingVertical: 14,
         marginTop: 18,

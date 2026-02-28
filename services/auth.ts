@@ -119,6 +119,14 @@ export async function sendOtp(payload: SendOtpPayload): Promise<SendOtpResponse>
   return response.data;
 }
 
+export async function resetPasswordWithOtp(payload: { email: string; otp: string; newPasscode: string }) {
+  const response = await apiClient.post<{ success: boolean; message: string }>(
+    "/users/reset-password",
+    payload,
+  );
+  return response.data;
+}
+
 export async function storeToken(token: string): Promise<void> {
   await AsyncStorage.setItem("authToken", token);
 }
