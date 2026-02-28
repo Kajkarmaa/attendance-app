@@ -1,3 +1,4 @@
+import SkeletonBlock from "@/components/SkeletonBlock";
 import { useAuth } from "@/contexts/AuthContext";
 import {
     fetchLeaveBalance,
@@ -222,7 +223,23 @@ export default function LeaveScreen() {
         };
     });
 
-    if (isLoading || !user || user.role !== "emp") {
+    if (isLoading) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <ScrollView contentContainerStyle={[styles.content, { paddingTop: 32 }]} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#D4A537"]} />}>
+                    <SkeletonBlock style={{ height: 160, borderRadius: 12, marginBottom: 16 }} />
+                    <SkeletonBlock style={{ height: 24, width: "60%", marginBottom: 8 }} />
+                    <SkeletonBlock style={{ height: 18, width: "40%", marginBottom: 16 }} />
+                    <SkeletonBlock style={{ height: 120, borderRadius: 12, marginBottom: 12 }} />
+                    <SkeletonBlock style={{ height: 16, width: "80%", marginBottom: 8 }} />
+                    <SkeletonBlock style={{ height: 16, width: "70%", marginBottom: 8 }} />
+                    <SkeletonBlock style={{ height: 16, width: "90%", marginBottom: 8 }} />
+                </ScrollView>
+            </SafeAreaView>
+        );
+    }
+
+    if (!user || user.role !== "emp") {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#D4A537" />
@@ -247,19 +264,31 @@ export default function LeaveScreen() {
                 <View style={styles.bigBalanceWrap}>
                     <View style={styles.bigBalanceCard}>
                         <Text style={styles.bigBalanceLabel}>Available Balance</Text>
-                        <Text style={styles.bigBalanceValue}>{leaveRemaining}</Text>
+                        {leaveBalanceLoading ? (
+                            <SkeletonBlock style={{ height: 40, width: 120, marginTop: 8 }} />
+                        ) : (
+                            <Text style={styles.bigBalanceValue}>{leaveRemaining}</Text>
+                        )}
                         <Text style={styles.bigBalanceUnit}>DAYS</Text>
                     </View>
 
                     <View style={styles.smallBalanceRow}>
                         <View style={styles.smallCard}>
                             <Text style={styles.smallLabel}>Used</Text>
-                            <Text style={styles.smallValue}>{String(leaveUsed).padStart(2, '0')}</Text>
+                            {leaveBalanceLoading ? (
+                                <SkeletonBlock style={{ height: 30, width: 60 }} />
+                            ) : (
+                                <Text style={styles.smallValue}>{String(leaveUsed).padStart(2, '0')}</Text>
+                            )}
                             <Text style={styles.smallUnit}>DAYS</Text>
                         </View>
                         <View style={styles.smallCard}>
                             <Text style={styles.smallLabel}>Pending</Text>
-                            <Text style={styles.smallValue}>{String(leavePending).padStart(2, '0')}</Text>
+                            {leaveBalanceLoading ? (
+                                <SkeletonBlock style={{ height: 30, width: 60 }} />
+                            ) : (
+                                <Text style={styles.smallValue}>{String(leavePending).padStart(2, '0')}</Text>
+                            )}
                             <Text style={styles.smallUnit}>DAYS</Text>
                         </View>
                     </View>

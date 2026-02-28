@@ -6,10 +6,12 @@ import DateTimePicker, {
 } from "@react-native-community/datetimepicker";
 import * as DocumentPicker from "expo-document-picker";
 import { router } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import SkeletonBlock from "@/components/SkeletonBlock";
 import {
     ActivityIndicator,
     Alert,
+    Animated,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -255,7 +257,25 @@ export default function LeaveRequestScreen() {
         }
     };
 
-    if (isLoading || !user || user.role !== "emp") {
+    if (isLoading) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}>
+                    <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#D4A537"]} />}>
+                        <SkeletonBlock style={{ height: 160, borderRadius: 12, marginBottom: 12 }} />
+                        <SkeletonBlock style={{ height: 18, width: "60%", marginBottom: 8 }} />
+                        <SkeletonBlock style={{ height: 18, width: "40%", marginBottom: 16 }} />
+                        <SkeletonBlock style={{ height: 240, borderRadius: 12, marginBottom: 12 }} />
+                        <SkeletonBlock style={{ height: 16, width: "80%", marginBottom: 8 }} />
+                        <SkeletonBlock style={{ height: 16, width: "90%", marginBottom: 8 }} />
+                        <SkeletonBlock style={{ height: 16, width: "50%", marginBottom: 8 }} />
+                    </ScrollView>
+                </KeyboardAvoidingView>
+            </SafeAreaView>
+        );
+    }
+
+    if (!user || user.role !== "emp") {
         return (
             <SafeAreaView style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#D4A537" />

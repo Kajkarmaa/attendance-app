@@ -1,3 +1,4 @@
+import SkeletonBlock from "@/components/SkeletonBlock";
 import { useAuth } from "@/contexts/AuthContext";
 import {
     EmployeeActivity,
@@ -534,11 +535,24 @@ export default function EmployeeDashboardScreen() {
         }
     };
 
-    if (isLoading || !user || user.role !== "emp") {
+    if (isLoading) {
         return (
-            <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#D4A537" />
-            </View>
+            <SafeAreaView style={styles.container}>
+                <ScrollView
+                    contentContainerStyle={[styles.content, { paddingTop: 32 }]}
+                    showsVerticalScrollIndicator={false}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#D4A537"]} />}
+                >
+                    <SkeletonBlock style={{ height: 200, borderRadius: 12, marginBottom: 16 }} />
+                    <SkeletonBlock style={{ height: 24, width: "60%", marginBottom: 8 }} />
+                    <SkeletonBlock style={{ height: 18, width: "40%", marginBottom: 16 }} />
+                    <SkeletonBlock style={{ height: 100, borderRadius: 12, marginBottom: 12 }} />
+                    <SkeletonBlock style={{ height: 16, width: "80%", marginBottom: 8 }} />
+                    <SkeletonBlock style={{ height: 16, width: "70%", marginBottom: 8 }} />
+                    <SkeletonBlock style={{ height: 16, width: "90%", marginBottom: 8 }} />
+                    <SkeletonBlock style={{ height: 200, borderRadius: 12, marginTop: 12 }} />
+                </ScrollView>
+            </SafeAreaView>
         );
     }
 
@@ -565,11 +579,21 @@ export default function EmployeeDashboardScreen() {
                             )}
                         </Pressable>
                         <View style={styles.headerTextBlock}>
-                            <Text style={styles.name}>Hello, {displayName}</Text>
-                            <Text style={styles.subtitle}>{displayDesignation}</Text>
-                            <Text style={styles.metaTextSmall}>
-                                {profile?.employeeId || user?.employeeId || "--"} • {profile?.department || "Department"}
-                            </Text>
+                            {profileLoading ? (
+                                <>
+                                    <SkeletonBlock style={{ height: 20, width: 160, marginBottom: 6 }} />
+                                    <SkeletonBlock style={{ height: 16, width: 120, marginBottom: 6 }} />
+                                    <SkeletonBlock style={{ height: 12, width: 200 }} />
+                                </>
+                            ) : (
+                                <>
+                                    <Text style={styles.name}>Hello, {displayName}</Text>
+                                    <Text style={styles.subtitle}>{displayDesignation}</Text>
+                                    <Text style={styles.metaTextSmall}>
+                                        {profile?.employeeId || user?.employeeId || "--"} • {profile?.department || "Department"}
+                                    </Text>
+                                </>
+                            )}
                         </View>
                     </View>
 
@@ -617,7 +641,11 @@ export default function EmployeeDashboardScreen() {
                             </View>
                             <Text style={styles.tileTitle}>Check In</Text>
                             <Text style={styles.tileTime}>
-                                {attendance?.checkIn?.time || "--:--"}
+                                {attLoading || profileLoading ? (
+                                    <SkeletonBlock style={{ height: 18, width: 80 }} />
+                                ) : (
+                                    attendance?.checkIn?.time || "--:--"
+                                )}
                             </Text>
                             <Text style={styles.tileNote}>On Time</Text>
                         </View>
@@ -627,7 +655,11 @@ export default function EmployeeDashboardScreen() {
                             </View>
                             <Text style={styles.tileTitle}>Check Out</Text>
                             <Text style={styles.tileTime}>
-                                {attendance?.checkOut?.time || "--:--"}
+                                {attLoading || profileLoading ? (
+                                    <SkeletonBlock style={{ height: 18, width: 80 }} />
+                                ) : (
+                                    attendance?.checkOut?.time || "--:--"
+                                )}
                             </Text>
                             <Text style={styles.tileNote}>Go Home</Text>
                         </View>
@@ -638,7 +670,7 @@ export default function EmployeeDashboardScreen() {
                                 <Ionicons name="cafe-outline" size={16} color="#F6C84C" />
                             </View>
                             <Text style={styles.tileTitle}>Break Time</Text>
-                            <Text style={styles.tileTime}>00:30 min</Text>
+                            <Text style={styles.tileTime}>{profileLoading ? <SkeletonBlock style={{ height: 18, width: 80 }} /> : "00:30 min"}</Text>
                             <Text style={styles.tileNote}>Avg Time 30 min</Text>
                         </View>
                         <View style={styles.tileCard}>
@@ -646,7 +678,7 @@ export default function EmployeeDashboardScreen() {
                                 <Ionicons name="calendar-outline" size={16} color="#F6C84C" />
                             </View>
                             <Text style={styles.tileTitle}>Total Days</Text>
-                            <Text style={styles.tileTime}>28</Text>
+                            <Text style={styles.tileTime}>{profileLoading ? <SkeletonBlock style={{ height: 18, width: 40 }} /> : String((attendance as any)?.totalDays ?? 0)}</Text>
                             <Text style={styles.tileNote}>Working Days</Text>
                         </View>
                     </View>

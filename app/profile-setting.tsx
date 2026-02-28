@@ -1,3 +1,4 @@
+import SkeletonBlock from "@/components/SkeletonBlock";
 import { useAuth } from "@/contexts/AuthContext";
 import { changePassword, fetchEmployeeProfile, updateProfileImage, type EmployeeProfile } from "@/services/profile";
 import { Ionicons } from "@expo/vector-icons";
@@ -183,7 +184,17 @@ export default function ProfileSettingScreen() {
 
     if (loading) {
         return (
-            <SafeAreaView style={styles.loading}><ActivityIndicator color="#D4A537" /></SafeAreaView>
+            <SafeAreaView style={styles.screen}>
+                <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#D4A537"]} />}>
+                    <SkeletonBlock style={{ height: 160, borderRadius: 80, marginBottom: 12 }} />
+                    <SkeletonBlock style={{ height: 22, width: "50%", marginBottom: 8 }} />
+                    <SkeletonBlock style={{ height: 16, width: "70%", marginBottom: 16 }} />
+                    <SkeletonBlock style={{ height: 120, borderRadius: 12, marginBottom: 12 }} />
+                    <SkeletonBlock style={{ height: 16, width: "80%", marginBottom: 8 }} />
+                    <SkeletonBlock style={{ height: 16, width: "60%", marginBottom: 8 }} />
+                    <SkeletonBlock style={{ height: 16, width: "90%", marginBottom: 8 }} />
+                </ScrollView>
+            </SafeAreaView>
         );
     }
 
