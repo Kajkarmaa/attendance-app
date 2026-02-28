@@ -573,7 +573,7 @@ export default function EmployeeDashboardScreen() {
                         </View>
                     </View>
 
-                    <View style={styles.headerActions}>
+                    {/* <View style={styles.headerActions}>
                         <Pressable
                             style={styles.headerIcon}
                             accessibilityRole="button"
@@ -584,7 +584,7 @@ export default function EmployeeDashboardScreen() {
                                 color="#D4A537"
                             />
                         </Pressable>
-                    </View>
+                    </View> */}
                 </View>
                 {checkinImageLoading ? (
                     <ActivityIndicator style={{ marginTop: 12 }} />
