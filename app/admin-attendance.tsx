@@ -1,15 +1,18 @@
+import SkeletonBlock from "@/components/SkeletonBlock";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchCheckinImageUrl, fetchEmployeeAttendanceImage, fetchTodayAttendance, TodayAttendanceItem } from "@/services/attendance";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, Image, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function AdminAttendanceScreen() {
     const { user, isLoading } = useAuth();
     const [status, setStatus] = useState<"checkedin" | "checkedout" | "notcheckedin">("checkedin");
     const [data, setData] = useState<TodayAttendanceItem[]>([]);
     const [loading, setLoading] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
     const [modalContent, setModalContent] = useState<{
         employeeId: string;
@@ -38,7 +41,32 @@ export default function AdminAttendanceScreen() {
         }
     };
 
-    if (isLoading || !user) {
+    const onRefresh = async () => {
+        setRefreshing(true);
+        try {
+            await load();
+        } catch (err) {
+            console.log("refresh failed", err);
+        } finally {
+            setRefreshing(false);
+        }
+    };
+
+    if (isLoading) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <ScrollView contentContainerStyle={{ padding: 16 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#D4A537"]} />}>
+                    <SkeletonBlock style={{ height: 28, width: 220, marginBottom: 8 }} />
+                    <SkeletonBlock style={{ height: 18, width: 140, marginBottom: 16 }} />
+                    <SkeletonBlock style={{ height: 120, borderRadius: 12, marginBottom: 12 }} />
+                    <SkeletonBlock style={{ height: 120, borderRadius: 12, marginBottom: 12 }} />
+                    <SkeletonBlock style={{ height: 120, borderRadius: 12, marginBottom: 12 }} />
+                </ScrollView>
+            </SafeAreaView>
+        );
+    }
+
+    if (!user) {
         return (
             <View style={styles.center}>
                 <ActivityIndicator />
@@ -130,13 +158,17 @@ export default function AdminAttendanceScreen() {
     };
 
     return (
-        <View style={styles.container}>
-            {/* <View style={styles.headerRow}>
-                <Pressable onPress={() => router.back()} style={styles.backButton}>
-                    <Ionicons name="chevron-back" size={22} color="#111827" />
-                </Pressable>
-                <Text style={styles.headerTitle}>Today's Attendance</Text>
-            </View> */}
+        <SafeAreaView style={styles.container}>
+             <View style={styles.headerRow}>
+                                <Pressable
+                                    style={styles.backBtn}
+                                    onPress={() => router.replace("/employee")}
+                                >
+                                    <Ionicons name="chevron-back" size={22} color="#111827" />
+                                </Pressable>
+                                <Text style={styles.headerTitle}>Today's Attendance</Text>
+                                <View style={{ width: 38 }} />
+                            </View>
 
             <View style={styles.tabs}>
                 <Pressable
@@ -174,6 +206,8 @@ export default function AdminAttendanceScreen() {
                         keyExtractor={(i) => i.employeeId}
                         renderItem={renderItem}
                         ItemSeparatorComponent={() => <View style={styles.sep} />}
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
                     />
                 )}
             </View>
@@ -218,15 +252,24 @@ export default function AdminAttendanceScreen() {
                     </View>
                 </Pressable>
             </Modal>
-        </View>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: "#FFFFFF", paddingTop: 48 },
-    headerRow: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, marginBottom: 12 },
+    headerRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 24,
+    },
     backButton: { padding: 8, marginRight: 8 },
-    headerTitle: { fontSize: 18, fontWeight: "700", color: "#111827" },
+    headerTitle: {
+        fontSize: 18,
+        color: "#1F2937",
+        fontWeight: "600",
+    },
     tabs: { flexDirection: "row", paddingHorizontal: 12, gap: 8, marginBottom: 8 },
     tab: { flex: 1, paddingVertical: 10, alignItems: "center", borderRadius: 8, backgroundColor: "#F3F4F6" },
     tabActive: { backgroundColor: "#D4A537" },
@@ -310,4 +353,17 @@ const styles = StyleSheet.create({
     modalMeta: { color: "#6B7280", marginTop: 6 },
     modalClose: { marginTop: 12, backgroundColor: "#D4A537", paddingVertical: 8, paddingHorizontal: 20, borderRadius: 8 },
     modalCloseText: { color: "#111827", fontWeight: "700" },
+        backBtn: {
+        height: 38,
+        width: 38,
+        borderRadius: 12,
+        backgroundColor: "#FFFFFF",
+        alignItems: "center",
+        justifyContent: "center",
+        shadowColor: "#000000",
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 2,
+    },
 });

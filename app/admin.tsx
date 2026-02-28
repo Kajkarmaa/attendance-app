@@ -1,3 +1,4 @@
+import SkeletonBlock from "@/components/SkeletonBlock";
 import MonthYearPicker from "@/components/ui/month-year-picker";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -21,13 +22,15 @@ import {
     Image,
     Modal,
     Pressable,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
     TextInput,
     View,
-    useWindowDimensions,
+    useWindowDimensions
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const APP_LOGO = require("../assets/logo.jpg");
 
@@ -80,6 +83,7 @@ export default function HomeScreen() {
     const [dailySummary, setDailySummary] =
         useState<DailyAttendanceSummary | null>(null);
     const [summaryLoading, setSummaryLoading] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
     const greeting = useMemo(() => {
         const hour = new Date().getHours();
         if (hour < 12) return "GOOD MORNING,";
@@ -234,6 +238,17 @@ export default function HomeScreen() {
             console.log("daily summary fetch failed", error?.message);
         } finally {
             setSummaryLoading(false);
+        }
+    };
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        try {
+            await Promise.all([loadDailySummary(), loadLists(searchTerm)]);
+        } catch (err) {
+            console.log("refresh failed", err);
+        } finally {
+            setRefreshing(false);
         }
     };
 
@@ -432,7 +447,7 @@ export default function HomeScreen() {
     }
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
             <View style={styles.header}>
                 <View style={styles.headerRow}>
                     <View style={styles.headerIdentity}>
@@ -449,7 +464,7 @@ export default function HomeScreen() {
                     </View>
                     <View style={styles.headerActions}>
                         <Pressable style={styles.headerBell}>
-                            <Feather name="bell" size={18} color="#FFFFFF" />
+                            {/* <Feather name="bell" size={18} color="#FFFFFF" /> */}
                         </Pressable>
                         <Pressable
                             style={styles.headerBell}
@@ -469,10 +484,7 @@ export default function HomeScreen() {
                         </Text>
                         <View style={styles.statsHeaderRight}>
                             {summaryLoading ? (
-                                <ActivityIndicator
-                                    size="small"
-                                    color="#9CA3AF"
-                                />
+                                <SkeletonBlock style={{ height: 18, width: 100, borderRadius: 6 }} />
                             ) : (
                                 <>
                                     <Text style={styles.statsMonth}>
@@ -489,29 +501,49 @@ export default function HomeScreen() {
                     </View>
 
                     <View style={styles.statsGrid}>
-                        {stats.map((item) => (
-                            <View
-                                key={item.label}
-                                style={{ width: isWide ? "31%" : "48%" }}
-                            >
-                                <View style={styles.statItemRow}>
-                                    <View
-                                        style={[
-                                            styles.statBar,
-                                            { backgroundColor: item.color },
-                                        ]}
-                                    />
-                                    <View style={styles.statTextBlock}>
-                                        <Text style={styles.statValue}>
-                                            {item.value}
-                                        </Text>
-                                        <Text style={styles.statLabel}>
-                                            {item.label}
-                                        </Text>
-                                    </View>
-                                </View>
-                            </View>
-                        ))}
+                        {summaryLoading
+                            ? stats.map((_, idx) => (
+                                  <View
+                                      key={`skeleton-${idx}`}
+                                      style={{ width: isWide ? "31%" : "48%" }}
+                                  >
+                                      <View style={styles.statItemRow}>
+                                          <View
+                                              style={[
+                                                  styles.statBar,
+                                                  { backgroundColor: "#E6E9EE" },
+                                              ]}
+                                          />
+                                          <View style={styles.statTextBlock}>
+                                              <SkeletonBlock style={{ height: 18, width: 60, marginBottom: 6 }} />
+                                              <SkeletonBlock style={{ height: 12, width: 120 }} />
+                                          </View>
+                                      </View>
+                                  </View>
+                              ))
+                            : stats.map((item) => (
+                                  <View
+                                      key={item.label}
+                                      style={{ width: isWide ? "31%" : "48%" }}
+                                  >
+                                      <View style={styles.statItemRow}>
+                                          <View
+                                              style={[
+                                                  styles.statBar,
+                                                  { backgroundColor: item.color },
+                                              ]}
+                                          />
+                                          <View style={styles.statTextBlock}>
+                                              <Text style={styles.statValue}>
+                                                  {item.value}
+                                              </Text>
+                                              <Text style={styles.statLabel}>
+                                                  {item.label}
+                                              </Text>
+                                          </View>
+                                      </View>
+                                  </View>
+                              ))}
                     </View>
                 </View>
             </View>
@@ -519,6 +551,7 @@ export default function HomeScreen() {
             <ScrollView
                 style={styles.flex}
                 contentContainerStyle={styles.listContent}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#D4A537"]} />}
             >
                 <View style={styles.searchBar}>
                     <Feather name="search" size={16} color="#9CA3AF" />
@@ -1168,7 +1201,7 @@ export default function HomeScreen() {
                 </Pressable>
             </Modal>
 
-        </View>
+        </SafeAreaView>
     );
 }
 
@@ -1223,8 +1256,8 @@ const styles = StyleSheet.create({
     headerBell: {
         height: 40,
         width: 40,
-        borderRadius: 20,
-        backgroundColor: "rgba(255,255,255,0.1)",
+        // borderRadius: 20,
+        // backgroundColor: "rgba(255,255,255,0.1)",
         alignItems: "center",
         justifyContent: "center",
     },

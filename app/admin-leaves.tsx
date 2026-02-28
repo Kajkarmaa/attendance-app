@@ -1,3 +1,4 @@
+import SkeletonBlock from "@/components/SkeletonBlock";
 import { useAuth } from "@/contexts/AuthContext";
 import { API_BASE_URL } from "@/services/api";
 import {
@@ -15,17 +16,21 @@ import {
     Alert,
     Linking,
     Pressable,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
     TextInput,
     View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function AdminLeavesScreen() {
     const { user, isLoading } = useAuth();
     const [allLeaves, setAllLeaves] = useState<AdminLeaveItem[]>([]);
     const [loading, setLoading] = useState(false);
+
+    const [refreshing, setRefreshing] = useState(false);
     const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
     const [actionLoadingType, setActionLoadingType] = useState<"approve" | "reject" | null>(null);
     const [downloadLoadingId, setDownloadLoadingId] = useState<string | null>(null);
@@ -57,6 +62,17 @@ export default function AdminLeavesScreen() {
             Alert.alert("Error", "Unable to load leave requests.");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        try {
+            await loadLeaves();
+        } catch (err) {
+            console.log("refresh failed", err);
+        } finally {
+            setRefreshing(false);
         }
     };
 
@@ -211,7 +227,21 @@ export default function AdminLeavesScreen() {
         }
     };
 
-    if (isLoading || !user) {
+    if (isLoading) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <ScrollView contentContainerStyle={{ padding: 20 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#D4A537"]} />}>
+                    <SkeletonBlock style={{ height: 28, width: 220, marginBottom: 8 }} />
+                    <SkeletonBlock style={{ height: 18, width: 140, marginBottom: 16 }} />
+                    <SkeletonBlock style={{ height: 80, borderRadius: 12, marginBottom: 12 }} />
+                    <SkeletonBlock style={{ height: 80, borderRadius: 12, marginBottom: 12 }} />
+                    <SkeletonBlock style={{ height: 80, borderRadius: 12, marginBottom: 12 }} />
+                </ScrollView>
+            </SafeAreaView>
+        );
+    }
+
+    if (!user) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#D4A537" />
@@ -220,37 +250,53 @@ export default function AdminLeavesScreen() {
     }
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
             <View style={styles.headerRow}>
-                <View>
-                    <Text style={styles.heading}>Leave Requests</Text>
-                    <Text style={styles.subheading}>Admin overview</Text>
-                </View>
+                <Pressable onPress={() => router.replace("/admin")} style={styles.backBtn}>
+                    <Ionicons name="chevron-back" size={22} color="#111827" />
+                </Pressable>
+                <Text style={styles.heading}>Leave Requests</Text>
                 <Pressable onPress={loadLeaves} style={styles.refreshBtn}>
-                    {loading ? (
+                    {/* {loading ? (
                         <ActivityIndicator size="small" color="#D4A537" />
                     ) : (
                         <Ionicons name="refresh" size={18} color="#9CA3AF" />
-                    )}
+                    )} */}
                 </Pressable>
             </View>
 
             <View style={styles.statsRow}>
                 <View style={styles.statCard}>
                     <Text style={styles.statLabel}>Total</Text>
-                    <Text style={styles.statValue}>{counts.total}</Text>
+                    {loading ? (
+                        <SkeletonBlock style={{ height: 20, width: 80, marginTop: 6 }} />
+                    ) : (
+                        <Text style={styles.statValue}>{counts.total}</Text>
+                    )}
                 </View>
                 <View style={styles.statCard}>
                     <Text style={styles.statLabel}>Pending</Text>
-                    <Text style={styles.statValuePending}>{counts.pending}</Text>
+                    {loading ? (
+                        <SkeletonBlock style={{ height: 20, width: 80, marginTop: 6 }} />
+                    ) : (
+                        <Text style={styles.statValuePending}>{counts.pending}</Text>
+                    )}
                 </View>
                 <View style={styles.statCard}>
                     <Text style={styles.statLabel}>Approved</Text>
-                    <Text style={styles.statValueApproved}>{counts.approved}</Text>
+                    {loading ? (
+                        <SkeletonBlock style={{ height: 20, width: 80, marginTop: 6 }} />
+                    ) : (
+                        <Text style={styles.statValueApproved}>{counts.approved}</Text>
+                    )}
                 </View>
                 <View style={styles.statCard}>
                     <Text style={styles.statLabel}>Rejected</Text>
-                    <Text style={styles.statValueRejected}>{counts.rejected}</Text>
+                    {loading ? (
+                        <SkeletonBlock style={{ height: 20, width: 80, marginTop: 6 }} />
+                    ) : (
+                        <Text style={styles.statValueRejected}>{counts.rejected}</Text>
+                    )}
                 </View>
             </View>
 
@@ -308,7 +354,7 @@ export default function AdminLeavesScreen() {
                 </Pressable>
             </View>
 
-            <ScrollView contentContainerStyle={styles.listContent}>
+            <ScrollView contentContainerStyle={styles.listContent} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#D4A537"]} />}>
                 {loading && (
                     <View style={styles.inlineLoadingRow}>
                         <ActivityIndicator size="small" color="#D4A537" />
@@ -474,7 +520,7 @@ export default function AdminLeavesScreen() {
                     <Ionicons name="layers-outline" size={22} color="#9CA3AF" />
                 </Pressable>
             </View>
-        </View>
+        </SafeAreaView>
     );
 }
 
@@ -507,15 +553,28 @@ const styles = StyleSheet.create({
         color: "#6B7280",
         marginTop: 4,
     },
+    backBtn: {
+        height: 38,
+        width: 38,
+        borderRadius: 12,
+        backgroundColor: "#FFFFFF",
+        alignItems: "center",
+        justifyContent: "center",
+        shadowColor: "#000000",
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 2,
+    },
     refreshBtn: {
         height: 36,
         width: 36,
-        borderRadius: 18,
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "#FFFFFF",
-        borderWidth: 1,
-        borderColor: "#E5E7EB",
+        // borderRadius: 18,
+        // alignItems: "center",
+        // justifyContent: "center",
+        // backgroundColor: "#FFFFFF",
+        // borderWidth: 1,
+        // borderColor: "#E5E7EB",
     },
     statsRow: {
         flexDirection: "row",

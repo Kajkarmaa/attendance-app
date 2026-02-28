@@ -32,6 +32,10 @@ export default function RootLayout() {
                         options={{ headerShown: false }}
                     />
                     <Stack.Screen
+                        name="admin-attendance"
+                        options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
                         name="employee"
                         options={{ headerShown: false, gestureEnabled: false }}
                     />
@@ -47,6 +51,7 @@ export default function RootLayout() {
                         name="profile-setting"
                         options={{ headerShown: false }}
                     />
+               
                     <Stack.Screen
                         name="add-employee"
                         options={{ headerShown: false }}
