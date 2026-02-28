@@ -29,11 +29,13 @@ import {
     Modal,
     PanResponder,
     Pressable,
+    RefreshControl,
     ScrollView,
     StyleSheet,
     Text,
-    View,
+    View
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 
 const ACTIVITY_COLOR_MAP: Record<string, string> = {
@@ -75,6 +77,7 @@ export default function EmployeeDashboardScreen() {
     );
     const [checkinImageLoading, setCheckinImageLoading] = useState(false);
     const [previewVisible, setPreviewVisible] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
 
     // Swipe gesture state
     const pan = useRef(new Animated.Value(0)).current;
@@ -520,6 +523,17 @@ export default function EmployeeDashboardScreen() {
         }
     };
 
+    const onRefresh = async () => {
+        setRefreshing(true);
+        try {
+            await Promise.all([loadAttendance(), loadProfile(), loadRecentActivity()]);
+        } catch (err) {
+            console.log("refresh failed", err);
+        } finally {
+            setRefreshing(false);
+        }
+    };
+
     if (isLoading || !user || user.role !== "emp") {
         return (
             <View style={styles.loadingContainer}>
@@ -534,7 +548,7 @@ export default function EmployeeDashboardScreen() {
     const hasActivities = (activityData?.activities?.length ?? 0) > 0;
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
             <View style={styles.header}>
                 <View style={styles.headerTop}>
                     <View style={styles.headerLeft}>
@@ -587,6 +601,13 @@ export default function EmployeeDashboardScreen() {
             <ScrollView
                 contentContainerStyle={styles.content}
                 showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={["#D4A537"]}
+                    />
+                }
             >
                 <View>
                     <View style={styles.tilesRow}>
@@ -888,7 +909,7 @@ export default function EmployeeDashboardScreen() {
                     />
                 </Pressable>
             </Modal>
-        </View>
+        </SafeAreaView>
     );
 }
 
