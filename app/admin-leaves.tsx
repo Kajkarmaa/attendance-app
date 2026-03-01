@@ -319,7 +319,7 @@ export default function AdminLeavesScreen() {
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.headerRow}>
-                <Pressable onPress={() => router.back()} style={styles.backBtn}>
+                <Pressable onPress={() => router.push("/admin")} style={styles.backBtn}>
                     <Ionicons name="chevron-back" size={22} color="#111827" />
                 </Pressable>
                 <Text style={styles.heading}>Leave Requests</Text>
