@@ -73,6 +73,42 @@ export default function ProfileSettingScreen() {
     };
 
     const handlePickImage = async () => {
+        const uploadImage = async (result: ImagePicker.ImagePickerResult) => {
+            if (result.canceled) return;
+            const asset = result.assets?.[0];
+            if (!asset?.uri) return;
+
+            let uri = asset.uri;
+            // Android content:// URIs work with FormData, but ensure file:// prefix exists for file paths
+            if (!uri.startsWith("file://") && !uri.startsWith("content://")) {
+                uri = "file://" + uri;
+            }
+
+            const previous = photoUri;
+            setPhotoUri(uri);
+            setUploadingPhoto(true);
+            try {
+                const name =
+                    asset.fileName ??
+                    uri.split("/").pop() ??
+                    `photo_${Date.now()}.jpg`;
+                // asset.mimeType is the reliable field in newer expo-image-picker
+                const type = asset.mimeType ?? asset.type ?? "image/jpeg";
+                await updateProfileImage({ uri, name, type });
+                Alert.alert("Uploaded", "Profile photo uploaded.");
+                await load();
+            } catch (err: any) {
+                console.log("upload failed", err?.message || err);
+                setPhotoUri(previous);
+                Alert.alert(
+                    "Upload failed",
+                    err?.message || "Could not upload photo.",
+                );
+            } finally {
+                setUploadingPhoto(false);
+            }
+        };
+
         const takePhoto = async () => {
             try {
                 const permission =
@@ -89,33 +125,7 @@ export default function ProfileSettingScreen() {
                     quality: 0.7,
                     cameraType: ImagePicker.CameraType.front,
                 });
-                if (result.canceled) return;
-                const asset = (result as any).assets?.[0];
-                const uri = asset?.uri ?? (result as any).uri;
-                if (uri) {
-                    const previous = photoUri;
-                    setPhotoUri(uri);
-                    // upload to server
-                    setUploadingPhoto(true);
-                    try {
-                        const name = asset?.fileName ?? uri.split("/").pop();
-                        const type = asset?.type ?? "image/jpeg";
-                        await updateProfileImage({ uri, name, type });
-                        Alert.alert("Uploaded", "Profile photo uploaded.");
-                        // refresh profile from server
-                        await load();
-                    } catch (err: any) {
-                        console.log("upload failed", err?.message || err);
-                        // revert to previous image from backend/local state
-                        setPhotoUri(previous);
-                        Alert.alert(
-                            "Upload failed",
-                            err?.message || "Could not upload photo.",
-                        );
-                    } finally {
-                        setUploadingPhoto(false);
-                    }
-                }
+                await uploadImage(result);
             } catch (err: any) {
                 Alert.alert(
                     "Photo error",
@@ -139,31 +149,7 @@ export default function ProfileSettingScreen() {
                     allowsEditing: true,
                     quality: 0.7,
                 });
-                if (result.canceled) return;
-                const asset = (result as any).assets?.[0];
-                const uri = asset?.uri ?? (result as any).uri;
-                if (uri) {
-                    const previous = photoUri;
-                    setPhotoUri(uri);
-                    // upload to server
-                    setUploadingPhoto(true);
-                    try {
-                        const name = asset?.fileName ?? uri.split("/").pop();
-                        const type = asset?.type ?? "image/jpeg";
-                        await updateProfileImage({ uri, name, type });
-                        Alert.alert("Uploaded", "Profile photo uploaded.");
-                        await load();
-                    } catch (err: any) {
-                        console.log("upload failed", err?.message || err);
-                        setPhotoUri(previous);
-                        Alert.alert(
-                            "Upload failed",
-                            err?.message || "Could not upload photo.",
-                        );
-                    } finally {
-                        setUploadingPhoto(false);
-                    }
-                }
+                await uploadImage(result);
             } catch (err: any) {
                 Alert.alert(
                     "Photo error",
@@ -325,7 +311,10 @@ export default function ProfileSettingScreen() {
                         <View style={styles.avatarCircle}>
                             {photoUri ? (
                                 <Image
-                                    source={{ uri: photoUri }}
+                                    source={{
+                                        uri: photoUri,
+                                        cache: "reload",
+                                    }}
                                     style={styles.avatarImage}
                                 />
                             ) : (

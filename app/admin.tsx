@@ -176,6 +176,7 @@ export default function HomeScreen() {
         }
 
         if (!user) {
+            // Only redirect if we're sure there's no token/session
             router.replace("/");
             return;
         }

@@ -1,7 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -26,7 +26,19 @@ export default function LoginScreen() {
     const [showPassword, setShowPassword] = useState(false);
     const { width } = useWindowDimensions();
     const cardWidth = Math.min(420, width - 48);
-    const { login } = useAuth();
+    const { login, user, isLoading: authLoading } = useAuth();
+
+    // If already logged in, redirect immediately
+    useEffect(() => {
+        if (authLoading) return;
+        if (user) {
+            if (user.role === "emp") {
+                router.replace("/employee");
+            } else {
+                router.replace("/admin");
+            }
+        }
+    }, [user, authLoading]);
 
     const handleLogin = async () => {
         if (!email.trim() || !password.trim()) {
@@ -135,12 +147,11 @@ export default function LoginScreen() {
                                 <Text style={styles.loginText}>Login</Text>
                             )}
                         </Pressable>
-                         <Pressable
+                        <Pressable
                             style={styles.registerTrigger}
                             onPress={() => router.push("/reset-password")}
                         >
-
-                        <Text style={styles.forgot}>Forgot password?</Text>
+                            <Text style={styles.forgot}>Forgot password?</Text>
                         </Pressable>
 
                         <Pressable

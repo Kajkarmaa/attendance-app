@@ -48,14 +48,32 @@ export async function fetchEmployeeProfile(): Promise<EmployeeProfile> {
     return response.data.data;
 }
 
-export async function updateProfileImage(file: { uri: string; name?: string; type?: string }) { 
+export async function updateProfileImage(file: {
+    uri: string;
+    name?: string;
+    type?: string;
+}) {
     const form = new FormData();
-    // React Native FormData file object
     const filename = file.name || `photo_${Date.now()}.jpg`;
+
+    // Ensure proper MIME type — Android may return just "image" instead of "image/jpeg"
+    let mimeType = file.type || "image/jpeg";
+    if (mimeType === "image" || !mimeType.includes("/")) {
+        const ext = filename.split(".").pop()?.toLowerCase();
+        const mimeMap: Record<string, string> = {
+            jpg: "image/jpeg",
+            jpeg: "image/jpeg",
+            png: "image/png",
+            gif: "image/gif",
+            webp: "image/webp",
+        };
+        mimeType = mimeMap[ext || "jpg"] || "image/jpeg";
+    }
+
     form.append("image", {
         uri: file.uri,
         name: filename,
-        type: file.type || "image/jpeg",
+        type: mimeType,
     } as any);
 
     const response = await apiClient.post("/users/update-profile", form, {
@@ -68,7 +86,11 @@ export async function updateProfileImage(file: { uri: string; name?: string; typ
 }
 
 // Added changePassword function
-export async function changePassword(payload: { email: string; oldPasscode: string; newPasscode: string }) {
+export async function changePassword(payload: {
+    email: string;
+    oldPasscode: string;
+    newPasscode: string;
+}) {
     const response = await apiClient.post("/users/reset-password", {
         email: payload.email,
         oldPasscode: payload.oldPasscode,

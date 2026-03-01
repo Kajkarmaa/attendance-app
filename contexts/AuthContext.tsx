@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+    createContext,
+    useContext,
+    useEffect,
+    useRef,
+    useState,
+} from "react";
 import {
     User,
     login as authLogin,
@@ -19,6 +25,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const hasLoggedIn = useRef(false);
 
     useEffect(() => {
         loadUser();
@@ -27,7 +34,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const loadUser = async () => {
         try {
             const storedUser = await getUser();
-            setUser(storedUser);
+            // Don't overwrite user if a login() call already set it
+            if (!hasLoggedIn.current) {
+                setUser(storedUser);
+            }
         } finally {
             setIsLoading(false);
         }
@@ -36,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const login = async (email: string, passcode: string): Promise<User> => {
         const response = await authLogin({ email, passcode });
         if (response.success) {
+            hasLoggedIn.current = true;
             setUser(response.data.user);
             return response.data.user;
         }
@@ -46,6 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
             await authLogout();
         } finally {
+            hasLoggedIn.current = false;
             setUser(null);
         }
     };
