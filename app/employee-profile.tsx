@@ -1,3 +1,4 @@
+import SkeletonBlock from '@/components/SkeletonBlock';
 import { Feather } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -108,6 +109,13 @@ export default function EmployeeProfileScreen() {
   const latestPayslip = useMemo(() => {
     return profile?.Payslips?.[0];
   }, [profile?.Payslips]);
+
+  const getInitials = (name?: string) => {
+    if (!name) return '';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + (parts[1][0] ?? '')).slice(0, 2).toUpperCase();
+  };
 
   const extractMonthYear = (payslip: any): { month: number; year: number } | null => {
     if (!payslip) return null;
@@ -483,8 +491,20 @@ export default function EmployeeProfileScreen() {
   if (loading && !profile) {
     return (
       <View style={styles.loadingState}>
-        <ActivityIndicator size="large" color="#D4A537" />
-        <Text style={styles.loadingLabel}>Loading employee profile...</Text>
+        <View style={[styles.profileCard, { alignItems: 'center' }]}>
+          <View style={styles.avatarRing}>
+            <SkeletonBlock width={74} height={74} borderRadius={37} />
+          </View>
+          <SkeletonBlock style={{ marginTop: 12 }} width={140} height={18} borderRadius={8} />
+          <SkeletonBlock style={{ marginTop: 8 }} width={100} height={12} borderRadius={8} />
+          <SkeletonBlock style={{ marginTop: 8 }} width={180} height={10} borderRadius={8} />
+        </View>
+
+        <View style={{ width: '100%', paddingHorizontal: 20, marginTop: 20 }}>
+          <SkeletonBlock height={14} width="60%" style={{ marginBottom: 12 }} />
+          <SkeletonBlock height={14} width="80%" style={{ marginBottom: 12 }} />
+          <SkeletonBlock height={14} width="40%" style={{ marginBottom: 12 }} />
+        </View>
       </View>
     );
   }
@@ -504,10 +524,13 @@ export default function EmployeeProfileScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.profileCard}>
           <View style={styles.avatarRing}>
-            <Image
-              source={{ uri: fallbackAvatar }}
-              style={styles.avatar}
-            />
+            {profile?.profilePicture ? (
+              <Image source={{ uri: profile.profilePicture }} style={styles.avatar} />
+            ) : (
+              <View style={styles.placeholderInitials}>
+                <Text style={styles.placeholderInitialsText}>{getInitials(headerName)}</Text>
+              </View>
+            )}
           </View>
           <Text style={styles.name}>{headerName}</Text>
           <Text style={styles.role}>{headerRole}</Text>
@@ -957,5 +980,18 @@ const styles = StyleSheet.create({
   loadingLabel: {
     marginTop: 12,
     color: '#6B7280',
+  },
+  placeholderInitials: {
+    height: 74,
+    width: 74,
+    borderRadius: 37,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placeholderInitialsText: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#111111',
   },
 });

@@ -47,6 +47,13 @@ export default function AdminAttendanceScreen() {
         }
     }, [status, isLoading, user]);
 
+    const getInitials = (name?: string) => {
+        if (!name) return '';
+        const parts = name.trim().split(/\s+/);
+        if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+        return (parts[0][0] + (parts[1][0] ?? '')).slice(0, 2).toUpperCase();
+    };
+
     const load = async () => {
         setLoading(true);
         try {
@@ -186,7 +193,9 @@ export default function AdminAttendanceScreen() {
         return (
             <Pressable style={styles.card} onPress={openModal}>
                 <View style={styles.cardLeft}>
-                    <View style={styles.avatarPlaceholder} />
+                    <View style={styles.avatarPlaceholder}>
+                        <Text style={styles.avatarInitials}>{getInitials(item.name)}</Text>
+                    </View>
                 </View>
 
                 <View style={styles.cardBody}>
@@ -310,6 +319,8 @@ export default function AdminAttendanceScreen() {
                         data={data}
                         keyExtractor={(i) => i.employeeId}
                         renderItem={renderItem}
+                        showsVerticalScrollIndicator={true}
+                        contentContainerStyle={{ paddingBottom: 120 }}
                         ItemSeparatorComponent={() => (
                             <View style={styles.sep} />
                         )}
@@ -434,6 +445,9 @@ const styles = StyleSheet.create({
     tabText: { color: "#374151", fontWeight: "600" },
     tabTextActive: { color: "#111827", fontWeight: "700" },
     content: { flex: 1, paddingHorizontal: 12, paddingTop: 8 },
+    avatarInitials: { fontSize: 15,
+    fontWeight: '600',
+    color: '#111111', },
     center: { flex: 1, justifyContent: "center", alignItems: "center" },
     empty: { color: "#6B7280" },
     row: {
@@ -501,12 +515,12 @@ const styles = StyleSheet.create({
     },
     cardLeft: { width: 56, alignItems: "center", justifyContent: "center" },
     avatarPlaceholder: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        backgroundColor: "#F8FAFC",
-        borderWidth: 1,
-        borderColor: "#E6EEF5",
+        height: 50,
+    width: 50,
+    borderRadius: 25,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
     },
     cardBody: { flex: 1, paddingHorizontal: 12 },
     cardName: { fontWeight: "700", color: "#111827" },

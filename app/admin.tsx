@@ -190,6 +190,13 @@ export default function HomeScreen() {
         loadDepartments();
     }, [user, isLoading]);
 
+    const getInitials = (name?: string) => {
+        if (!name) return '';
+        const parts = name.trim().split(/\s+/);
+        if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+        return (parts[0][0] + (parts[1][0] ?? '')).slice(0, 2).toUpperCase();
+    };
+
     useEffect(() => {
         if (isLoading) {
             return;
@@ -669,6 +676,10 @@ export default function HomeScreen() {
                             const empId = emp?.employeeId;
                             const recordId = emp?.id || emp?.userId?._id;
                             const email = emp?.userId?.email || "";
+                            const avatarUrl =
+                                (emp as any)?.profilePicture ||
+                                emp?.userId?.profilePicture ||
+                                null;
                             return (
                                 <Pressable
                                     key={emp.id || emp.employeeId}
@@ -688,7 +699,16 @@ export default function HomeScreen() {
                                         })
                                     }
                                 >
-                                    <View style={styles.placeholderAvatar} />
+                                            {avatarUrl ? (
+                                                <Image
+                                                    source={{ uri: avatarUrl }}
+                                                    style={styles.staffAvatar}
+                                                />
+                                            ) : (
+                                                <View style={styles.placeholderAvatar}>
+                                                    <Text style={styles.avatarInitials}>{getInitials(name)}</Text>
+                                                </View>
+                                            )}
                                     <View style={styles.staffInfo}>
                                         <Text style={styles.staffName}>
                                             {name}
@@ -729,7 +749,16 @@ export default function HomeScreen() {
                         activeTab === "pending" &&
                         filteredPending.map((p) => (
                             <View key={p.id} style={styles.staffCard}>
-                                <View style={styles.placeholderAvatar} />
+                                    {((p as any)?.profilePicture || (p as any)?.avatar) ? (
+                                        <Image
+                                            source={{ uri: (p as any).profilePicture || (p as any).avatar }}
+                                            style={styles.staffAvatar}
+                                        />
+                                    ) : (
+                                        <View style={styles.placeholderAvatar}>
+                                            <Text style={styles.avatarInitials}>{getInitials(p.name)}</Text>
+                                        </View>
+                                    )}
                                 <View style={styles.staffInfo}>
                                     <Text style={styles.staffName}>
                                         {p.name}
@@ -1480,6 +1509,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: "#E5E7EB",
     },
+    avatarInitials: { fontSize: 15, fontWeight: '700', color: '#111827', textAlign: 'center', lineHeight: 18 },
     staffInfo: {
         flex: 1,
         marginLeft: 12,

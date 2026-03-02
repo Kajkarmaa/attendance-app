@@ -92,6 +92,7 @@ export interface EmployeeDetail {
     email: string;
     role: string;
     employeeId: string;
+    profilePicture?: string;
     designation?: string;
     department?: string;
     salary?: number;
