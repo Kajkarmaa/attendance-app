@@ -64,6 +64,7 @@ export interface EmployeeAttendanceBreakdown {
     halfDay: number;
     totalDays: number;
     averageWorkHours: string;
+    absentDate: number[]; 
 }
 
 export interface EmployeeLeaveBalance {

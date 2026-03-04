@@ -677,9 +677,7 @@ export default function HomeScreen() {
                             const recordId = emp?.id || emp?.userId?._id;
                             const email = emp?.userId?.email || "";
                             const avatarUrl =
-                                (emp as any)?.profilePicture ||
-                                emp?.userId?.profilePicture ||
-                                null;
+                                (emp as any)?.profilePicture
                             return (
                                 <Pressable
                                     key={emp.id || emp.employeeId}
@@ -1502,14 +1500,16 @@ const styles = StyleSheet.create({
         borderRadius: 24,
     },
     placeholderAvatar: {
-        height: 48,
-        width: 48,
-        borderRadius: 24,
-        backgroundColor: "#F3F4F6",
-        borderWidth: 1,
-        borderColor: "#E5E7EB",
+        height: 50,
+    width: 50,
+    borderRadius: 25,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
     },
-    avatarInitials: { fontSize: 15, fontWeight: '700', color: '#111827', textAlign: 'center', lineHeight: 18 },
+    avatarInitials: {  fontSize: 15,
+    fontWeight: '600',
+    color: '#111111', },
     staffInfo: {
         flex: 1,
         marginLeft: 12,
