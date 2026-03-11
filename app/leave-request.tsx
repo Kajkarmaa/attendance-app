@@ -1,3 +1,4 @@
+import SkeletonBlock from "@/components/SkeletonBlock";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchLeaveBalance, requestLeave, type LeaveBalanceData } from "@/services/leaves";
 import { Ionicons } from "@expo/vector-icons";
@@ -6,12 +7,10 @@ import DateTimePicker, {
 } from "@react-native-community/datetimepicker";
 import * as DocumentPicker from "expo-document-picker";
 import { router } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
-import SkeletonBlock from "@/components/SkeletonBlock";
+import { useEffect, useMemo, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
-    Animated,
     KeyboardAvoidingView,
     Platform,
     Pressable,
@@ -20,7 +19,7 @@ import {
     StyleSheet,
     Text,
     TextInput,
-    View,
+    View
 } from "react-native";
 import { Calendar, type DateData } from "react-native-calendars";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -41,8 +40,22 @@ const formatTypeLabel = (value: string) => {
     return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 };
 
-const defaultStart = "2026-02-18";
-const defaultEnd = "2026-02-19";
+const toIsoDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, "0");
+    const day = `${date.getDate()}`.padStart(2, "0");
+    return `${year}-${month}-${day}`;
+};
+
+const getDatePlusDays = (days: number) => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() + days);
+    return toIsoDate(date);
+};
+
+const defaultStart = getDatePlusDays(2);
+const defaultEnd = getDatePlusDays(5);
 
 export default function LeaveRequestScreen() {
     const { user, isLoading } = useAuth();
@@ -513,11 +526,11 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         alignItems: "center",
         justifyContent: "center",
-        shadowColor: "#000000",
-        shadowOpacity: 0.04,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 2,
+        // shadowColor: "#000000",
+        // shadowOpacity: 0.04,
+        // shadowRadius: 8,
+        // shadowOffset: { width: 0, height: 4 },
+        // elevation: 2,
     },
     sectionLabel: {
         color: "#A78B5C",
