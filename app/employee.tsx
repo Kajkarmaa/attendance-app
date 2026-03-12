@@ -62,7 +62,7 @@ interface PayslipEntry {
 }
 
 export default function EmployeeDashboardScreen() {
-    const { user, isLoading, logout } = useAuth();
+    const { user, isLoading } = useAuth();
     const [attendance, setAttendance] = useState<AttendanceRecord | null>(null);
     const [attLoading, setAttLoading] = useState(false);
     const [punching, setPunching] = useState(false);
@@ -316,13 +316,7 @@ export default function EmployeeDashboardScreen() {
         }
 
         if (user.role !== "emp") {
-            (async () => {
-                try {
-                    await logout();
-                } finally {
-                    router.replace("/");
-                }
-            })();
+            router.replace("/admin");
             return;
         }
 
@@ -1159,24 +1153,25 @@ const styles = StyleSheet.create({
         color: "#9CA3AF",
     },
     headerLogoWrap: {
-        height: 42,
-        width: 42,
-        borderRadius: 21,
+        height: 50,
+        width: 50,
+        borderRadius: 25,
         backgroundColor: "#F8FAFC",
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 1,
         borderColor: "#E5E7EB",
+        overflow: "hidden",
     },
     headerLogo: {
-        height: 50,
-        width: 50,
+        height: "100%",
+        width: "100%",
         borderRadius: 25,
         resizeMode: "cover",
     },
     headerLogoPlaceholder: {
-        height: 50,
-        width: 50,
+        height: "100%",
+        width: "100%",
         borderRadius: 25,
         alignItems: "center",
         justifyContent: "center",
@@ -1334,13 +1329,13 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "space-between",
         marginTop: 12,
+        gap: 10,
     },
     tileCard: {
         flex: 1,
         backgroundColor: "#FFFFFF",
         borderRadius: 14,
         padding: 12,
-        marginRight: 10,
         borderWidth: 1,
         borderColor: "#F1F5F9",
         shadowColor: "#000",
@@ -1348,6 +1343,7 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 4 },
         position: "relative",
+        minHeight: 128,
     },
     tileTitle: {
         color: "#9CA3AF",
@@ -1360,6 +1356,9 @@ const styles = StyleSheet.create({
         fontWeight: "700",
         color: "#111827",
         marginTop: 6,
+        lineHeight: 24,
+        minHeight: 48,
+        paddingRight: 18,
     },
     tileNote: {
         color: "#6B7280",

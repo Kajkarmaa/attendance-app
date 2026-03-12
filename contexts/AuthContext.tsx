@@ -25,17 +25,18 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const hasLoggedIn = useRef(false);
+    const authVersionRef = useRef(0);
 
     useEffect(() => {
         loadUser();
     }, []);
 
     const loadUser = async () => {
+        const versionAtStart = authVersionRef.current;
         try {
             const storedUser = await getUser();
-            // Don't overwrite user if a login() call already set it
-            if (!hasLoggedIn.current) {
+            // Ignore stale hydration results if auth changed while loading.
+            if (authVersionRef.current === versionAtStart) {
                 setUser(storedUser);
             }
         } finally {
@@ -44,9 +45,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     const login = async (email: string, passcode: string): Promise<User> => {
+        authVersionRef.current += 1;
         const response = await authLogin({ email, passcode });
         if (response.success) {
-            hasLoggedIn.current = true;
             setUser(response.data.user);
             return response.data.user;
         }
@@ -54,10 +55,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     const logout = async () => {
+        authVersionRef.current += 1;
         try {
             await authLogout();
         } finally {
-            hasLoggedIn.current = false;
             setUser(null);
         }
     };

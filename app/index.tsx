@@ -48,13 +48,8 @@ export default function LoginScreen() {
 
         setLoading(true);
         try {
-            const loggedInUser = await login(email.trim(), password);
-
-            if (loggedInUser.role === "emp") {
-                router.replace("/employee");
-            } else {
-                router.replace("/admin");
-            }
+            await login(email.trim(), password);
+            // Route change is handled by the auth-state effect above.
         } catch (error: any) {
             console.error("Login error:", error);
             const errorMessage =
