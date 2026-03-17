@@ -350,6 +350,12 @@ export default function AdminAttendanceScreen() {
                 >
                     <Ionicons name="layers-outline" size={22} color="#D4A537" />
                 </Pressable>
+                <Pressable
+                                    style={styles.bottomIcon}
+                                    onPress={() => router.push("/admin-policy")}
+                                >
+                                    <Ionicons name="settings-outline" size={22} color="#9CA3AF" />
+                                </Pressable>
             </View>
             <Modal
                 visible={modalVisible}

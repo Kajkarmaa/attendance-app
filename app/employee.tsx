@@ -75,6 +75,7 @@ export default function EmployeeDashboardScreen() {
     const [checkinImageLoading, setCheckinImageLoading] = useState(false);
     const [previewVisible, setPreviewVisible] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+    const handlePunchRef = useRef<() => void>(() => {});
 
     // Swipe gesture state
     const pan = useRef(new Animated.Value(0)).current;
@@ -105,7 +106,7 @@ export default function EmployeeDashboardScreen() {
                         useNativeDriver: true,
                     }).start(() => {
                         // trigger punch
-                        handlePunch();
+                        handlePunchRef.current();
                         Animated.timing(pan, {
                             toValue: 0,
                             duration: 300,
@@ -390,7 +391,9 @@ export default function EmployeeDashboardScreen() {
         }
     };
 
-    const isCheckedIn = attendance?.checkIn && !attendance?.checkOut;
+    const isCheckedIn =
+        Boolean(attendance?.checkIn?.time) &&
+        !Boolean(attendance?.checkOut?.time);
 
     const handlePunch = async () => {
         if (!user) return;
@@ -501,6 +504,8 @@ export default function EmployeeDashboardScreen() {
             setPunching(false);
         }
     };
+
+    handlePunchRef.current = handlePunch;
 
     const loadProfile = async () => {
         setProfileLoading(true);

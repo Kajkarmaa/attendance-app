@@ -5,6 +5,7 @@ import {
     fetchDailySummary,
     type DailyAttendanceSummary,
 } from "@/services/attendance";
+import { generateBonus } from "@/services/bonus";
 import { generatePayroll } from "@/services/payroll";
 import {
     convertPendingUserToEmployee,
@@ -66,6 +67,18 @@ export default function HomeScreen() {
     );
     const [payrollLoading, setPayrollLoading] = useState(false);
     const [payrollMessage, setPayrollMessage] = useState<{
+        text: string;
+        tone: "success" | "error";
+    } | null>(null);
+    const [showBonusModal, setShowBonusModal] = useState(false);
+    const [selectedBonusEmployee, setSelectedBonusEmployee] =
+        useState<EmployeeUser | null>(null);
+    const [bonusAmount, setBonusAmount] = useState("6000");
+    const [bonusType, setBonusType] = useState("festival");
+    const [bonusNotes, setBonusNotes] = useState("Updated bonus amount");
+    const [bonusForAllMode, setBonusForAllMode] = useState(false);
+    const [bonusLoading, setBonusLoading] = useState(false);
+    const [bonusMessage, setBonusMessage] = useState<{
         text: string;
         tone: "success" | "error";
     } | null>(null);
@@ -277,6 +290,34 @@ export default function HomeScreen() {
         setPayrollMessage(null);
     };
 
+    const openBonusModal = (employee: EmployeeUser) => {
+        setBonusForAllMode(false);
+        setSelectedBonusEmployee(employee);
+        setBonusAmount("6000");
+        setBonusType("festival");
+        setBonusNotes("Updated bonus amount");
+        setBonusMessage(null);
+        setShowBonusModal(true);
+    };
+
+    const openBonusForAllModal = () => {
+        setBonusForAllMode(true);
+        setSelectedBonusEmployee(null);
+        setBonusAmount("10000");
+        setBonusType("performance");
+        setBonusNotes("Excellent performance this quarter");
+        setBonusMessage(null);
+        setShowBonusModal(true);
+    };
+
+    const closeBonusModal = () => {
+        if (bonusLoading) return;
+        setShowBonusModal(false);
+        setBonusForAllMode(false);
+        setSelectedBonusEmployee(null);
+        setBonusMessage(null);
+    };
+
     const handleGeneratePayroll = async () => {
         if (!selectedPayrollEmployee?.employeeId) {
             setPayrollMessage({
@@ -306,6 +347,65 @@ export default function HomeScreen() {
             setPayrollMessage({ text: message, tone: "error" });
         } finally {
             setPayrollLoading(false);
+        }
+    };
+
+    const handleGenerateBonus = async (forAllEmployees: boolean = false) => {
+        const employeeId =
+            selectedBonusEmployee?.id ||
+            selectedBonusEmployee?.userId?._id ||
+            selectedBonusEmployee?.employeeId;
+
+        if (!forAllEmployees && !employeeId) {
+            setBonusMessage({
+                text: "Missing employee id.",
+                tone: "error",
+            });
+            return;
+        }
+
+        const amount = Number(bonusAmount);
+        if (!Number.isFinite(amount) || amount <= 0) {
+            setBonusMessage({
+                text: "Enter a valid bonus amount.",
+                tone: "error",
+            });
+            return;
+        }
+
+        if (!bonusType.trim()) {
+            setBonusMessage({
+                text: "Bonus type is required.",
+                tone: "error",
+            });
+            return;
+        }
+
+        setBonusLoading(true);
+        setBonusMessage(null);
+        try {
+            const response = await generateBonus({
+                ...(forAllEmployees ? {} : { employeeId }),
+                amount,
+                type: bonusType.trim(),
+                notes: bonusNotes.trim(),
+            });
+            setBonusMessage({
+                text:
+                    response?.message ||
+                    (forAllEmployees
+                        ? "Bonus generated for all employees."
+                        : "Bonus generated successfully."),
+                tone: "success",
+            });
+        } catch (error: any) {
+            const message =
+                error?.response?.data?.message ||
+                error?.message ||
+                "Failed to generate bonus.";
+            setBonusMessage({ text: message, tone: "error" });
+        } finally {
+            setBonusLoading(false);
         }
     };
 
@@ -639,21 +739,41 @@ export default function HomeScreen() {
                 </View>
 
                 {activeTab === "employees" && (
-                    <View style={styles.filterRow}>
+                    <>
+                        <View style={styles.filterRow}>
+                            <Pressable
+                                style={styles.filterSecondary}
+                                onPress={() => setShowDepartment(true)}
+                            >
+                                <Text style={styles.filterSecondaryText}>
+                                    {department}
+                                </Text>
+                                <Ionicons
+                                    name="chevron-down"
+                                    size={14}
+                                    color="#6B7280"
+                                />
+                            </Pressable>
+                        </View>
+
                         <Pressable
-                            style={styles.filterSecondary}
-                            onPress={() => setShowDepartment(true)}
+                            style={[
+                                styles.topGenerateAllButton,
+                                bonusLoading &&
+                                    styles.payrollSubmitButtonDisabled,
+                            ]}
+                            onPress={openBonusForAllModal}
+                            disabled={bonusLoading}
                         >
-                            <Text style={styles.filterSecondaryText}>
-                                {department}
-                            </Text>
-                            <Ionicons
-                                name="chevron-down"
-                                size={14}
-                                color="#6B7280"
-                            />
+                            {bonusLoading ? (
+                                <ActivityIndicator color="#111827" size="small" />
+                            ) : (
+                                <Text style={styles.topGenerateAllButtonText}>
+                                    Generate Bonus For All Employees
+                                </Text>
+                            )}
                         </Pressable>
-                    </View>
+                    </>
                 )}
 
                 <View style={styles.staffList}>
@@ -736,6 +856,17 @@ export default function HomeScreen() {
                                                 style={styles.staffActionText}
                                             >
                                                 Generate Payroll
+                                            </Text>
+                                        </Pressable>
+                                        <Pressable
+                                            style={styles.staffBonusButton}
+                                            onPress={(event) => {
+                                                event.stopPropagation();
+                                                openBonusModal(emp);
+                                            }}
+                                        >
+                                            <Text style={styles.staffBonusText}>
+                                                Generate Bonus
                                             </Text>
                                         </Pressable>
                                     </View>
@@ -823,6 +954,12 @@ export default function HomeScreen() {
                     onPress={() => router.push("/admin-attendance")}
                 >
                     <Ionicons name="layers-outline" size={22} color="#9CA3AF" />
+                </Pressable>
+                <Pressable
+                    style={styles.bottomIcon}
+                    onPress={() => router.push("/admin-policy")}
+                >
+                    <Ionicons name="settings-outline" size={22} color="#9CA3AF" />
                 </Pressable>
             </View>
 
@@ -1220,6 +1357,109 @@ export default function HomeScreen() {
 
             <Modal
                 transparent
+                visible={showBonusModal}
+                animationType="fade"
+                onRequestClose={closeBonusModal}
+            >
+                <Pressable style={styles.centeredOverlay} onPress={closeBonusModal}>
+                    <Pressable
+                        style={styles.bonusCard}
+                        onPress={(event) => event.stopPropagation()}
+                    >
+                        <Text style={styles.bonusTitle}>Generate Bonus</Text>
+                        <Text style={styles.bonusSubtitle}>
+                            {bonusForAllMode
+                                ? "All Employees"
+                                : selectedBonusEmployee?.userId?.name ||
+                                  selectedBonusEmployee?.employeeId ||
+                                  "Select employee"}
+                        </Text>
+                        {!bonusForAllMode && selectedBonusEmployee?.employeeId && (
+                            <Text style={styles.bonusMeta}>
+                                ID: {selectedBonusEmployee.employeeId} •{" "}
+                                {selectedBonusEmployee.department || "Department"}
+                            </Text>
+                        )}
+
+                        <View style={styles.bonusFieldGroup}>
+                            <Text style={styles.bonusLabel}>Amount</Text>
+                            <TextInput
+                                style={styles.bonusInput}
+                                value={bonusAmount}
+                                onChangeText={setBonusAmount}
+                                keyboardType="number-pad"
+                                placeholder="6000"
+                                placeholderTextColor="#94A3B8"
+                            />
+                        </View>
+
+                        <View style={styles.bonusFieldGroup}>
+                            <Text style={styles.bonusLabel}>Type</Text>
+                            <TextInput
+                                style={styles.bonusInput}
+                                value={bonusType}
+                                onChangeText={setBonusType}
+                                placeholder="festival"
+                                placeholderTextColor="#94A3B8"
+                                autoCapitalize="none"
+                            />
+                        </View>
+
+                        <View style={styles.bonusFieldGroup}>
+                            <Text style={styles.bonusLabel}>Notes</Text>
+                            <TextInput
+                                style={[styles.bonusInput, styles.bonusNotesInput]}
+                                value={bonusNotes}
+                                onChangeText={setBonusNotes}
+                                placeholder="Updated bonus amount"
+                                placeholderTextColor="#94A3B8"
+                                multiline
+                            />
+                        </View>
+
+                        {bonusMessage && (
+                            <Text
+                                style={
+                                    bonusMessage.tone === "success"
+                                        ? styles.bonusMessageSuccess
+                                        : styles.bonusMessageError
+                                }
+                            >
+                                {bonusMessage.text}
+                            </Text>
+                        )}
+
+                        <View style={styles.payrollActions}>
+                            <Pressable
+                                style={styles.payrollCancelButton}
+                                disabled={bonusLoading}
+                                onPress={closeBonusModal}
+                            >
+                                <Text style={styles.payrollCancelText}>Cancel</Text>
+                            </Pressable>
+                            <Pressable
+                                style={[
+                                    styles.payrollSubmitButton,
+                                    bonusLoading &&
+                                        styles.payrollSubmitButtonDisabled,
+                                ]}
+                                onPress={() => handleGenerateBonus(bonusForAllMode)}
+                                disabled={bonusLoading}
+                            >
+                                {bonusLoading ? (
+                                    <ActivityIndicator color="#FFFFFF" size="small" />
+                                ) : (
+                                    <Text style={styles.payrollSubmitText}>Generate</Text>
+                                )}
+                            </Pressable>
+                        </View>
+                        
+                    </Pressable>
+                </Pressable>
+            </Modal>
+
+            <Modal
+                transparent
                 visible={showDepartment}
                 animationType="fade"
                 onRequestClose={() => setShowDepartment(false)}
@@ -1572,6 +1812,33 @@ const styles = StyleSheet.create({
         color: "#111827",
         fontSize: 11,
         fontWeight: "700",
+    },
+    staffBonusButton: {
+        marginTop: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: "#D4A537",
+    },
+    staffBonusText: {
+        color: "#D4A537",
+        fontSize: 11,
+        fontWeight: "700",
+    },
+    topGenerateAllButton: {
+        marginTop: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: "#D4A537",
+        paddingVertical: 11,
+        alignItems: "center",
+        backgroundColor: "#FEF8EF",
+    },
+    topGenerateAllButtonText: {
+        color: "#111827",
+        fontWeight: "700",
+        fontSize: 12,
     },
     bottomBar: {
         position: "absolute",
@@ -1926,5 +2193,81 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: "#E2E8F0",
         textAlign: "center",
+    },
+    bonusCard: {
+        backgroundColor: "#FFFFFF",
+        borderRadius: 20,
+        padding: 20,
+        shadowColor: "#000",
+        shadowOpacity: 0.15,
+        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 10 },
+        elevation: 5,
+    },
+    bonusTitle: {
+        fontSize: 18,
+        fontWeight: "700",
+        color: "#111827",
+    },
+    bonusSubtitle: {
+        fontSize: 16,
+        fontWeight: "600",
+        color: "#374151",
+        marginTop: 4,
+    },
+    bonusMeta: {
+        fontSize: 12,
+        color: "#6B7280",
+        marginTop: 2,
+        letterSpacing: 0.5,
+    },
+    bonusFieldGroup: {
+        marginTop: 14,
+    },
+    bonusLabel: {
+        fontSize: 12,
+        fontWeight: "600",
+        color: "#374151",
+        textTransform: "uppercase",
+        marginBottom: 6,
+    },
+    bonusInput: {
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        color: "#111827",
+        backgroundColor: "#FFFFFF",
+    },
+    bonusNotesInput: {
+        minHeight: 70,
+        textAlignVertical: "top",
+    },
+    bonusMessageSuccess: {
+        marginTop: 12,
+        color: "#16A34A",
+        fontSize: 13,
+        fontWeight: "600",
+    },
+    bonusMessageError: {
+        marginTop: 12,
+        color: "#DC2626",
+        fontSize: 13,
+        fontWeight: "600",
+    },
+    generateAllButton: {
+        marginTop: 10,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: "#D4A537",
+        paddingVertical: 11,
+        alignItems: "center",
+        backgroundColor: "#FEF8EF",
+    },
+    generateAllButtonText: {
+        color: "#111827",
+        fontWeight: "700",
+        fontSize: 12,
     },
 });

@@ -509,31 +509,70 @@ export default function EmployeeProfileScreen() {
   };
 
   const renderBonus = () => {
-    const baseSalary = monthlySalary ?? 0;
-    const performanceTarget = baseSalary ? baseSalary * 0.1 : null;
+    const bonuses = profile?.Bonuses ?? [];
+
+    const formatBonusDate = (value?: string) => {
+      if (!value) return '—';
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return value;
+      return parsed.toLocaleDateString(undefined, {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+    };
+
+    if (bonuses.length === 0) {
+      return (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyTitle}>No bonus entries yet</Text>
+          <Text style={styles.emptySubtitle}>Bonuses added from admin will appear here.</Text>
+        </View>
+      );
+    }
+
+    const totalApproved = bonuses
+      .filter((item) => (item.status || '').toLowerCase() === 'approved')
+      .reduce((sum, item) => sum + (typeof item.amount === 'number' ? item.amount : 0), 0);
 
     return (
       <>
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>Performance Bonus</Text>
-          <Text style={styles.infoValue}>
-            {performanceTarget ? `₹${performanceTarget.toLocaleString('en-IN')}` : '--'}
-          </Text>
-          <Text style={styles.infoSmall}>Target 10% of base salary • Pending HR approval</Text>
+          <Text style={styles.sectionLabel}>Bonus Summary</Text>
+          <View style={styles.infoRow}>
+            <View>
+              <Text style={styles.infoSmall}>Total Entries</Text>
+              <Text style={styles.infoLarge}>{bonuses.length}</Text>
+            </View>
+            <View>
+              <Text style={styles.infoSmall}>Approved Total</Text>
+              <Text style={styles.infoLarge}>{formatCurrency(totalApproved)}</Text>
+            </View>
+          </View>
         </View>
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>Attendance Bonus</Text>
-          <Text style={styles.infoValue}>₹500 / perfect attendance day</Text>
-          <Text style={styles.infoSmall}>No bonus payouts recorded for this month.</Text>
-        </View>
-
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>Notes</Text>
-          <Text style={styles.infoValue}>
-            Bonus allocations are calculated automatically when payroll is generated. Add bonus entries from the
-            admin console to reflect adjustments here.
-          </Text>
+          <Text style={styles.sectionLabel}>Bonus History</Text>
+          {bonuses.map((bonus, index) => (
+            <View
+              key={bonus.id || `${bonus.type || 'bonus'}-${index}`}
+              style={[styles.bonusRow, index !== bonuses.length - 1 && styles.bonusRowDivider]}
+            >
+              <View style={styles.bonusLeft}>
+                <Text style={styles.bonusType}>{(bonus.type || 'bonus').toUpperCase()}</Text>
+                <Text style={styles.bonusNote}>{bonus.notes || 'No notes provided'}</Text>
+                <Text style={styles.bonusMetaText}>
+                  {formatBonusDate(bonus.awardedAt)} • {bonus.awardedBy || 'Admin'}
+                </Text>
+              </View>
+              <View style={styles.bonusRight}>
+                <Text style={styles.bonusAmount}>{formatCurrency(bonus.amount)}</Text>
+                <View style={styles.salaryTag}>
+                  <Text style={styles.salaryTagText}>{bonus.status || 'pending'}</Text>
+                </View>
+              </View>
+            </View>
+          ))}
         </View>
       </>
     );
@@ -948,6 +987,46 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#374151',
     fontWeight: '600',
+  },
+  bonusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingVertical: 10,
+  },
+  bonusRowDivider: {
+    borderBottomWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  bonusLeft: {
+    flex: 1,
+    paddingRight: 10,
+  },
+  bonusRight: {
+    alignItems: 'flex-end',
+  },
+  bonusType: {
+    fontSize: 11,
+    color: '#D4A537',
+    fontWeight: '700',
+    letterSpacing: 0.6,
+  },
+  bonusNote: {
+    marginTop: 4,
+    fontSize: 13,
+    color: '#111827',
+    fontWeight: '600',
+  },
+  bonusMetaText: {
+    marginTop: 4,
+    fontSize: 11,
+    color: '#6B7280',
+  },
+  bonusAmount: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 6,
   },
   emptyCard: {
     padding: 18,
