@@ -87,6 +87,16 @@ export interface EmployeePayslip {
     downloadUrl?: string;
 }
 
+export interface EmployeeBonus {
+    id: string;
+    type?: string;
+    amount?: number;
+    status?: string;
+    notes?: string;
+    awardedAt?: string;
+    awardedBy?: string;
+}
+
 export interface EmployeeDetail {
     id: string;
     name: string;
@@ -105,6 +115,7 @@ export interface EmployeeDetail {
         thisMonth?: EmployeeAttendanceBreakdown;
     };
     leaveBalance?: EmployeeLeaveBalance;
+    Bonuses?: EmployeeBonus[];
 }
 
 interface EmployeeDetailResponse {
