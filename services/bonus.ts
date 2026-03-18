@@ -5,6 +5,8 @@ export interface GenerateBonusPayload {
     amount: number;
     type: string;
     notes?: string;
+    month?: number;
+    year?: number;
 }
 
 interface ApiResponse<T = any> {

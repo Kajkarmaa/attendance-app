@@ -38,6 +38,10 @@ const APP_LOGO = require("../assets/logo.jpg");
 export default function HomeScreen() {
     const { logout, user, isLoading } = useAuth();
     const { width } = useWindowDimensions();
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+    const maxBonusYear = currentYear + 1;
     const isWide = width >= 768;
     const [department, setDepartment] = useState("All");
     const [showDepartment, setShowDepartment] = useState(false);
@@ -76,6 +80,8 @@ export default function HomeScreen() {
     const [bonusAmount, setBonusAmount] = useState("6000");
     const [bonusType, setBonusType] = useState("festival");
     const [bonusNotes, setBonusNotes] = useState("Updated bonus amount");
+    const [bonusMonth, setBonusMonth] = useState(() => currentMonth);
+    const [bonusYear, setBonusYear] = useState(() => currentYear);
     const [bonusForAllMode, setBonusForAllMode] = useState(false);
     const [bonusLoading, setBonusLoading] = useState(false);
     const [bonusMessage, setBonusMessage] = useState<{
@@ -293,6 +299,8 @@ export default function HomeScreen() {
     const openBonusModal = (employee: EmployeeUser) => {
         setBonusForAllMode(false);
         setSelectedBonusEmployee(employee);
+        setBonusMonth(currentMonth);
+        setBonusYear(currentYear);
         setBonusAmount("6000");
         setBonusType("festival");
         setBonusNotes("Updated bonus amount");
@@ -303,6 +311,8 @@ export default function HomeScreen() {
     const openBonusForAllModal = () => {
         setBonusForAllMode(true);
         setSelectedBonusEmployee(null);
+        setBonusMonth(currentMonth);
+        setBonusYear(currentYear);
         setBonusAmount("10000");
         setBonusType("performance");
         setBonusNotes("Excellent performance this quarter");
@@ -381,6 +391,28 @@ export default function HomeScreen() {
             return;
         }
 
+        const selectedDate = new Date(bonusYear, bonusMonth - 1, 1);
+        const currentDate = new Date(
+            currentYear,
+            currentMonth - 1,
+            1,
+        );
+        if (selectedDate < currentDate) {
+            setBonusMessage({
+                text: "Only current or upcoming month/year is allowed.",
+                tone: "error",
+            });
+            return;
+        }
+
+        if (bonusYear > maxBonusYear) {
+            setBonusMessage({
+                text: "Select a valid upcoming year.",
+                tone: "error",
+            });
+            return;
+        }
+
         setBonusLoading(true);
         setBonusMessage(null);
         try {
@@ -389,6 +421,8 @@ export default function HomeScreen() {
                 amount,
                 type: bonusType.trim(),
                 notes: bonusNotes.trim(),
+                month: bonusMonth,
+                year: bonusYear,
             });
             setBonusMessage({
                 text:
@@ -1380,6 +1414,32 @@ export default function HomeScreen() {
                                 {selectedBonusEmployee.department || "Department"}
                             </Text>
                         )}
+
+                        <View style={styles.bonusFieldGroup}>
+                            <Text style={styles.bonusLabel}>Month & Year</Text>
+                            <View style={styles.payrollPickerWrapper}>
+                                <MonthYearPicker
+                                    month={bonusMonth}
+                                    year={bonusYear}
+                                    onMonthChange={setBonusMonth}
+                                    onYearChange={(year) => {
+                                        setBonusYear(year);
+                                        if (
+                                            year === currentYear &&
+                                            bonusMonth < currentMonth
+                                        ) {
+                                            setBonusMonth(currentMonth);
+                                        }
+                                    }}
+                                    minYear={currentYear}
+                                    maxYear={maxBonusYear}
+                                    isMonthDisabled={(month, year) =>
+                                        year === currentYear &&
+                                        month < currentMonth
+                                    }
+                                />
+                            </View>
+                        </View>
 
                         <View style={styles.bonusFieldGroup}>
                             <Text style={styles.bonusLabel}>Amount</Text>

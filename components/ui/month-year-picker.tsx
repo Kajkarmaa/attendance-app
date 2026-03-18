@@ -25,6 +25,7 @@ interface MonthYearPickerProps {
     onYearChange: (year: number) => void;
     minYear?: number;
     maxYear?: number;
+    isMonthDisabled?: (month: number, year: number) => boolean;
 }
 
 function MonthYearPicker({
@@ -34,6 +35,7 @@ function MonthYearPicker({
     onYearChange,
     minYear = currentYear - 5,
     maxYear = currentYear + 1,
+    isMonthDisabled,
 }: MonthYearPickerProps) {
     const years = useMemo(() => {
         const list: number[] = [];
@@ -49,13 +51,27 @@ function MonthYearPicker({
             <View style={styles.monthGrid}>
                 {MONTHS.map((item) => {
                     const isActive = item.value === month;
+                    const isDisabled = Boolean(isMonthDisabled?.(item.value, year));
                     return (
                         <Pressable
                             key={item.value}
                             onPress={() => onMonthChange(item.value)}
-                            style={[styles.monthButton, isActive && styles.monthButtonActive]}
+                            disabled={isDisabled}
+                            style={[
+                                styles.monthButton,
+                                isActive && styles.monthButtonActive,
+                                isDisabled && styles.monthButtonDisabled,
+                            ]}
                         >
-                            <Text style={isActive ? styles.monthTextActive : styles.monthText}>
+                            <Text
+                                style={
+                                    isDisabled
+                                        ? styles.monthTextDisabled
+                                        : isActive
+                                          ? styles.monthTextActive
+                                          : styles.monthText
+                                }
+                            >
                                 {item.label}
                             </Text>
                         </Pressable>
@@ -112,6 +128,11 @@ const styles = StyleSheet.create({
         backgroundColor: "#D4A537",
         borderColor: "#D4A537",
     },
+    monthButtonDisabled: {
+        backgroundColor: "#F3F4F6",
+        borderColor: "#E5E7EB",
+        opacity: 0.75,
+    },
     monthText: {
         color: "#374151",
         fontWeight: "600",
@@ -120,6 +141,11 @@ const styles = StyleSheet.create({
     monthTextActive: {
         color: "#FFFFFF",
         fontWeight: "700",
+        fontSize: 13,
+    },
+    monthTextDisabled: {
+        color: "#9CA3AF",
+        fontWeight: "600",
         fontSize: 13,
     },
     yearRow: {
