@@ -89,6 +89,8 @@ export interface EmployeePayslip {
 
 export interface EmployeeBonus {
     id: string;
+    month?: number | string;
+    year?: number | string;
     type?: string;
     amount?: number;
     status?: string;

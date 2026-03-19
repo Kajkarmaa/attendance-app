@@ -511,6 +511,20 @@ export default function EmployeeProfileScreen() {
   const renderBonus = () => {
     const bonuses = profile?.Bonuses ?? [];
 
+    const formatBonusMonthYear = (month?: number | string, year?: number | string) => {
+      const parsedMonth = typeof month === 'number' ? month : Number(month);
+      const parsedYear = typeof year === 'number' ? year : Number(year);
+      if (!Number.isFinite(parsedMonth) || !Number.isFinite(parsedYear)) {
+        return 'Month/Year not set';
+      }
+      if (parsedMonth < 1 || parsedMonth > 12) {
+        return `Year ${parsedYear}`;
+      }
+      const date = new Date(parsedYear, parsedMonth - 1, 1);
+      const monthLabel = date.toLocaleDateString(undefined, { month: 'short' });
+      return `${monthLabel} ${parsedYear}`;
+    };
+
     const formatBonusDate = (value?: string) => {
       if (!value) return '—';
       const parsed = new Date(value);
@@ -560,6 +574,9 @@ export default function EmployeeProfileScreen() {
             >
               <View style={styles.bonusLeft}>
                 <Text style={styles.bonusType}>{(bonus.type || 'bonus').toUpperCase()}</Text>
+                <Text style={styles.bonusMetaText}>
+                  Bonus Month: {formatBonusMonthYear(bonus.month, bonus.year)}
+                </Text>
                 <Text style={styles.bonusNote}>{bonus.notes || 'No notes provided'}</Text>
                 <Text style={styles.bonusMetaText}>
                   {formatBonusDate(bonus.awardedAt)} • {bonus.awardedBy || 'Admin'}
