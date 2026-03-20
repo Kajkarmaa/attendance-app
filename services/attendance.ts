@@ -13,6 +13,7 @@ export interface AttendanceRecord {
     } | null;
     workHours?: number;
     status?: string;
+    totalWorkingDays?: number;
     timezone?: string;
     type?: "check_in" | "check_out";
 }
@@ -60,6 +61,7 @@ interface AttendanceApiData {
     workHours?: number;
     status?: string;
     timezone?: string;
+    totalWorkingDays?: number;
 }
 
 const normalizeFromCheck = (payload: CheckInApiData | CheckOutApiData): AttendanceRecord => {
@@ -101,6 +103,7 @@ const normalizeFromAttendance = (payload: AttendanceApiData): AttendanceRecord =
     workHours: payload.workHours,
     status: payload.status,
     timezone: payload.timezone,
+    totalWorkingDays: payload.totalWorkingDays,
 });
 
 export async function checkIn(image?: { uri: string; name?: string; type?: string } | null): Promise<AttendanceRecord> {

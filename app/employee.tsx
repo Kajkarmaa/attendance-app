@@ -492,7 +492,10 @@ export default function EmployeeDashboardScreen() {
                 const image = { uri: localUri, name: filename, type: mime };
 
                 const res = await checkIn(image);
-                setAttendance(res);
+                setAttendance((prev: any) => ({
+                    ...prev,
+                    ...res,
+                }));
             }
         } catch (error: any) {
             const msg =
@@ -772,7 +775,7 @@ export default function EmployeeDashboardScreen() {
                                         style={{ height: 18, width: 40 }}
                                     />
                                 ) : (
-                                    String((attendance as any)?.totalDays ?? 0)
+                                attendance?.totalWorkingDays
                                 )}
                             </Text>
                             <Text style={styles.tileNote}>Working Days</Text>
