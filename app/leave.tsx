@@ -19,7 +19,7 @@ import {
     Text,
     View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 const formatNumber = (value: unknown, fallback = 0) => {
     const num = typeof value === "number" ? value : Number(value);
@@ -59,6 +59,8 @@ const leaveTypeIcon = (type: string) => {
 
 export default function LeaveScreen() {
     const { user, isLoading } = useAuth();
+    const insets = useSafeAreaInsets();
+    const BOTTOM_BAR_BASE_HEIGHT = 76;
     const [profile, setProfile] = useState<EmployeeProfile | null>(null);
     const [profileLoading, setProfileLoading] = useState(false);
     const [leaveBalance, setLeaveBalance] = useState<LeaveBalanceData | null>(
@@ -252,7 +254,14 @@ export default function LeaveScreen() {
         return (
             <SafeAreaView style={styles.container}>
                 <ScrollView
-                    contentContainerStyle={[styles.content, { paddingTop: 32 }]}
+                    contentContainerStyle={[
+                        styles.content,
+                        {
+                            paddingTop: 32,
+                            paddingBottom:
+                                BOTTOM_BAR_BASE_HEIGHT + insets.bottom + 64,
+                        },
+                    ]}
                     refreshControl={
                         <RefreshControl
                             refreshing={refreshing}
@@ -306,7 +315,13 @@ export default function LeaveScreen() {
     return (
         <SafeAreaView style={styles.container}>
             <ScrollView
-                contentContainerStyle={styles.content}
+                contentContainerStyle={[
+                    styles.content,
+                    {
+                        paddingBottom:
+                            BOTTOM_BAR_BASE_HEIGHT + insets.bottom + 64,
+                    },
+                ]}
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}
@@ -478,13 +493,24 @@ export default function LeaveScreen() {
             </ScrollView>
 
             <Pressable
-                style={styles.fab}
+                style={[
+                    styles.fab,
+                    { bottom: BOTTOM_BAR_BASE_HEIGHT + insets.bottom + 16 },
+                ]}
                 onPress={() => router.replace("/leave-request")}
             >
                 <Ionicons name="add" size={24} color="#FFFFFF" />
             </Pressable>
 
-            <View style={styles.bottomBar}>
+            <View
+                style={[
+                    styles.bottomBar,
+                    {
+                        height: BOTTOM_BAR_BASE_HEIGHT + insets.bottom,
+                        paddingBottom: Math.max(insets.bottom, 10),
+                    },
+                ]}
+            >
                 <Pressable
                     style={styles.bottomIcon}
                     onPress={() => router.push("/employee")}
@@ -821,6 +847,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: -4 },
         elevation: 6,
         paddingHorizontal: 24,
+        zIndex: 30,
     },
     bottomIcon: {
         height: 44,

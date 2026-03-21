@@ -31,12 +31,14 @@ import {
     View,
     useWindowDimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 const APP_LOGO = require("../assets/logo.jpg");
 
 export default function HomeScreen() {
     const { logout, user, isLoading } = useAuth();
+    const insets = useSafeAreaInsets();
+    const BOTTOM_BAR_BASE_HEIGHT = 76;
     const { width } = useWindowDimensions();
     const now = new Date();
     const currentMonth = now.getMonth() + 1;
@@ -715,7 +717,10 @@ export default function HomeScreen() {
 
             <ScrollView
                 style={styles.flex}
-                contentContainerStyle={styles.listContent}
+                contentContainerStyle={[
+                    styles.listContent,
+                    { paddingBottom: 200 + insets.bottom },
+                ]}
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}
@@ -972,7 +977,15 @@ export default function HomeScreen() {
                 </View>
             </ScrollView>
 
-            <View style={styles.bottomBar}>
+            <View
+                style={[
+                    styles.bottomBar,
+                    {
+                        height: BOTTOM_BAR_BASE_HEIGHT + insets.bottom,
+                        paddingBottom: Math.max(insets.bottom, 10),
+                    },
+                ]}
+            >
                 <Pressable style={styles.bottomIconActive}>
                     <Ionicons name="home" size={22} color="#D4A537" />
                 </Pressable>
@@ -1918,6 +1931,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: -4 },
         elevation: 6,
         paddingHorizontal: 24,
+        zIndex: 30,
     },
     bottomIcon: {
         height: 44,

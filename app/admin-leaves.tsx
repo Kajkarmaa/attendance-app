@@ -23,10 +23,12 @@ import {
     TextInput,
     View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function AdminLeavesScreen() {
     const { user, isLoading } = useAuth();
+    const insets = useSafeAreaInsets();
+    const BOTTOM_BAR_BASE_HEIGHT = 76;
     const [allLeaves, setAllLeaves] = useState<AdminLeaveItem[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -267,7 +269,11 @@ export default function AdminLeavesScreen() {
         return (
             <SafeAreaView style={styles.container}>
                 <ScrollView
-                    contentContainerStyle={{ padding: 20 }}
+                    contentContainerStyle={{
+                        padding: 20,
+                        paddingBottom:
+                            BOTTOM_BAR_BASE_HEIGHT + insets.bottom + 40,
+                    }}
                     refreshControl={
                         <RefreshControl
                             refreshing={refreshing}
@@ -436,7 +442,13 @@ export default function AdminLeavesScreen() {
             </View>
 
             <ScrollView
-                contentContainerStyle={styles.listContent}
+                contentContainerStyle={[
+                    styles.listContent,
+                    {
+                        paddingBottom:
+                            BOTTOM_BAR_BASE_HEIGHT + insets.bottom + 36,
+                    },
+                ]}
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}
@@ -666,10 +678,16 @@ export default function AdminLeavesScreen() {
                             </View>
                         );
                     })}
-
-                <View style={{ height: 120 }} />
             </ScrollView>
-            <View style={styles.bottomBar}>
+            <View
+                style={[
+                    styles.bottomBar,
+                    {
+                        height: BOTTOM_BAR_BASE_HEIGHT + insets.bottom,
+                        paddingBottom: Math.max(insets.bottom, 10),
+                    },
+                ]}
+            >
                 <Pressable
                     style={styles.bottomIcon}
                     onPress={() => router.replace("/admin")}
@@ -1010,6 +1028,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: -4 },
         elevation: 6,
         paddingHorizontal: 24,
+        zIndex: 30,
     },
     bottomIcon: {
         height: 44,

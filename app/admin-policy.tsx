@@ -22,7 +22,7 @@ import {
     View,
     useWindowDimensions,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 const DEFAULT_LEAVE_POLICY: LeavePolicyPayload = {
     name: "Leave Policy 2026",
@@ -101,6 +101,8 @@ const dayOptions = [
 
 export default function AdminPolicyScreen() {
     const { user, isLoading } = useAuth();
+    const insets = useSafeAreaInsets();
+    const BOTTOM_BAR_BASE_HEIGHT = 76;
     const { width } = useWindowDimensions();
     const isWide = width >= 940;
 
@@ -320,7 +322,13 @@ export default function AdminPolicyScreen() {
     return (
         <SafeAreaView style={styles.container}>
             <ScrollView
-                contentContainerStyle={styles.content}
+                contentContainerStyle={[
+                    styles.content,
+                    {
+                        paddingBottom:
+                            BOTTOM_BAR_BASE_HEIGHT + insets.bottom + 44,
+                    },
+                ]}
                 refreshControl={
                     <RefreshControl
                         refreshing={refreshing}
@@ -735,7 +743,15 @@ export default function AdminPolicyScreen() {
                 </View>
             </ScrollView>
 
-            <View style={styles.bottomBar}>
+            <View
+                style={[
+                    styles.bottomBar,
+                    {
+                        height: BOTTOM_BAR_BASE_HEIGHT + insets.bottom,
+                        paddingBottom: Math.max(insets.bottom, 10),
+                    },
+                ]}
+            >
                 <Pressable
                     style={styles.bottomIcon}
                     onPress={() => router.replace("/admin")}
@@ -923,6 +939,7 @@ const styles = StyleSheet.create({
         justifyContent: "space-around",
         alignItems: "center",
         paddingHorizontal: 24,
+        zIndex: 30,
     },
     bottomIcon: {
         height: 44,

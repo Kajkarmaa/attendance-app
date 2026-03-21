@@ -36,7 +36,7 @@ import {
     Text,
     View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 const ACTIVITY_COLOR_MAP: Record<string, string> = {
     attendance: "#34D399",
@@ -63,6 +63,8 @@ interface PayslipEntry {
 
 export default function EmployeeDashboardScreen() {
     const { user, isLoading } = useAuth();
+    const insets = useSafeAreaInsets();
+    const BOTTOM_BAR_BASE_HEIGHT = 76;
     const [attendance, setAttendance] = useState<AttendanceRecord | null>(null);
     const [attLoading, setAttLoading] = useState(false);
     const [punching, setPunching] = useState(false);
@@ -554,7 +556,13 @@ export default function EmployeeDashboardScreen() {
         return (
             <SafeAreaView style={styles.container}>
                 <ScrollView
-                    contentContainerStyle={[styles.content, { paddingTop: 32 }]}
+                    contentContainerStyle={[
+                        styles.content,
+                        {
+                            paddingTop: 32,
+                            paddingBottom: BOTTOM_BAR_BASE_HEIGHT + insets.bottom + 80,
+                        },
+                    ]}
                     showsVerticalScrollIndicator={false}
                     refreshControl={
                         <RefreshControl
@@ -686,7 +694,10 @@ export default function EmployeeDashboardScreen() {
             </View>
 
             <ScrollView
-                contentContainerStyle={styles.content}
+                contentContainerStyle={[
+                    styles.content,
+                    { paddingBottom: BOTTOM_BAR_BASE_HEIGHT + insets.bottom + 80 },
+                ]}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
                     <RefreshControl
@@ -978,7 +989,13 @@ export default function EmployeeDashboardScreen() {
                 {/* swipe placeholder removed (moved out of ScrollView for fixed positioning) */}
             </ScrollView>
 
-            <View style={styles.swipeFloatingWrap} pointerEvents="box-none">
+            <View
+                style={[
+                    styles.swipeFloatingWrap,
+                    { bottom: BOTTOM_BAR_BASE_HEIGHT + insets.bottom + 10 },
+                ]}
+                pointerEvents="box-none"
+            >
                 <View style={styles.swipeContainerFixed}>
                     <View
                         style={styles.swipeTrack}
@@ -1012,7 +1029,15 @@ export default function EmployeeDashboardScreen() {
                 </View>
             </View>
 
-            <View style={styles.bottomBar}>
+            <View
+                style={[
+                    styles.bottomBar,
+                    {
+                        height: BOTTOM_BAR_BASE_HEIGHT + insets.bottom,
+                        paddingBottom: Math.max(insets.bottom, 10),
+                    },
+                ]}
+            >
                 <Pressable
                     style={styles.bottomIconActive}
                     accessibilityRole="button"
@@ -1750,6 +1775,8 @@ const styles = StyleSheet.create({
         bottom: 86,
         alignItems: "center",
         pointerEvents: "box-none",
+        zIndex: 20,
+        elevation: 20,
     },
     swipeContainerFixed: {
         width: "100%",
@@ -1973,6 +2000,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: -4 },
         elevation: 6,
         paddingHorizontal: 12,
+        zIndex: 30,
     },
     bottomIcon: {
         height: 44,

@@ -25,10 +25,12 @@ import {
     TextInput,
     View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function ProfileSettingScreen() {
     const { user, logout } = useAuth();
+    const insets = useSafeAreaInsets();
+    const BOTTOM_BAR_BASE_HEIGHT = 76;
     const [profile, setProfile] = useState<EmployeeProfile | null>(null);
     const [loading, setLoading] = useState(false);
     const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -303,7 +305,13 @@ export default function ProfileSettingScreen() {
         return (
             <SafeAreaView style={styles.screen}>
                 <ScrollView
-                    contentContainerStyle={styles.container}
+                    contentContainerStyle={[
+                        styles.container,
+                        {
+                            paddingBottom:
+                                BOTTOM_BAR_BASE_HEIGHT + insets.bottom + 40,
+                        },
+                    ]}
                     showsVerticalScrollIndicator={false}
                     refreshControl={
                         <RefreshControl
@@ -350,7 +358,13 @@ export default function ProfileSettingScreen() {
     return (
         <SafeAreaView style={styles.screen}>
             <ScrollView
-                contentContainerStyle={styles.container}
+                contentContainerStyle={[
+                    styles.container,
+                    {
+                        paddingBottom:
+                            BOTTOM_BAR_BASE_HEIGHT + insets.bottom + 40,
+                    },
+                ]}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
                     <RefreshControl
@@ -502,7 +516,15 @@ export default function ProfileSettingScreen() {
                     <Text style={styles.deleteText}>Delete Account</Text>
                 </Pressable>
             </ScrollView>
-            <View style={styles.bottomBar}>
+            <View
+                style={[
+                    styles.bottomBar,
+                    {
+                        height: BOTTOM_BAR_BASE_HEIGHT + insets.bottom,
+                        paddingBottom: Math.max(insets.bottom, 10),
+                    },
+                ]}
+            >
                 <Pressable
                     style={styles.bottomIcon}
                     onPress={() => router.push("/employee")}
@@ -1038,6 +1060,7 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: -4 },
         elevation: 6,
         paddingHorizontal: 12,
+        zIndex: 30,
     },
     bottomIcon: {
         height: 44,
