@@ -98,3 +98,19 @@ export async function changePassword(payload: {
     });
     return response.data;
 }
+
+export async function requestDeleteOtp(payload: { email: string }) {
+    const response = await apiClient.post<{ success: boolean; message: string }>(
+        "/users/request-delete-otp",
+        payload,
+    );
+    return response.data;
+}
+
+export async function verifyDeleteOtp(payload: { email: string; otp: string }) {
+    const response = await apiClient.post<{ success: boolean; message: string }>(
+        "/users/verify-delete-otp",
+        payload,
+    );
+    return response.data;
+}

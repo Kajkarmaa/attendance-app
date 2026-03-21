@@ -3,7 +3,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
     changePassword,
     fetchEmployeeProfile,
+    requestDeleteOtp,
     updateProfileImage,
+    verifyDeleteOtp,
     type EmployeeProfile,
 } from "@/services/profile";
 import { Ionicons } from "@expo/vector-icons";
@@ -181,6 +183,76 @@ export default function ProfileSettingScreen() {
     const [showNew, setShowNew] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
     const [submittingPwd, setSubmittingPwd] = useState(false);
+    const [deleteVisible, setDeleteVisible] = useState(false);
+    const [deleteEmail, setDeleteEmail] = useState("");
+    const [deleteOtp, setDeleteOtp] = useState("");
+    const [deleteOtpSent, setDeleteOtpSent] = useState(false);
+    const [sendingDeleteOtp, setSendingDeleteOtp] = useState(false);
+    const [verifyingDeleteOtp, setVerifyingDeleteOtp] = useState(false);
+
+    const openDeleteModal = () => {
+        const email = profile?.email ?? user?.email ?? "";
+        setDeleteEmail(email);
+        setDeleteOtp("");
+        setDeleteOtpSent(false);
+        setDeleteVisible(true);
+    };
+
+    const closeDeleteModal = () => {
+        if (sendingDeleteOtp || verifyingDeleteOtp) return;
+        setDeleteVisible(false);
+        setDeleteOtp("");
+        setDeleteOtpSent(false);
+    };
+
+    const handleRequestDeleteOtp = async () => {
+        const email = deleteEmail.trim();
+        if (!email) {
+            Alert.alert("Validation", "Email is required.");
+            return;
+        }
+        setSendingDeleteOtp(true);
+        try {
+            const resp = await requestDeleteOtp({ email });
+            Alert.alert("OTP sent", resp?.message || "OTP sent to your email.");
+            setDeleteOtpSent(true);
+        } catch (err: any) {
+            const msg =
+                err?.response?.data?.message ||
+                err?.message ||
+                "Unable to send delete OTP.";
+            Alert.alert("Failed", msg);
+        } finally {
+            setSendingDeleteOtp(false);
+        }
+    };
+
+    const handleVerifyDeleteOtp = async () => {
+        const email = deleteEmail.trim();
+        const otp = deleteOtp.trim();
+        if (!email || !otp) {
+            Alert.alert("Validation", "Email and OTP are required.");
+            return;
+        }
+        setVerifyingDeleteOtp(true);
+        try {
+            const resp = await verifyDeleteOtp({ email, otp });
+            Alert.alert("Success", resp?.message || "Account deleted successfully.");
+            try {
+                await logout();
+            } finally {
+                router.replace("/");
+            }
+        } catch (err: any) {
+            const msg =
+                err?.response?.data?.message ||
+                err?.message ||
+                "Invalid OTP or unable to delete account.";
+            Alert.alert("Failed", msg);
+        } finally {
+            setVerifyingDeleteOtp(false);
+        }
+    };
 
     const submitChangePassword = async () => {
         if (!currentPwd || !newPwd || !confirmPwd) {
@@ -415,6 +487,20 @@ export default function ProfileSettingScreen() {
                     />
                     <Text style={styles.logoutText}>Logout</Text>
                 </Pressable>
+
+                <Pressable
+                    style={styles.deleteButton}
+                    onPress={openDeleteModal}
+                    accessibilityRole="button"
+                >
+                    <Ionicons
+                        name="trash-outline"
+                        size={20}
+                        color="#FFFFFF"
+                        style={{ marginRight: 8 }}
+                    />
+                    <Text style={styles.deleteText}>Delete Account</Text>
+                </Pressable>
             </ScrollView>
             <View style={styles.bottomBar}>
                 <Pressable
@@ -565,6 +651,118 @@ export default function ProfileSettingScreen() {
                     </View>
                 </View>
             </Modal>
+
+            <Modal
+                visible={deleteVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={closeDeleteModal}
+            >
+                <Pressable
+                    style={styles.modalBackdrop}
+                    onPress={closeDeleteModal}
+                    accessibilityRole="button"
+                >
+                    <View />
+                </Pressable>
+                <View style={styles.modalCard}>
+                    <View style={styles.modalHeader}>
+                        <Text style={styles.modalTitle}>Delete Account</Text>
+                        <Pressable
+                            onPress={closeDeleteModal}
+                            style={styles.modalClose}
+                        >
+                            <Ionicons name="close" size={18} color="#6B7280" />
+                        </Pressable>
+                    </View>
+
+                    <View style={{ paddingHorizontal: 16, paddingBottom: 18 }}>
+                        <Text style={styles.deleteHintText}>
+                            We will send a verification OTP to your email before deleting your account.
+                        </Text>
+
+                        <Text style={[styles.fieldLabel, { marginTop: 10 }]}>Email</Text>
+                        <View style={styles.inputRow}>
+                            <TextInput
+                                style={styles.input}
+                                value={deleteEmail}
+                                onChangeText={setDeleteEmail}
+                                autoCapitalize="none"
+                                keyboardType="email-address"
+                                placeholder="you@example.com"
+                                editable={!sendingDeleteOtp && !verifyingDeleteOtp}
+                            />
+                        </View>
+
+                        {deleteOtpSent && (
+                            <>
+                                <Text style={[styles.fieldLabel, { marginTop: 12 }]}>OTP</Text>
+                                <View style={styles.inputRow}>
+                                    <TextInput
+                                        style={styles.input}
+                                        value={deleteOtp}
+                                        onChangeText={setDeleteOtp}
+                                        keyboardType="number-pad"
+                                        placeholder="Enter OTP"
+                                        editable={!verifyingDeleteOtp}
+                                    />
+                                </View>
+                            </>
+                        )}
+
+                        <View style={{ marginTop: 18 }}>
+                            {!deleteOtpSent ? (
+                                <Pressable
+                                    style={styles.btnPrimary}
+                                    onPress={handleRequestDeleteOtp}
+                                    disabled={sendingDeleteOtp}
+                                    accessibilityRole="button"
+                                >
+                                    {sendingDeleteOtp ? (
+                                        <ActivityIndicator color="#fff" />
+                                    ) : (
+                                        <Text style={styles.btnPrimaryText}>Send OTP</Text>
+                                    )}
+                                </Pressable>
+                            ) : (
+                                <>
+                                    <Pressable
+                                        style={styles.deleteConfirmButton}
+                                        onPress={handleVerifyDeleteOtp}
+                                        disabled={verifyingDeleteOtp}
+                                        accessibilityRole="button"
+                                    >
+                                        {verifyingDeleteOtp ? (
+                                            <ActivityIndicator color="#fff" />
+                                        ) : (
+                                            <Text style={styles.deleteConfirmText}>
+                                                Verify OTP & Delete Account
+                                            </Text>
+                                        )}
+                                    </Pressable>
+                                    <Pressable
+                                        style={styles.btnSecondary}
+                                        onPress={handleRequestDeleteOtp}
+                                        disabled={sendingDeleteOtp || verifyingDeleteOtp}
+                                        accessibilityRole="button"
+                                    >
+                                        <Text style={styles.btnSecondaryText}>Resend OTP</Text>
+                                    </Pressable>
+                                </>
+                            )}
+
+                            <Pressable
+                                style={styles.btnSecondary}
+                                onPress={closeDeleteModal}
+                                disabled={sendingDeleteOtp || verifyingDeleteOtp}
+                                accessibilityRole="button"
+                            >
+                                <Text style={styles.btnSecondaryText}>Cancel</Text>
+                            </Pressable>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -699,6 +897,20 @@ const styles = StyleSheet.create({
         shadowRadius: 12,
     },
     logoutText: { color: "#111827", fontSize: 16, fontWeight: "700" },
+    deleteButton: {
+        marginTop: 12,
+        backgroundColor: "#EF4444",
+        paddingVertical: 16,
+        borderRadius: 28,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+    },
+    deleteText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
     changePasswordRow: {
         marginTop: 18,
         backgroundColor: "#fff",
@@ -794,6 +1006,20 @@ const styles = StyleSheet.create({
         borderColor: "#EFEFEF",
     },
     btnSecondaryText: { color: "#6B7280", fontSize: 16 },
+    deleteHintText: {
+        color: "#6B7280",
+        fontSize: 13,
+        lineHeight: 18,
+    },
+    deleteConfirmButton: {
+        marginTop: 8,
+        backgroundColor: "#DC2626",
+        paddingVertical: 14,
+        borderRadius: 28,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    deleteConfirmText: { color: "#FFFFFF", fontWeight: "700", fontSize: 15 },
     bottomBar: {
         position: "absolute",
         left: 0,
