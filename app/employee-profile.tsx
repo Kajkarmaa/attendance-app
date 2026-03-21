@@ -17,6 +17,10 @@ import { Calendar } from 'react-native-calendars';
 
 import { getPayslipDownloadUrl } from '@/services/payroll';
 import { fetchEmployeeDetail, type EmployeeDetail } from '@/services/users';
+import { getCachedData, setCachedData } from '@/stores/cacheStore';
+
+const EMPLOYEE_PROFILE_CACHE_PREFIX = 'admin:employee-profile:';
+const EMPLOYEE_PROFILE_CACHE_TTL_MS = 5 * 60 * 1000;
 
 const TABS = ['Overview', 'Attendance', 'Salary', 'Bonus', 'Payslips'] as const;
 type TabKey = (typeof TABS)[number];
@@ -46,7 +50,7 @@ export default function EmployeeProfileScreen() {
     return value && value.length > 0 ? value : undefined;
   }, [params.employeeRecordId]);
 
-  const loadProfile = useCallback(async () => {
+  const loadProfile = useCallback(async (force: boolean = false) => {
     console.log(`Loading profile for employeeId=${params.employeeId} recordId=${recordId}`)
     if (!recordId) {
       setProfile(null);
@@ -55,11 +59,26 @@ export default function EmployeeProfileScreen() {
       return;
     }
 
+    const cacheKey = `${EMPLOYEE_PROFILE_CACHE_PREFIX}${recordId}`;
+    if (!force) {
+      const cached = getCachedData<EmployeeDetail | null>(
+        cacheKey,
+        EMPLOYEE_PROFILE_CACHE_TTL_MS,
+      );
+      if (cached) {
+        setProfile(cached);
+        setError(null);
+        setLoading(false);
+        return;
+      }
+    }
+
     setLoading(true);
     setError(null);
     try {
       const data = await fetchEmployeeDetail(recordId);
       setProfile(data);
+      setCachedData(cacheKey, data);
     } catch (err: any) {
       const message = err?.response?.data?.message || err?.message || 'Unable to load employee profile.';
       setError(message);
@@ -670,7 +689,7 @@ export default function EmployeeProfileScreen() {
           <Feather name="chevron-left" size={20} color="#111111" />
         </Pressable>
         <Text style={styles.headerTitle}>EMPLOYEE PROFILE</Text>
-        <Pressable style={styles.moreButton} onPress={loadProfile}>
+        <Pressable style={styles.moreButton} onPress={() => loadProfile(true)}>
           <Feather name="refresh-cw" size={18} color="#111111" />
         </Pressable>
       </View>
@@ -706,7 +725,7 @@ export default function EmployeeProfileScreen() {
         {error && (
           <View style={styles.errorBanner}>
             <Text style={styles.errorText}>{error}</Text>
-            <Pressable onPress={loadProfile}>
+            <Pressable onPress={() => loadProfile(true)}>
               <Text style={styles.errorAction}>Retry</Text>
             </Pressable>
           </View>

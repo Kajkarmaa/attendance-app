@@ -8,6 +8,7 @@ import {
     rejectAdminLeave,
     type AdminLeaveItem,
 } from "@/services/leaves";
+import { getCachedData, setCachedData } from "@/stores/cacheStore";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
@@ -24,6 +25,9 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+
+const ADMIN_LEAVES_CACHE_KEY = "admin:leaves:all";
+const ADMIN_LEAVES_CACHE_TTL_MS = 2 * 60 * 1000;
 
 export default function AdminLeavesScreen() {
     const { user, isLoading } = useAuth();
@@ -58,11 +62,24 @@ export default function AdminLeavesScreen() {
         loadLeaves();
     }, [isLoading, user]);
 
-    const loadLeaves = async () => {
+    const loadLeaves = async (force: boolean = false) => {
+        if (!force) {
+            const cached = getCachedData<AdminLeaveItem[]>(
+                ADMIN_LEAVES_CACHE_KEY,
+                ADMIN_LEAVES_CACHE_TTL_MS,
+            );
+            if (cached) {
+                setAllLeaves(cached);
+                return;
+            }
+        }
+
         setLoading(true);
         try {
             const data = await fetchAdminLeaves("all");
-            setAllLeaves(data ?? []);
+            const next = data ?? [];
+            setAllLeaves(next);
+            setCachedData(ADMIN_LEAVES_CACHE_KEY, next);
         } catch (error: any) {
             console.log("admin leaves fetch failed", error?.message);
             Alert.alert("Error", "Unable to load leave requests.");
@@ -74,7 +91,7 @@ export default function AdminLeavesScreen() {
     const onRefresh = async () => {
         setRefreshing(true);
         try {
-            await loadLeaves();
+            await loadLeaves(true);
         } catch (err) {
             console.log("refresh failed", err);
         } finally {
@@ -219,7 +236,7 @@ export default function AdminLeavesScreen() {
                 delete next[id];
                 return next;
             });
-            await loadLeaves();
+            await loadLeaves(true);
         } catch (error: any) {
             console.log("approve failed", error?.message);
             Alert.alert("Error", "Unable to approve the request.");
@@ -254,7 +271,7 @@ export default function AdminLeavesScreen() {
                 delete next[id];
                 return next;
             });
-            await loadLeaves();
+            await loadLeaves(true);
         } catch (error: any) {
             console.log("reject failed", error?.message);
             Alert.alert("Error", "Unable to reject the request.");
@@ -329,7 +346,10 @@ export default function AdminLeavesScreen() {
                     <Ionicons name="chevron-back" size={22} color="#111827" />
                 </Pressable>
                 <Text style={styles.heading}>Leave Requests</Text>
-                <Pressable onPress={loadLeaves} style={styles.refreshBtn}>
+                <Pressable
+                    onPress={() => loadLeaves(true)}
+                    style={styles.refreshBtn}
+                >
                     {/* {loading ? (
                         <ActivityIndicator size="small" color="#D4A537" />
                     ) : (

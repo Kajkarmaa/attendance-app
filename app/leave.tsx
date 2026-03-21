@@ -7,6 +7,7 @@ import {
     type MyLeaveRequest,
 } from "@/services/leaves";
 import { fetchEmployeeProfile, type EmployeeProfile } from "@/services/profile";
+import { getCachedData, setCachedData } from "@/stores/cacheStore";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
@@ -57,6 +58,9 @@ const leaveTypeIcon = (type: string) => {
     }
 };
 
+const LEAVE_SCREEN_CACHE_KEY = "employee:leave-screen";
+const LEAVE_SCREEN_CACHE_TTL_MS = 3 * 60 * 1000;
+
 export default function LeaveScreen() {
     const { user, isLoading } = useAuth();
     const insets = useSafeAreaInsets();
@@ -92,7 +96,7 @@ export default function LeaveScreen() {
     const handleRefresh = async () => {
         setRefreshing(true);
         try {
-            await loadData();
+            await loadData(true);
         } catch (err) {
             // loadData already logs errors
         } finally {
@@ -100,7 +104,21 @@ export default function LeaveScreen() {
         }
     };
 
-    const loadData = async () => {
+    const loadData = async (force: boolean = false) => {
+        if (!force) {
+            const cached = getCachedData<{
+                profile: EmployeeProfile | null;
+                leaveBalance: LeaveBalanceData | null;
+                myLeaves: MyLeaveRequest[];
+            }>(LEAVE_SCREEN_CACHE_KEY, LEAVE_SCREEN_CACHE_TTL_MS);
+            if (cached) {
+                setProfile(cached.profile);
+                setLeaveBalance(cached.leaveBalance);
+                setMyLeaves(cached.myLeaves ?? []);
+                return;
+            }
+        }
+
         setProfileLoading(true);
         setLeaveBalanceLoading(true);
         setMyLeavesLoading(true);
@@ -142,6 +160,21 @@ export default function LeaveScreen() {
                 );
                 setMyLeaves([]);
             }
+
+            setCachedData(LEAVE_SCREEN_CACHE_KEY, {
+                profile:
+                    profileResult.status === "fulfilled"
+                        ? profileResult.value
+                        : null,
+                leaveBalance:
+                    leaveBalanceResult.status === "fulfilled"
+                        ? leaveBalanceResult.value
+                        : null,
+                myLeaves:
+                    myLeavesResult.status === "fulfilled"
+                        ? myLeavesResult.value ?? []
+                        : [],
+            });
         } catch (error: any) {
             console.log("leave screen fetch failed", error?.message);
         } finally {

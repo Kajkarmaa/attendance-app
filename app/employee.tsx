@@ -14,6 +14,7 @@ import {
 } from "@/services/attendance";
 import { getPayslipDownloadUrl } from "@/services/payroll";
 import { fetchEmployeeProfile, type EmployeeProfile } from "@/services/profile";
+import { getCachedData, setCachedData } from "@/stores/cacheStore";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
@@ -50,6 +51,10 @@ const ACTIVITY_COLOR_MAP: Record<string, string> = {
     alert: "#FB7185",
 };
 const DEFAULT_ACTIVITY_COLOR = "#94A3B8";
+const EMPLOYEE_ATTENDANCE_CACHE_KEY = "employee:attendance";
+const EMPLOYEE_PROFILE_CACHE_KEY = "employee:profile";
+const EMPLOYEE_ACTIVITY_CACHE_KEY = "employee:activity";
+const EMPLOYEE_CACHE_TTL_MS = 3 * 60 * 1000;
 
 interface PayslipEntry {
     id: string;
@@ -337,11 +342,22 @@ export default function EmployeeDashboardScreen() {
         ).toUpperCase();
     };
 
-    const loadAttendance = async () => {
+    const loadAttendance = async (force: boolean = false) => {
+        if (!force) {
+            const cached = getCachedData<AttendanceRecord | null>(
+                EMPLOYEE_ATTENDANCE_CACHE_KEY,
+                EMPLOYEE_CACHE_TTL_MS,
+            );
+            if (cached) {
+                setAttendance(cached);
+                return;
+            }
+        }
         setAttLoading(true);
         try {
             const latest = await fetchAttendance();
             setAttendance(latest);
+            setCachedData(EMPLOYEE_ATTENDANCE_CACHE_KEY, latest);
         } catch (error: any) {
             console.log("attendance fetch failed", error?.message);
         } finally {
@@ -512,11 +528,22 @@ export default function EmployeeDashboardScreen() {
 
     handlePunchRef.current = handlePunch;
 
-    const loadProfile = async () => {
+    const loadProfile = async (force: boolean = false) => {
+        if (!force) {
+            const cached = getCachedData<EmployeeProfile | null>(
+                EMPLOYEE_PROFILE_CACHE_KEY,
+                EMPLOYEE_CACHE_TTL_MS,
+            );
+            if (cached) {
+                setProfile(cached);
+                return;
+            }
+        }
         setProfileLoading(true);
         try {
             const data = await fetchEmployeeProfile();
             setProfile(data);
+            setCachedData(EMPLOYEE_PROFILE_CACHE_KEY, data);
             // also fetch last check-in image for this employee
         } catch (error: any) {
             console.log("profile fetch failed", error?.message);
@@ -525,11 +552,22 @@ export default function EmployeeDashboardScreen() {
         }
     };
 
-    const loadRecentActivity = async () => {
+    const loadRecentActivity = async (force: boolean = false) => {
+        if (!force) {
+            const cached = getCachedData<RecentActivityData | null>(
+                EMPLOYEE_ACTIVITY_CACHE_KEY,
+                EMPLOYEE_CACHE_TTL_MS,
+            );
+            if (cached) {
+                setActivityData(cached);
+                return;
+            }
+        }
         setActivityLoading(true);
         try {
             const data = await fetchRecentActivity();
             setActivityData(data);
+            setCachedData(EMPLOYEE_ACTIVITY_CACHE_KEY, data);
         } catch (error: any) {
             console.log("recent activity fetch failed", error?.message);
         } finally {
@@ -541,9 +579,9 @@ export default function EmployeeDashboardScreen() {
         setRefreshing(true);
         try {
             await Promise.all([
-                loadAttendance(),
-                loadProfile(),
-                loadRecentActivity(),
+                loadAttendance(true),
+                loadProfile(true),
+                loadRecentActivity(true),
             ]);
         } catch (err) {
             console.log("refresh failed", err);

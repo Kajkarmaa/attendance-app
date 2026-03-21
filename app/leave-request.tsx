@@ -1,6 +1,7 @@
 import SkeletonBlock from "@/components/SkeletonBlock";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchLeaveBalance, requestLeave, type LeaveBalanceData } from "@/services/leaves";
+import { getCachedData, setCachedData } from "@/stores/cacheStore";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, {
     DateTimePickerEvent,
@@ -56,6 +57,8 @@ const getDatePlusDays = (days: number) => {
 
 const defaultStart = getDatePlusDays(2);
 const defaultEnd = getDatePlusDays(5);
+const LEAVE_REQUEST_BALANCE_CACHE_KEY = "employee:leave-request:balance";
+const LEAVE_REQUEST_BALANCE_CACHE_TTL_MS = 3 * 60 * 1000;
 
 export default function LeaveRequestScreen() {
     const { user, isLoading } = useAuth();
@@ -86,11 +89,30 @@ export default function LeaveRequestScreen() {
         loadLeaveBalance();
     }, [isLoading, user]);
 
-    const loadLeaveBalance = async () => {
+    const loadLeaveBalance = async (force: boolean = false) => {
+        if (!force) {
+            const cached = getCachedData<LeaveBalanceData | null>(
+                LEAVE_REQUEST_BALANCE_CACHE_KEY,
+                LEAVE_REQUEST_BALANCE_CACHE_TTL_MS,
+            );
+            if (cached) {
+                setLeaveBalance(cached);
+                const cachedKeys = Object.keys(cached?.byType ?? {});
+                if (
+                    cachedKeys.length > 0 &&
+                    (!leaveType || !cachedKeys.includes(leaveType))
+                ) {
+                    setLeaveType(cachedKeys[0]);
+                }
+                return;
+            }
+        }
+
         setLeaveBalanceLoading(true);
         try {
             const data = await fetchLeaveBalance();
             setLeaveBalance(data);
+            setCachedData(LEAVE_REQUEST_BALANCE_CACHE_KEY, data);
             const keys = Object.keys(data?.byType ?? {});
             if (keys.length > 0 && (!leaveType || !keys.includes(leaveType))) {
                 setLeaveType(keys[0]);
@@ -106,7 +128,7 @@ export default function LeaveRequestScreen() {
     const onRefresh = async () => {
         setRefreshing(true);
         try {
-            await loadLeaveBalance();
+            await loadLeaveBalance(true);
         } catch (err) {
             console.log("refresh failed", err);
         } finally {

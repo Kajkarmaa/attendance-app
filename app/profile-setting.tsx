@@ -8,6 +8,7 @@ import {
     verifyDeleteOtp,
     type EmployeeProfile,
 } from "@/services/profile";
+import { getCachedData, setCachedData } from "@/stores/cacheStore";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
@@ -27,6 +28,9 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+const PROFILE_CACHE_KEY = "employee:profile-settings";
+const PROFILE_CACHE_TTL_MS = 3 * 60 * 1000;
+
 export default function ProfileSettingScreen() {
     const { user, logout } = useAuth();
     const insets = useSafeAreaInsets();
@@ -39,12 +43,25 @@ export default function ProfileSettingScreen() {
         load();
     }, []);
 
-    const load = async () => {
+    const load = async (force: boolean = false) => {
+        if (!force) {
+            const cached = getCachedData<EmployeeProfile | null>(
+                PROFILE_CACHE_KEY,
+                PROFILE_CACHE_TTL_MS,
+            );
+            if (cached) {
+                setProfile(cached);
+                setPhotoUri(cached?.profilePicture ?? null);
+                return;
+            }
+        }
+
         setLoading(true);
         try {
             const data = await fetchEmployeeProfile();
             setProfile(data);
             setPhotoUri(data?.profilePicture ?? null);
+            setCachedData(PROFILE_CACHE_KEY, data);
         } catch (err: any) {
             console.log("profile load failed", err?.message || err);
         } finally {
@@ -59,7 +76,7 @@ export default function ProfileSettingScreen() {
     const onRefresh = async () => {
         setRefreshing(true);
         try {
-            await load();
+            await load(true);
         } catch (err) {
             console.log("refresh failed", err);
         } finally {
@@ -100,7 +117,7 @@ export default function ProfileSettingScreen() {
                 const type = asset.mimeType ?? asset.type ?? "image/jpeg";
                 await updateProfileImage({ uri, name, type });
                 Alert.alert("Uploaded", "Profile photo uploaded.");
-                await load();
+                await load(true);
             } catch (err: any) {
                 console.log("upload failed", err?.message || err);
                 setPhotoUri(previous);

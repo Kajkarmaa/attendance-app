@@ -6,6 +6,7 @@ import {
     fetchTodayAttendance,
     TodayAttendanceItem,
 } from "@/services/attendance";
+import { getCachedData, setCachedData } from "@/stores/cacheStore";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -23,6 +24,9 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+
+const ADMIN_ATTENDANCE_CACHE_TTL_MS = 2 * 60 * 1000;
+const ADMIN_ATTENDANCE_IMAGE_CACHE_TTL_MS = 10 * 60 * 1000;
 
 export default function AdminAttendanceScreen() {
     const { user, isLoading } = useAuth();
@@ -56,17 +60,32 @@ export default function AdminAttendanceScreen() {
         return (parts[0][0] + (parts[1][0] ?? '')).slice(0, 2).toUpperCase();
     };
 
-    const load = async () => {
+    const load = async (force: boolean = false) => {
+        const requestStatus =
+            status === "checkedin"
+                ? "checkedin"
+                : status === "checkedout"
+                  ? "checkedout"
+                  : "notcheckedin";
+        const cacheKey = `admin:attendance:${requestStatus}`;
+
+        if (!force) {
+            const cached = getCachedData<TodayAttendanceItem[]>(
+                cacheKey,
+                ADMIN_ATTENDANCE_CACHE_TTL_MS,
+            );
+            if (cached) {
+                setData(cached);
+                return;
+            }
+        }
+
         setLoading(true);
         try {
-            const items = await fetchTodayAttendance(
-                status === "checkedin"
-                    ? "checkedin"
-                    : status === "checkedout"
-                      ? "checkedout"
-                      : "notcheckedin",
-            );
-            setData(items || []);
+            const items = await fetchTodayAttendance(requestStatus);
+            const next = items || [];
+            setData(next);
+            setCachedData(cacheKey, next);
         } catch (error: any) {
             console.log("fetch today attendance failed", error?.message);
             Alert.alert(
@@ -81,7 +100,7 @@ export default function AdminAttendanceScreen() {
     const onRefresh = async () => {
         setRefreshing(true);
         try {
-            await load();
+            await load(true);
         } catch (err) {
             console.log("refresh failed", err);
         } finally {
@@ -157,11 +176,24 @@ export default function AdminAttendanceScreen() {
         useEffect(() => {
             let mounted = true;
             if (item.hasCheckInImage) {
+                const imageKey = `admin:attendance:image-url:${item.employeeId}`;
+                const cachedImage = getCachedData<string | null>(
+                    imageKey,
+                    ADMIN_ATTENDANCE_IMAGE_CACHE_TTL_MS,
+                );
+                if (cachedImage) {
+                    setImgUri(cachedImage);
+                    return () => {
+                        mounted = false;
+                    };
+                }
+
                 setLoadingImg(true);
                 fetchCheckinImageUrl(item.employeeId)
                     .then((u) => {
                         if (!mounted) return;
                         setImgUri(u);
+                        setCachedData(imageKey, u);
                     })
                     .catch(() => {
                         if (!mounted) return;
@@ -178,9 +210,35 @@ export default function AdminAttendanceScreen() {
             setModalContent({ employeeId: item.employeeId, name: item.name });
             setModalVisible(true);
             try {
+                const modalImageKey =
+                    `admin:attendance:image-detail:${item.employeeId}`;
+                const cachedDetails = getCachedData<{
+                    attendanceId?: string;
+                    imageUrl?: string | null;
+                    checkInTime?: string | null;
+                }>(modalImageKey, ADMIN_ATTENDANCE_IMAGE_CACHE_TTL_MS);
+                if (cachedDetails) {
+                    setModalContent((prev) => {
+                        if (!prev) return null;
+                        return {
+                            employeeId: prev.employeeId,
+                            name: prev.name,
+                            attendanceId: cachedDetails.attendanceId,
+                            imageUrl: cachedDetails.imageUrl ?? null,
+                            checkInTime: cachedDetails.checkInTime ?? null,
+                        };
+                    });
+                    return;
+                }
+
                 const data = await fetchEmployeeAttendanceImage(
                     item.employeeId,
                 );
+                setCachedData(modalImageKey, {
+                    attendanceId: data?.attendanceId,
+                    imageUrl: data?.imageUrl ?? null,
+                    checkInTime: data?.checkInTime ?? null,
+                });
                 setModalContent((prev) => {
                     if (!prev) return null;
                     return {

@@ -15,6 +15,7 @@ import {
     type EmployeeUser,
     type PendingUser,
 } from "@/services/users";
+import { getCachedData, setCachedData } from "@/stores/cacheStore";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
@@ -32,6 +33,11 @@ import {
     useWindowDimensions,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+
+const ADMIN_DEPARTMENTS_CACHE_KEY = "admin:departments";
+const ADMIN_DAILY_SUMMARY_CACHE_KEY = "admin:daily-summary";
+const ADMIN_LIST_CACHE_PREFIX = "admin:list:";
+const ADMIN_CACHE_TTL_MS = 2 * 60 * 1000;
 
 const APP_LOGO = require("../assets/logo.jpg");
 
@@ -230,11 +236,24 @@ export default function HomeScreen() {
         loadLists(searchTerm);
     }, [searchTerm, user, isLoading]);
 
-    const loadDepartments = async () => {
+    const loadDepartments = async (force: boolean = false) => {
+        if (!force) {
+            const cached = getCachedData<string[]>(
+                ADMIN_DEPARTMENTS_CACHE_KEY,
+                ADMIN_CACHE_TTL_MS,
+            );
+            if (cached) {
+                setDepartments(cached);
+                return;
+            }
+        }
+
         setDepartmentsLoading(true);
         try {
             const data = await fetchDepartments();
-            setDepartments(Array.isArray(data) ? data : []);
+            const next = Array.isArray(data) ? data : [];
+            setDepartments(next);
+            setCachedData(ADMIN_DEPARTMENTS_CACHE_KEY, next);
         } catch (error: any) {
             console.log("departments fetch failed", error?.message);
             setDepartments([]);
@@ -243,15 +262,34 @@ export default function HomeScreen() {
         }
     };
 
-    const loadLists = async (query: string = "") => {
+    const loadLists = async (query: string = "", force: boolean = false) => {
+        const cacheKey = `${ADMIN_LIST_CACHE_PREFIX}${query.trim().toLowerCase()}`;
+        if (!force) {
+            const cached = getCachedData<{
+                employees: EmployeeUser[];
+                pendingUsers: PendingUser[];
+            }>(cacheKey, ADMIN_CACHE_TTL_MS);
+            if (cached) {
+                setEmployees(cached.employees ?? []);
+                setPendingUsers(cached.pendingUsers ?? []);
+                return;
+            }
+        }
+
         setListLoading(true);
         try {
             const [emps, pend] = await Promise.all([
                 fetchEmployees(query),
                 fetchPendingUsers(),
             ]);
-            setEmployees(emps || []);
-            setPendingUsers(pend || []);
+            const nextEmployees = emps || [];
+            const nextPendingUsers = pend || [];
+            setEmployees(nextEmployees);
+            setPendingUsers(nextPendingUsers);
+            setCachedData(cacheKey, {
+                employees: nextEmployees,
+                pendingUsers: nextPendingUsers,
+            });
         } catch (error: any) {
             console.log("list fetch failed", error?.message);
         } finally {
@@ -259,11 +297,23 @@ export default function HomeScreen() {
         }
     };
 
-    const loadDailySummary = async () => {
+    const loadDailySummary = async (force: boolean = false) => {
+        if (!force) {
+            const cached = getCachedData<DailyAttendanceSummary | null>(
+                ADMIN_DAILY_SUMMARY_CACHE_KEY,
+                ADMIN_CACHE_TTL_MS,
+            );
+            if (cached) {
+                setDailySummary(cached);
+                return;
+            }
+        }
+
         setSummaryLoading(true);
         try {
             const summary = await fetchDailySummary();
             setDailySummary(summary);
+            setCachedData(ADMIN_DAILY_SUMMARY_CACHE_KEY, summary);
         } catch (error: any) {
             console.log("daily summary fetch failed", error?.message);
         } finally {
@@ -274,7 +324,11 @@ export default function HomeScreen() {
     const onRefresh = async () => {
         setRefreshing(true);
         try {
-            await Promise.all([loadDailySummary(), loadLists(searchTerm)]);
+            await Promise.all([
+                loadDailySummary(true),
+                loadLists(searchTerm, true),
+                loadDepartments(true),
+            ]);
         } catch (err) {
             console.log("refresh failed", err);
         } finally {

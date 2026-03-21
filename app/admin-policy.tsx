@@ -7,6 +7,7 @@ import {
     type AttendancePolicyPayload,
     type LeavePolicyPayload,
 } from "@/services/policies";
+import { getCachedData, setCachedData } from "@/stores/cacheStore";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
@@ -99,6 +100,9 @@ const dayOptions = [
     { value: 7, label: "Sun" },
 ];
 
+const ADMIN_POLICIES_CACHE_KEY = "admin:policies";
+const ADMIN_POLICIES_CACHE_TTL_MS = 5 * 60 * 1000;
+
 export default function AdminPolicyScreen() {
     const { user, isLoading } = useAuth();
     const insets = useSafeAreaInsets();
@@ -143,7 +147,19 @@ export default function AdminPolicyScreen() {
         loadPolicies();
     }, [isLoading, user]);
 
-    const loadPolicies = async () => {
+    const loadPolicies = async (force: boolean = false) => {
+        if (!force) {
+            const cached = getCachedData<{
+                leavePolicy: LeavePolicyPayload;
+                attendancePolicy: AttendancePolicyPayload;
+            }>(ADMIN_POLICIES_CACHE_KEY, ADMIN_POLICIES_CACHE_TTL_MS);
+            if (cached) {
+                setLeavePolicy(cached.leavePolicy);
+                setAttendancePolicy(cached.attendancePolicy);
+                return;
+            }
+        }
+
         setScreenLoading(true);
         try {
             const [leaveRes, attendanceRes] = await Promise.all([
@@ -243,6 +259,123 @@ export default function AdminPolicyScreen() {
                     isActive: latestAttendance.isActive ?? true,
                 });
             }
+
+            setCachedData(ADMIN_POLICIES_CACHE_KEY, {
+                leavePolicy: latestLeave
+                    ? {
+                          name: latestLeave.name || DEFAULT_LEAVE_POLICY.name,
+                          year: latestLeave.year || DEFAULT_LEAVE_POLICY.year,
+                          description:
+                              latestLeave.description ||
+                              DEFAULT_LEAVE_POLICY.description,
+                          leaves: DEFAULT_LEAVE_POLICY.leaves.map(
+                              (baseLeave) => {
+                                  const found = latestLeave.leaves?.find(
+                                      (item) =>
+                                          item.type?.toLowerCase() ===
+                                          baseLeave.type.toLowerCase(),
+                                  );
+                                  return {
+                                      type: baseLeave.type,
+                                      totalDays:
+                                          found?.totalDays ??
+                                          baseLeave.totalDays,
+                                      probationDays:
+                                          found?.probationDays ??
+                                          baseLeave.probationDays,
+                                      rules: {
+                                          requireDocuments:
+                                              found?.rules
+                                                  ?.requireDocuments ??
+                                              baseLeave.rules
+                                                  ?.requireDocuments ??
+                                              false,
+                                          minAdvanceNoticeDays:
+                                              found?.rules
+                                                  ?.minAdvanceNoticeDays ??
+                                              baseLeave.rules
+                                                  ?.minAdvanceNoticeDays ??
+                                              0,
+                                          maxConsecutiveDays:
+                                              found?.rules
+                                                  ?.maxConsecutiveDays ??
+                                              baseLeave.rules
+                                                  ?.maxConsecutiveDays ??
+                                              0,
+                                      },
+                                  };
+                              },
+                          ),
+                          isActive: latestLeave.isActive ?? true,
+                      }
+                    : leavePolicy,
+                attendancePolicy: latestAttendance
+                    ? {
+                          name:
+                              latestAttendance.name ||
+                              DEFAULT_ATTENDANCE_POLICY.name,
+                          year:
+                              latestAttendance.year ||
+                              DEFAULT_ATTENDANCE_POLICY.year,
+                          description:
+                              latestAttendance.description ||
+                              DEFAULT_ATTENDANCE_POLICY.description,
+                          checkInRules: {
+                              startTime:
+                                  latestAttendance.checkInRules?.startTime ||
+                                  DEFAULT_ATTENDANCE_POLICY.checkInRules
+                                      .startTime,
+                              gracePeriod:
+                                  latestAttendance.checkInRules?.gracePeriod ??
+                                  DEFAULT_ATTENDANCE_POLICY.checkInRules
+                                      .gracePeriod,
+                              locationRequired:
+                                  latestAttendance.checkInRules
+                                      ?.locationRequired ??
+                                  DEFAULT_ATTENDANCE_POLICY.checkInRules
+                                      .locationRequired,
+                          },
+                          checkOutRules: {
+                              endTime:
+                                  latestAttendance.checkOutRules?.endTime ||
+                                  DEFAULT_ATTENDANCE_POLICY.checkOutRules
+                                      .endTime,
+                              gracePeriod:
+                                  latestAttendance.checkOutRules
+                                      ?.gracePeriod ??
+                                  DEFAULT_ATTENDANCE_POLICY.checkOutRules
+                                      .gracePeriod,
+                          },
+                          workHours: {
+                              fullDayHours:
+                                  latestAttendance.workHours?.fullDayHours ??
+                                  DEFAULT_ATTENDANCE_POLICY.workHours
+                                      .fullDayHours,
+                              halfDayHours:
+                                  latestAttendance.workHours?.halfDayHours ??
+                                  DEFAULT_ATTENDANCE_POLICY.workHours
+                                      .halfDayHours,
+                          },
+                          latePolicy: {
+                              maxLateMinutes:
+                                  latestAttendance.latePolicy
+                                      ?.maxLateMinutes ??
+                                  DEFAULT_ATTENDANCE_POLICY.latePolicy
+                                      .maxLateMinutes,
+                          },
+                          weekSettings: {
+                              workingDays:
+                                  latestAttendance.weekSettings?.workingDays
+                                      ?.length
+                                      ? latestAttendance.weekSettings
+                                            .workingDays
+                                      : DEFAULT_ATTENDANCE_POLICY
+                                            .weekSettings.workingDays,
+                          },
+                          isActive: latestAttendance.isActive ?? true,
+                      }
+                    : attendancePolicy,
+            });
         } catch (error: any) {
             setLeaveMessage({
                 text: error?.message || "Failed to load policies.",
@@ -258,7 +391,7 @@ export default function AdminPolicyScreen() {
         setLeaveMessage(null);
         setAttendanceMessage(null);
         try {
-            await loadPolicies();
+            await loadPolicies(true);
         } finally {
             setRefreshing(false);
         }
@@ -269,6 +402,10 @@ export default function AdminPolicyScreen() {
         setLeaveMessage(null);
         try {
             const response = await upsertLeavePolicy(leavePolicy);
+            setCachedData(ADMIN_POLICIES_CACHE_KEY, {
+                leavePolicy,
+                attendancePolicy,
+            });
             setLeaveMessage({
                 text: response?.message || "Leave policy updated successfully.",
                 tone: "success",
@@ -289,6 +426,10 @@ export default function AdminPolicyScreen() {
         setAttendanceMessage(null);
         try {
             const response = await upsertAttendancePolicy(attendancePolicy);
+            setCachedData(ADMIN_POLICIES_CACHE_KEY, {
+                leavePolicy,
+                attendancePolicy,
+            });
             setAttendanceMessage({
                 text:
                     response?.message ||
