@@ -1,3 +1,4 @@
+import { logger } from "@/utils/logger";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -70,16 +71,20 @@ export default function RegisterScreen() {
             return;
         }
 
-        setOtpPendingEmail(normalizedEmail);
-        setOtpStepVisible(true);
-        setOtp("");
-        setResendCooldown(30);
-
         try {
             await auth.sendOtp({ email: normalizedEmail });
-        } catch (err) {
-            // Best-effort resend; keep OTP screen visible
-            console.log("send otp failed", (err as any)?.message);
+            setOtpPendingEmail(normalizedEmail);
+            setOtpStepVisible(true);
+            setOtp("");
+            setResendCooldown(30);
+        } catch (err: any) {
+            Alert.alert(
+                "Failed to send OTP",
+                err?.response?.data?.message ||
+                    err?.message ||
+                    "Please try again.",
+            );
+            return;
         }
 
         if (showAlertMessage) {
@@ -118,7 +123,7 @@ export default function RegisterScreen() {
                 }
             }
         } catch (error: any) {
-            console.error("Registration error:", error);
+            logger.error("Registration error", error);
             const message =
                 error.response?.data?.message || error.message || "Unable to register right now.";
             if (isEmailUnverifiedMessage(message)) {
@@ -181,7 +186,7 @@ export default function RegisterScreen() {
                 Alert.alert("Verification Failed", response.message || "OTP invalid");
             }
         } catch (error: any) {
-            console.error("OTP verification error:", error);
+            logger.error("OTP verification error", error);
             const message = error.response?.data?.message || error.message || "Unable to verify OTP.";
             Alert.alert("Verification Error", message);
         } finally {

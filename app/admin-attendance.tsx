@@ -1,4 +1,5 @@
 import SkeletonBlock from "@/components/SkeletonBlock";
+import { CACHE_TTL } from "@/constants/cache";
 import { useAuth } from "@/contexts/AuthContext";
 import {
     fetchCheckinImageUrl,
@@ -7,6 +8,7 @@ import {
     TodayAttendanceItem,
 } from "@/services/attendance";
 import { getCachedData, setCachedData } from "@/stores/cacheStore";
+import { logger } from "@/utils/logger";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
@@ -25,8 +27,6 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
-const ADMIN_ATTENDANCE_CACHE_TTL_MS = 2 * 60 * 1000;
-const ADMIN_ATTENDANCE_IMAGE_CACHE_TTL_MS = 10 * 60 * 1000;
 
 export default function AdminAttendanceScreen() {
     const { user, isLoading } = useAuth();
@@ -72,7 +72,6 @@ export default function AdminAttendanceScreen() {
         if (!force) {
             const cached = getCachedData<TodayAttendanceItem[]>(
                 cacheKey,
-                ADMIN_ATTENDANCE_CACHE_TTL_MS,
             );
             if (cached) {
                 setData(cached);
@@ -85,9 +84,9 @@ export default function AdminAttendanceScreen() {
             const items = await fetchTodayAttendance(requestStatus);
             const next = items || [];
             setData(next);
-            setCachedData(cacheKey, next);
+            setCachedData(cacheKey, next, CACHE_TTL.ATTENDANCE);
         } catch (error: any) {
-            console.log("fetch today attendance failed", error?.message);
+            logger.warn("fetch today attendance failed", error?.message);
             Alert.alert(
                 "Load failed",
                 error?.message || "Unable to load attendance",
@@ -102,7 +101,7 @@ export default function AdminAttendanceScreen() {
         try {
             await load(true);
         } catch (err) {
-            console.log("refresh failed", err);
+            logger.warn("refresh failed", err);
         } finally {
             setRefreshing(false);
         }
@@ -179,7 +178,6 @@ export default function AdminAttendanceScreen() {
                 const imageKey = `admin:attendance:image-url:${item.employeeId}`;
                 const cachedImage = getCachedData<string | null>(
                     imageKey,
-                    ADMIN_ATTENDANCE_IMAGE_CACHE_TTL_MS,
                 );
                 if (cachedImage) {
                     setImgUri(cachedImage);
@@ -193,7 +191,7 @@ export default function AdminAttendanceScreen() {
                     .then((u) => {
                         if (!mounted) return;
                         setImgUri(u);
-                        setCachedData(imageKey, u);
+                        setCachedData(imageKey, u, CACHE_TTL.IMAGE);
                     })
                     .catch(() => {
                         if (!mounted) return;
@@ -216,7 +214,7 @@ export default function AdminAttendanceScreen() {
                     attendanceId?: string;
                     imageUrl?: string | null;
                     checkInTime?: string | null;
-                }>(modalImageKey, ADMIN_ATTENDANCE_IMAGE_CACHE_TTL_MS);
+                }>(modalImageKey);
                 if (cachedDetails) {
                     setModalContent((prev) => {
                         if (!prev) return null;
@@ -238,7 +236,7 @@ export default function AdminAttendanceScreen() {
                     attendanceId: data?.attendanceId,
                     imageUrl: data?.imageUrl ?? null,
                     checkInTime: data?.checkInTime ?? null,
-                });
+                }, CACHE_TTL.IMAGE);
                 setModalContent((prev) => {
                     if (!prev) return null;
                     return {
@@ -250,7 +248,7 @@ export default function AdminAttendanceScreen() {
                     };
                 });
             } catch (err) {
-                console.log("fetch employee image failed", err);
+                logger.warn("fetch employee image failed", err);
             }
         };
 

@@ -1,4 +1,6 @@
+import { logger } from "@/utils/logger";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
 import apiClient from "./api";
 
 export interface LoginCredentials {
@@ -61,26 +63,29 @@ export interface SendOtpResponse {
   message: string;
 }
 
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
+const normalizePasscode = (passcode: string) => passcode.trim();
+
 export async function login(
   credentials: LoginCredentials
 ): Promise<LoginResponse> {
   const response = await apiClient.post<LoginResponse>(
     "/users/login",
-    credentials
+    {
+      email: normalizeEmail(credentials.email),
+      passcode: normalizePasscode(credentials.passcode),
+    }
   );
 
   if (response.data.success) {
-    const headerToken =
-      response.headers["authorization"]?.replace("Bearer ", "") ||
-      response.headers["set-cookie"]
-        ?.find((c: string) => c.includes("authToken"))
-        ?.match(/authToken=([^;]+)/)?.[1];
+    const headerToken = response.headers["authorization"]?.replace("Bearer ", "");
+    const token = response.data.data.token || headerToken;
 
-    const token = headerToken || response.data.data.token;
-
-    if (token) {
-      await storeToken(token);
+    if (!token) {
+      throw new Error("Login response did not include an auth token.");
     }
+
+    await storeToken(token);
 
     await storeUser(response.data.data.user);
   }
@@ -93,7 +98,13 @@ export async function registerUser(
 ): Promise<RegisterResponse> {
   const response = await apiClient.post<RegisterResponse>(
     "/users/register",
-    payload,
+    {
+      ...payload,
+      name: payload.name.trim(),
+      email: normalizeEmail(payload.email),
+      phone: payload.phone.trim(),
+      passcode: normalizePasscode(payload.passcode),
+    },
   );
 
   return response.data;
@@ -104,7 +115,7 @@ export async function verifyOtp(
 ): Promise<VerifyOtpResponse> {
   const response = await apiClient.post<VerifyOtpResponse>(
     "/users/verify-otp",
-    payload,
+    { email: normalizeEmail(payload.email), otp: payload.otp.trim() },
   );
 
   return response.data;
@@ -113,7 +124,7 @@ export async function verifyOtp(
 export async function sendOtp(payload: SendOtpPayload): Promise<SendOtpResponse> {
   const response = await apiClient.post<SendOtpResponse>(
     "/users/send-otp",
-    payload,
+    { email: normalizeEmail(payload.email) },
   );
 
   return response.data;
@@ -122,13 +133,17 @@ export async function sendOtp(payload: SendOtpPayload): Promise<SendOtpResponse>
 export async function resetPasswordWithOtp(payload: { email: string; otp: string; newPasscode: string }) {
   const response = await apiClient.post<{ success: boolean; message: string }>(
     "/users/reset-password",
-    payload,
+    {
+      email: normalizeEmail(payload.email),
+      otp: payload.otp.trim(),
+      newPasscode: normalizePasscode(payload.newPasscode),
+    },
   );
   return response.data;
 }
 
 export async function storeToken(token: string): Promise<void> {
-  await AsyncStorage.setItem("authToken", token);
+  await SecureStore.setItemAsync("authToken", token);
 }
 
 export async function storeUser(user: User): Promise<void> {
@@ -136,7 +151,7 @@ export async function storeUser(user: User): Promise<void> {
 }
 
 export async function getToken(): Promise<string | null> {
-  return await AsyncStorage.getItem("authToken");
+  return await SecureStore.getItemAsync("authToken");
 }
 
 export async function getUser(): Promise<User | null> {
@@ -149,9 +164,9 @@ export async function logout(): Promise<void> {
     await apiClient.post("/users/logout");
   } catch (error) {
     // Best-effort logout; continue clearing local state
-    console.log("logout api failed", (error as any)?.message);
+    logger.warn("logout api failed", (error as any)?.message);
   } finally {
-    await AsyncStorage.removeItem("authToken");
+    await SecureStore.deleteItemAsync("authToken");
     await AsyncStorage.removeItem("user");
   }
 }

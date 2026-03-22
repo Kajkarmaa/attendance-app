@@ -1,3 +1,4 @@
+import ErrorBoundary from "@/components/ErrorBoundary";
 import {
     DarkTheme,
     DefaultTheme,
@@ -17,55 +18,57 @@ export default function RootLayout() {
         <ThemeProvider
             value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
         >
-            <AuthProvider>
-                <Stack>
-                    <Stack.Screen
-                        name="index"
-                        options={{ headerShown: false }}
-                    />
-                    <Stack.Screen
-                        name="admin"
-                        options={{ headerShown: false }}
-                    />
-                    <Stack.Screen
-                        name="admin-leaves"
-                        options={{ headerShown: false }}
-                    />
-                    <Stack.Screen
-                        name="admin-attendance"
-                        options={{ headerShown: false }}
-                    />
-                    <Stack.Screen
-                        name="employee"
-                        options={{ headerShown: false, gestureEnabled: false }}
-                    />
-                    <Stack.Screen
-                        name="leave"
-                        options={{ headerShown: false, gestureEnabled: false }}
-                    />
-                    <Stack.Screen
-                        name="leave-request"
-                        options={{ headerShown: false, gestureEnabled: false }}
-                    />
-                    <Stack.Screen
-                        name="profile-setting"
-                        options={{ headerShown: false }}
-                    />
-               
-                    <Stack.Screen
-                        name="add-employee"
-                        options={{ headerShown: false }}
-                    />
-                    <Stack.Screen
-                        name="employee-profile"
-                        options={{ headerShown: false }}
-                    />
-                    <Stack.Screen
-                        name="modal"
-                        options={{ presentation: "modal", title: "Modal" }}
-                    />
-                </Stack>
-            </AuthProvider>
+            <ErrorBoundary>
+                <AuthProvider>
+                    <Stack>
+                        <Stack.Screen
+                            name="index"
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="admin"
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="admin-leaves"
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="admin-attendance"
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="employee"
+                            options={{ headerShown: false, gestureEnabled: false }}
+                        />
+                        <Stack.Screen
+                            name="leave"
+                            options={{ headerShown: false, gestureEnabled: false }}
+                        />
+                        <Stack.Screen
+                            name="leave-request"
+                            options={{ headerShown: false, gestureEnabled: false }}
+                        />
+                        <Stack.Screen
+                            name="profile-setting"
+                            options={{ headerShown: false }}
+                        />
+
+                        <Stack.Screen
+                            name="add-employee"
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="employee-profile"
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                            name="modal"
+                            options={{ presentation: "modal", title: "Modal" }}
+                        />
+                    </Stack>
+                </AuthProvider>
+            </ErrorBoundary>
             <StatusBar style="auto" />
         </ThemeProvider>
     );

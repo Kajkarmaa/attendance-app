@@ -1,7 +1,9 @@
 import SkeletonBlock from "@/components/SkeletonBlock";
+import { CACHE_TTL } from "@/constants/cache";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchLeaveBalance, requestLeave, type LeaveBalanceData } from "@/services/leaves";
 import { getCachedData, setCachedData } from "@/stores/cacheStore";
+import { logger } from "@/utils/logger";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, {
     DateTimePickerEvent,
@@ -58,7 +60,6 @@ const getDatePlusDays = (days: number) => {
 const defaultStart = getDatePlusDays(2);
 const defaultEnd = getDatePlusDays(5);
 const LEAVE_REQUEST_BALANCE_CACHE_KEY = "employee:leave-request:balance";
-const LEAVE_REQUEST_BALANCE_CACHE_TTL_MS = 3 * 60 * 1000;
 
 export default function LeaveRequestScreen() {
     const { user, isLoading } = useAuth();
@@ -93,7 +94,6 @@ export default function LeaveRequestScreen() {
         if (!force) {
             const cached = getCachedData<LeaveBalanceData | null>(
                 LEAVE_REQUEST_BALANCE_CACHE_KEY,
-                LEAVE_REQUEST_BALANCE_CACHE_TTL_MS,
             );
             if (cached) {
                 setLeaveBalance(cached);
@@ -112,13 +112,13 @@ export default function LeaveRequestScreen() {
         try {
             const data = await fetchLeaveBalance();
             setLeaveBalance(data);
-            setCachedData(LEAVE_REQUEST_BALANCE_CACHE_KEY, data);
+            setCachedData(LEAVE_REQUEST_BALANCE_CACHE_KEY, data, CACHE_TTL.LEAVE_BALANCE);
             const keys = Object.keys(data?.byType ?? {});
             if (keys.length > 0 && (!leaveType || !keys.includes(leaveType))) {
                 setLeaveType(keys[0]);
             }
         } catch (err: any) {
-            console.log("leave balance fetch failed", err?.message);
+            logger.warn("leave balance fetch failed", err?.message);
             setLeaveBalance(null);
         } finally {
             setLeaveBalanceLoading(false);
@@ -130,7 +130,7 @@ export default function LeaveRequestScreen() {
         try {
             await loadLeaveBalance(true);
         } catch (err) {
-            console.log("refresh failed", err);
+            logger.warn("refresh failed", err);
         } finally {
             setRefreshing(false);
         }

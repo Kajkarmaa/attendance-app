@@ -5,10 +5,12 @@ import React, {
     useRef,
     useState,
 } from "react";
+import { clearStoredAuthState, setUnauthorizedHandler } from "../services/api";
 import {
     User,
     login as authLogin,
     logout as authLogout,
+    getToken,
     getUser,
 } from "../services/auth";
 
@@ -28,13 +30,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const authVersionRef = useRef(0);
 
     useEffect(() => {
+        setUnauthorizedHandler(async () => {
+            authVersionRef.current += 1;
+            setUser(null);
+            setIsLoading(false);
+        });
+
         loadUser();
+
+        return () => {
+            setUnauthorizedHandler(null);
+        };
     }, []);
 
     const loadUser = async () => {
         const versionAtStart = authVersionRef.current;
         try {
-            const storedUser = await getUser();
+            const [storedUser, storedToken] = await Promise.all([
+                getUser(),
+                getToken(),
+            ]);
+
+            if (!storedToken) {
+                if (storedUser) {
+                    await clearStoredAuthState();
+                }
+                if (authVersionRef.current === versionAtStart) {
+                    setUser(null);
+                }
+                return;
+            }
+
             // Ignore stale hydration results if auth changed while loading.
             if (authVersionRef.current === versionAtStart) {
                 setUser(storedUser);

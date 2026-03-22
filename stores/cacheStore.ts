@@ -1,28 +1,29 @@
+import { DEFAULT_CACHE_TTL } from "@/constants/cache";
 import { create } from "zustand";
 
 type CacheEntry<T = unknown> = {
     data: T;
     updatedAt: number;
+    ttlMs: number;
 };
 
 type CacheState = {
     entries: Record<string, CacheEntry>;
-    setEntry: <T>(key: string, data: T) => void;
+    setEntry: <T>(key: string, data: T, ttlMs: number) => void;
     clearEntry: (key: string) => void;
     clearAll: () => void;
 };
 
-const DEFAULT_TTL_MS = 5 * 60 * 1000;
-
 export const useCacheStore = create<CacheState>((set) => ({
     entries: {},
-    setEntry: (key, data) =>
+    setEntry: (key, data, ttlMs) =>
         set((state) => ({
             entries: {
                 ...state.entries,
                 [key]: {
                     data,
                     updatedAt: Date.now(),
+                    ttlMs,
                 },
             },
         })),
@@ -35,24 +36,36 @@ export const useCacheStore = create<CacheState>((set) => ({
     clearAll: () => set({ entries: {} }),
 }));
 
-export const getCachedData = <T>(
-    key: string,
-    ttlMs: number = DEFAULT_TTL_MS,
-): T | null => {
+export const getCachedData = <T>(key: string): T | null => {
     const entry = useCacheStore.getState().entries[key];
     if (!entry) {
         return null;
     }
-    if (Date.now() - entry.updatedAt > ttlMs) {
+    if (Date.now() - entry.updatedAt > entry.ttlMs) {
+        useCacheStore.getState().clearEntry(key);
         return null;
     }
     return entry.data as T;
 };
 
-export const setCachedData = <T>(key: string, data: T) => {
-    useCacheStore.getState().setEntry(key, data);
+export const setCachedData = <T>(
+    key: string,
+    data: T,
+    ttlMs: number = DEFAULT_CACHE_TTL,
+) => {
+    useCacheStore.getState().setEntry(key, data, ttlMs);
 };
 
 export const invalidateCache = (key: string) => {
     useCacheStore.getState().clearEntry(key);
+};
+
+export const purgeExpiredCache = () => {
+    const { entries, clearEntry } = useCacheStore.getState();
+    const now = Date.now();
+    Object.entries(entries).forEach(([key, entry]) => {
+        if (now - entry.updatedAt > entry.ttlMs) {
+            clearEntry(key);
+        }
+    });
 };

@@ -1,4 +1,5 @@
 import SkeletonBlock from "@/components/SkeletonBlock";
+import { CACHE_TTL } from "@/constants/cache";
 import { useAuth } from "@/contexts/AuthContext";
 import {
     changePassword,
@@ -9,10 +10,11 @@ import {
     type EmployeeProfile,
 } from "@/services/profile";
 import { getCachedData, setCachedData } from "@/stores/cacheStore";
+import { logger } from "@/utils/logger";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
@@ -29,7 +31,6 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 const PROFILE_CACHE_KEY = "employee:profile-settings";
-const PROFILE_CACHE_TTL_MS = 3 * 60 * 1000;
 
 export default function ProfileSettingScreen() {
     const { user, logout } = useAuth();
@@ -38,6 +39,11 @@ export default function ProfileSettingScreen() {
     const [profile, setProfile] = useState<EmployeeProfile | null>(null);
     const [loading, setLoading] = useState(false);
     const [photoUri, setPhotoUri] = useState<string | null>(null);
+    const photoUriRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        photoUriRef.current = photoUri;
+    }, [photoUri]);
 
     useEffect(() => {
         load();
@@ -47,7 +53,6 @@ export default function ProfileSettingScreen() {
         if (!force) {
             const cached = getCachedData<EmployeeProfile | null>(
                 PROFILE_CACHE_KEY,
-                PROFILE_CACHE_TTL_MS,
             );
             if (cached) {
                 setProfile(cached);
@@ -61,9 +66,9 @@ export default function ProfileSettingScreen() {
             const data = await fetchEmployeeProfile();
             setProfile(data);
             setPhotoUri(data?.profilePicture ?? null);
-            setCachedData(PROFILE_CACHE_KEY, data);
+            setCachedData(PROFILE_CACHE_KEY, data, CACHE_TTL.PROFILE);
         } catch (err: any) {
-            console.log("profile load failed", err?.message || err);
+            logger.warn("profile load failed", err?.message || err);
         } finally {
             setLoading(false);
         }
@@ -78,7 +83,7 @@ export default function ProfileSettingScreen() {
         try {
             await load(true);
         } catch (err) {
-            console.log("refresh failed", err);
+            logger.warn("refresh failed", err);
         } finally {
             setRefreshing(false);
         }
@@ -105,7 +110,7 @@ export default function ProfileSettingScreen() {
                 uri = "file://" + uri;
             }
 
-            const previous = photoUri;
+            const previous = photoUriRef.current;
             setPhotoUri(uri);
             setUploadingPhoto(true);
             try {
@@ -119,7 +124,7 @@ export default function ProfileSettingScreen() {
                 Alert.alert("Uploaded", "Profile photo uploaded.");
                 await load(true);
             } catch (err: any) {
-                console.log("upload failed", err?.message || err);
+                logger.warn("upload failed", err?.message || err);
                 setPhotoUri(previous);
                 Alert.alert(
                     "Upload failed",

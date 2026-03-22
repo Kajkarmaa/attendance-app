@@ -1,3 +1,4 @@
+import { CACHE_TTL } from "@/constants/cache";
 import { useAuth } from "@/contexts/AuthContext";
 import {
     fetchAttendancePolicies,
@@ -25,10 +26,12 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+const CURRENT_YEAR = new Date().getFullYear();
+
 const DEFAULT_LEAVE_POLICY: LeavePolicyPayload = {
-    name: "Leave Policy 2026",
-    year: 2026,
-    description: "Standard leave policy for 2026",
+    name: `Leave Policy ${CURRENT_YEAR}`,
+    year: CURRENT_YEAR,
+    description: `Standard leave policy for ${CURRENT_YEAR}`,
     leaves: [
         {
             type: "sick",
@@ -65,9 +68,9 @@ const DEFAULT_LEAVE_POLICY: LeavePolicyPayload = {
 };
 
 const DEFAULT_ATTENDANCE_POLICY: AttendancePolicyPayload = {
-    name: "Office Hours 2026",
-    year: 2026,
-    description: "Standard office hours policy for 2026",
+    name: `Office Hours ${CURRENT_YEAR}`,
+    year: CURRENT_YEAR,
+    description: `Standard office hours policy for ${CURRENT_YEAR}`,
     checkInRules: {
         startTime: "09:00",
         gracePeriod: 15,
@@ -101,7 +104,6 @@ const dayOptions = [
 ];
 
 const ADMIN_POLICIES_CACHE_KEY = "admin:policies";
-const ADMIN_POLICIES_CACHE_TTL_MS = 5 * 60 * 1000;
 
 export default function AdminPolicyScreen() {
     const { user, isLoading } = useAuth();
@@ -152,7 +154,7 @@ export default function AdminPolicyScreen() {
             const cached = getCachedData<{
                 leavePolicy: LeavePolicyPayload;
                 attendancePolicy: AttendancePolicyPayload;
-            }>(ADMIN_POLICIES_CACHE_KEY, ADMIN_POLICIES_CACHE_TTL_MS);
+            }>(ADMIN_POLICIES_CACHE_KEY);
             if (cached) {
                 setLeavePolicy(cached.leavePolicy);
                 setAttendancePolicy(cached.attendancePolicy);
@@ -375,7 +377,7 @@ export default function AdminPolicyScreen() {
                           isActive: latestAttendance.isActive ?? true,
                       }
                     : attendancePolicy,
-            });
+            }, CACHE_TTL.POLICIES);
         } catch (error: any) {
             setLeaveMessage({
                 text: error?.message || "Failed to load policies.",
@@ -405,7 +407,7 @@ export default function AdminPolicyScreen() {
             setCachedData(ADMIN_POLICIES_CACHE_KEY, {
                 leavePolicy,
                 attendancePolicy,
-            });
+            }, CACHE_TTL.POLICIES);
             setLeaveMessage({
                 text: response?.message || "Leave policy updated successfully.",
                 tone: "success",
@@ -429,7 +431,7 @@ export default function AdminPolicyScreen() {
             setCachedData(ADMIN_POLICIES_CACHE_KEY, {
                 leavePolicy,
                 attendancePolicy,
-            });
+            }, CACHE_TTL.POLICIES);
             setAttendanceMessage({
                 text:
                     response?.message ||

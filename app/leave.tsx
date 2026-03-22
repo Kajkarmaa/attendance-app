@@ -1,4 +1,5 @@
 import SkeletonBlock from "@/components/SkeletonBlock";
+import { CACHE_TTL } from "@/constants/cache";
 import { useAuth } from "@/contexts/AuthContext";
 import {
     fetchLeaveBalance,
@@ -8,9 +9,10 @@ import {
 } from "@/services/leaves";
 import { fetchEmployeeProfile, type EmployeeProfile } from "@/services/profile";
 import { getCachedData, setCachedData } from "@/stores/cacheStore";
+import { logger } from "@/utils/logger";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Pressable,
@@ -59,7 +61,6 @@ const leaveTypeIcon = (type: string) => {
 };
 
 const LEAVE_SCREEN_CACHE_KEY = "employee:leave-screen";
-const LEAVE_SCREEN_CACHE_TTL_MS = 3 * 60 * 1000;
 
 export default function LeaveScreen() {
     const { user, isLoading } = useAuth();
@@ -78,6 +79,14 @@ export default function LeaveScreen() {
         new Date().getFullYear(),
     );
     const [refreshing, setRefreshing] = useState(false);
+    const isMountedRef = useRef(true);
+    const dataRequestRef = useRef(0);
+
+    useEffect(() => {
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
 
     useEffect(() => {
         if (isLoading) return;
@@ -105,12 +114,13 @@ export default function LeaveScreen() {
     };
 
     const loadData = async (force: boolean = false) => {
+        const requestId = ++dataRequestRef.current;
         if (!force) {
             const cached = getCachedData<{
                 profile: EmployeeProfile | null;
                 leaveBalance: LeaveBalanceData | null;
                 myLeaves: MyLeaveRequest[];
-            }>(LEAVE_SCREEN_CACHE_KEY, LEAVE_SCREEN_CACHE_TTL_MS);
+            }>(LEAVE_SCREEN_CACHE_KEY);
             if (cached) {
                 setProfile(cached.profile);
                 setLeaveBalance(cached.leaveBalance);
@@ -128,6 +138,9 @@ export default function LeaveScreen() {
                 fetchLeaveBalance(),
                 fetchMyLeaves(),
             ]);
+            if (!isMountedRef.current || requestId !== dataRequestRef.current) {
+                return;
+            }
 
             const profileResult = results[0];
             const leaveBalanceResult = results[1];
@@ -136,7 +149,7 @@ export default function LeaveScreen() {
             if (profileResult.status === "fulfilled") {
                 setProfile(profileResult.value);
             } else {
-                console.log(
+                logger.warn(
                     "profile fetch failed",
                     profileResult.reason?.message,
                 );
@@ -145,7 +158,7 @@ export default function LeaveScreen() {
             if (leaveBalanceResult.status === "fulfilled") {
                 setLeaveBalance(leaveBalanceResult.value);
             } else {
-                console.log(
+                logger.warn(
                     "leave balance fetch failed",
                     leaveBalanceResult.reason?.message,
                 );
@@ -154,7 +167,7 @@ export default function LeaveScreen() {
             if (myLeavesResult.status === "fulfilled") {
                 setMyLeaves(myLeavesResult.value ?? []);
             } else {
-                console.log(
+                logger.warn(
                     "my leaves fetch failed",
                     myLeavesResult.reason?.message,
                 );
@@ -174,13 +187,15 @@ export default function LeaveScreen() {
                     myLeavesResult.status === "fulfilled"
                         ? myLeavesResult.value ?? []
                         : [],
-            });
+            }, CACHE_TTL.LEAVE_BALANCE);
         } catch (error: any) {
-            console.log("leave screen fetch failed", error?.message);
+            logger.warn("leave screen fetch failed", error?.message);
         } finally {
-            setProfileLoading(false);
-            setLeaveBalanceLoading(false);
-            setMyLeavesLoading(false);
+            if (isMountedRef.current && requestId === dataRequestRef.current) {
+                setProfileLoading(false);
+                setLeaveBalanceLoading(false);
+                setMyLeavesLoading(false);
+            }
         }
     };
 

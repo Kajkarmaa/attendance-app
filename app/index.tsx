@@ -1,4 +1,5 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { logger } from "@/utils/logger";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
@@ -51,7 +52,7 @@ export default function LoginScreen() {
             await login(email.trim(), password);
             // Route change is handled by the auth-state effect above.
         } catch (error: any) {
-            console.error("Login error:", error);
+            logger.error("Login error", error);
             const errorMessage =
                 error.response?.data?.message ||
                 error.message ||
@@ -101,7 +102,7 @@ export default function LoginScreen() {
                             <TextInput
                                 style={styles.passwordInput}
                                 placeholder="••••••••"
-                                keyboardType="number-pad"
+                                keyboardType="default"
                                 placeholderTextColor="#A0A0A0"
                                 secureTextEntry={!showPassword}
                                 value={password}

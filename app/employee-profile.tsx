@@ -1,4 +1,5 @@
 import SkeletonBlock from '@/components/SkeletonBlock';
+import { CACHE_TTL } from '@/constants/cache';
 import { Feather } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -18,9 +19,9 @@ import { Calendar } from 'react-native-calendars';
 import { getPayslipDownloadUrl } from '@/services/payroll';
 import { fetchEmployeeDetail, type EmployeeDetail } from '@/services/users';
 import { getCachedData, setCachedData } from '@/stores/cacheStore';
+import { logger } from '@/utils/logger';
 
 const EMPLOYEE_PROFILE_CACHE_PREFIX = 'admin:employee-profile:';
-const EMPLOYEE_PROFILE_CACHE_TTL_MS = 5 * 60 * 1000;
 
 const TABS = ['Overview', 'Attendance', 'Salary', 'Bonus', 'Payslips'] as const;
 type TabKey = (typeof TABS)[number];
@@ -51,7 +52,7 @@ export default function EmployeeProfileScreen() {
   }, [params.employeeRecordId]);
 
   const loadProfile = useCallback(async (force: boolean = false) => {
-    console.log(`Loading profile for employeeId=${params.employeeId} recordId=${recordId}`)
+    logger.log('Loading employee profile', { recordId });
     if (!recordId) {
       setProfile(null);
       setError('Missing employee identifier.');
@@ -63,7 +64,6 @@ export default function EmployeeProfileScreen() {
     if (!force) {
       const cached = getCachedData<EmployeeDetail | null>(
         cacheKey,
-        EMPLOYEE_PROFILE_CACHE_TTL_MS,
       );
       if (cached) {
         setProfile(cached);
@@ -78,7 +78,7 @@ export default function EmployeeProfileScreen() {
     try {
       const data = await fetchEmployeeDetail(recordId);
       setProfile(data);
-      setCachedData(cacheKey, data);
+      setCachedData(cacheKey, data, CACHE_TTL.PROFILE);
     } catch (err: any) {
       const message = err?.response?.data?.message || err?.message || 'Unable to load employee profile.';
       setError(message);

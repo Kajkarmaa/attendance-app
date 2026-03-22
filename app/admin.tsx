@@ -1,5 +1,6 @@
 import SkeletonBlock from "@/components/SkeletonBlock";
 import MonthYearPicker from "@/components/ui/month-year-picker";
+import { CACHE_TTL } from "@/constants/cache";
 import { useAuth } from "@/contexts/AuthContext";
 import {
     fetchDailySummary,
@@ -16,9 +17,10 @@ import {
     type PendingUser,
 } from "@/services/users";
 import { getCachedData, setCachedData } from "@/stores/cacheStore";
+import { logger } from "@/utils/logger";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Image,
@@ -37,7 +39,6 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 const ADMIN_DEPARTMENTS_CACHE_KEY = "admin:departments";
 const ADMIN_DAILY_SUMMARY_CACHE_KEY = "admin:daily-summary";
 const ADMIN_LIST_CACHE_PREFIX = "admin:list:";
-const ADMIN_CACHE_TTL_MS = 2 * 60 * 1000;
 
 const APP_LOGO = require("../assets/logo.jpg");
 
@@ -112,6 +113,16 @@ export default function HomeScreen() {
         useState<DailyAttendanceSummary | null>(null);
     const [summaryLoading, setSummaryLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+    const isMountedRef = useRef(true);
+    const departmentsRequestRef = useRef(0);
+    const listsRequestRef = useRef(0);
+    const summaryRequestRef = useRef(0);
+
+    useEffect(() => {
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
     const greeting = useMemo(() => {
         const hour = new Date().getHours();
         if (hour < 12) return "GOOD MORNING,";
@@ -237,10 +248,10 @@ export default function HomeScreen() {
     }, [searchTerm, user, isLoading]);
 
     const loadDepartments = async (force: boolean = false) => {
+        const requestId = ++departmentsRequestRef.current;
         if (!force) {
             const cached = getCachedData<string[]>(
                 ADMIN_DEPARTMENTS_CACHE_KEY,
-                ADMIN_CACHE_TTL_MS,
             );
             if (cached) {
                 setDepartments(cached);
@@ -251,24 +262,32 @@ export default function HomeScreen() {
         setDepartmentsLoading(true);
         try {
             const data = await fetchDepartments();
+            if (!isMountedRef.current || requestId !== departmentsRequestRef.current) {
+                return;
+            }
             const next = Array.isArray(data) ? data : [];
             setDepartments(next);
-            setCachedData(ADMIN_DEPARTMENTS_CACHE_KEY, next);
+            setCachedData(ADMIN_DEPARTMENTS_CACHE_KEY, next, CACHE_TTL.LISTS);
         } catch (error: any) {
-            console.log("departments fetch failed", error?.message);
-            setDepartments([]);
+            logger.warn("departments fetch failed", error?.message);
+            if (isMountedRef.current && requestId === departmentsRequestRef.current) {
+                setDepartments([]);
+            }
         } finally {
-            setDepartmentsLoading(false);
+            if (isMountedRef.current && requestId === departmentsRequestRef.current) {
+                setDepartmentsLoading(false);
+            }
         }
     };
 
     const loadLists = async (query: string = "", force: boolean = false) => {
+        const requestId = ++listsRequestRef.current;
         const cacheKey = `${ADMIN_LIST_CACHE_PREFIX}${query.trim().toLowerCase()}`;
         if (!force) {
             const cached = getCachedData<{
                 employees: EmployeeUser[];
                 pendingUsers: PendingUser[];
-            }>(cacheKey, ADMIN_CACHE_TTL_MS);
+            }>(cacheKey);
             if (cached) {
                 setEmployees(cached.employees ?? []);
                 setPendingUsers(cached.pendingUsers ?? []);
@@ -282,6 +301,9 @@ export default function HomeScreen() {
                 fetchEmployees(query),
                 fetchPendingUsers(),
             ]);
+            if (!isMountedRef.current || requestId !== listsRequestRef.current) {
+                return;
+            }
             const nextEmployees = emps || [];
             const nextPendingUsers = pend || [];
             setEmployees(nextEmployees);
@@ -289,19 +311,21 @@ export default function HomeScreen() {
             setCachedData(cacheKey, {
                 employees: nextEmployees,
                 pendingUsers: nextPendingUsers,
-            });
+            }, CACHE_TTL.LISTS);
         } catch (error: any) {
-            console.log("list fetch failed", error?.message);
+            logger.warn("list fetch failed", error?.message);
         } finally {
-            setListLoading(false);
+            if (isMountedRef.current && requestId === listsRequestRef.current) {
+                setListLoading(false);
+            }
         }
     };
 
     const loadDailySummary = async (force: boolean = false) => {
+        const requestId = ++summaryRequestRef.current;
         if (!force) {
             const cached = getCachedData<DailyAttendanceSummary | null>(
                 ADMIN_DAILY_SUMMARY_CACHE_KEY,
-                ADMIN_CACHE_TTL_MS,
             );
             if (cached) {
                 setDailySummary(cached);
@@ -312,12 +336,17 @@ export default function HomeScreen() {
         setSummaryLoading(true);
         try {
             const summary = await fetchDailySummary();
+            if (!isMountedRef.current || requestId !== summaryRequestRef.current) {
+                return;
+            }
             setDailySummary(summary);
-            setCachedData(ADMIN_DAILY_SUMMARY_CACHE_KEY, summary);
+            setCachedData(ADMIN_DAILY_SUMMARY_CACHE_KEY, summary, CACHE_TTL.ATTENDANCE);
         } catch (error: any) {
-            console.log("daily summary fetch failed", error?.message);
+            logger.warn("daily summary fetch failed", error?.message);
         } finally {
-            setSummaryLoading(false);
+            if (isMountedRef.current && requestId === summaryRequestRef.current) {
+                setSummaryLoading(false);
+            }
         }
     };
 
@@ -330,7 +359,7 @@ export default function HomeScreen() {
                 loadDepartments(true),
             ]);
         } catch (err) {
-            console.log("refresh failed", err);
+            logger.warn("refresh failed", err);
         } finally {
             setRefreshing(false);
         }
@@ -552,13 +581,12 @@ export default function HomeScreen() {
 
         setConvertLoading(true);
         setConvertMessage(null);
-        console.log(
-            "Converting user",
-            selectedPendingUser.id,
+        logger.log("Converting user", {
+            userId: selectedPendingUser.id,
             designation,
-            departmentValue,
-            salaryNumber,
-        );
+            department: departmentValue,
+            salary: salaryNumber,
+        });
         try {
             const response = await convertPendingUserToEmployee(
                 selectedPendingUser.id,

@@ -1,3 +1,4 @@
+import { logger } from "@/utils/logger";
 import apiClient from "./api";
 
 export interface AttendanceRecord {
@@ -162,7 +163,7 @@ export async function fetchCheckinImageUrl(employeeId: string): Promise<string |
         const response = await apiClient.get<ApiEnvelope<{ url?: string }>>(url);
         return response.data?.data?.url ?? null;
     } catch (err) {
-        console.log("fetchCheckinImageUrl failed", err);
+        logger.warn("fetchCheckinImageUrl failed", err);
         return null;
     }
 }
@@ -180,7 +181,7 @@ export async function fetchEmployeeAttendanceImage(employeeId: string): Promise<
         const response = await apiClient.get<ApiEnvelope<EmployeeAttendanceImageResponse>>(url);
         return response.data?.data ?? null;
     } catch (err) {
-        console.log("fetchEmployeeAttendanceImage failed", err);
+        logger.warn("fetchEmployeeAttendanceImage failed", err);
         return null;
     }
 }

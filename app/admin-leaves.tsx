@@ -1,4 +1,5 @@
 import SkeletonBlock from "@/components/SkeletonBlock";
+import { CACHE_TTL } from "@/constants/cache";
 import { useAuth } from "@/contexts/AuthContext";
 import { API_BASE_URL } from "@/services/api";
 import {
@@ -9,6 +10,7 @@ import {
     type AdminLeaveItem,
 } from "@/services/leaves";
 import { getCachedData, setCachedData } from "@/stores/cacheStore";
+import { logger } from "@/utils/logger";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
@@ -27,7 +29,6 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 const ADMIN_LEAVES_CACHE_KEY = "admin:leaves:all";
-const ADMIN_LEAVES_CACHE_TTL_MS = 2 * 60 * 1000;
 
 export default function AdminLeavesScreen() {
     const { user, isLoading } = useAuth();
@@ -66,7 +67,6 @@ export default function AdminLeavesScreen() {
         if (!force) {
             const cached = getCachedData<AdminLeaveItem[]>(
                 ADMIN_LEAVES_CACHE_KEY,
-                ADMIN_LEAVES_CACHE_TTL_MS,
             );
             if (cached) {
                 setAllLeaves(cached);
@@ -79,9 +79,9 @@ export default function AdminLeavesScreen() {
             const data = await fetchAdminLeaves("all");
             const next = data ?? [];
             setAllLeaves(next);
-            setCachedData(ADMIN_LEAVES_CACHE_KEY, next);
+            setCachedData(ADMIN_LEAVES_CACHE_KEY, next, CACHE_TTL.LISTS);
         } catch (error: any) {
-            console.log("admin leaves fetch failed", error?.message);
+            logger.warn("admin leaves fetch failed", error?.message);
             Alert.alert("Error", "Unable to load leave requests.");
         } finally {
             setLoading(false);
@@ -93,7 +93,7 @@ export default function AdminLeavesScreen() {
         try {
             await loadLeaves(true);
         } catch (err) {
-            console.log("refresh failed", err);
+            logger.warn("refresh failed", err);
         } finally {
             setRefreshing(false);
         }
@@ -193,7 +193,7 @@ export default function AdminLeavesScreen() {
 
             await Linking.openURL(url);
         } catch (error: any) {
-            console.log("attachment open failed", error?.message);
+            logger.warn("attachment open failed", error?.message);
             Alert.alert("Error", "Could not open the attachment.");
         } finally {
             setDownloadLoadingId(null);
@@ -238,7 +238,7 @@ export default function AdminLeavesScreen() {
             });
             await loadLeaves(true);
         } catch (error: any) {
-            console.log("approve failed", error?.message);
+            logger.warn("approve failed", error?.message);
             Alert.alert("Error", "Unable to approve the request.");
             setAllLeaves(previous);
         } finally {
@@ -273,7 +273,7 @@ export default function AdminLeavesScreen() {
             });
             await loadLeaves(true);
         } catch (error: any) {
-            console.log("reject failed", error?.message);
+            logger.warn("reject failed", error?.message);
             Alert.alert("Error", "Unable to reject the request.");
             setAllLeaves(previous);
         } finally {

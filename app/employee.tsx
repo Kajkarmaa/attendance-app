@@ -1,4 +1,5 @@
 import SkeletonBlock from "@/components/SkeletonBlock";
+import { CACHE_TTL } from "@/constants/cache";
 import { useAuth } from "@/contexts/AuthContext";
 import {
     EmployeeActivity,
@@ -15,6 +16,7 @@ import {
 import { getPayslipDownloadUrl } from "@/services/payroll";
 import { fetchEmployeeProfile, type EmployeeProfile } from "@/services/profile";
 import { getCachedData, setCachedData } from "@/stores/cacheStore";
+import { logger } from "@/utils/logger";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
@@ -54,7 +56,6 @@ const DEFAULT_ACTIVITY_COLOR = "#94A3B8";
 const EMPLOYEE_ATTENDANCE_CACHE_KEY = "employee:attendance";
 const EMPLOYEE_PROFILE_CACHE_KEY = "employee:profile";
 const EMPLOYEE_ACTIVITY_CACHE_KEY = "employee:activity";
-const EMPLOYEE_CACHE_TTL_MS = 3 * 60 * 1000;
 
 interface PayslipEntry {
     id: string;
@@ -83,6 +84,16 @@ export default function EmployeeDashboardScreen() {
     const [previewVisible, setPreviewVisible] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const handlePunchRef = useRef<() => void>(() => {});
+    const isMountedRef = useRef(true);
+    const attendanceRequestRef = useRef(0);
+    const profileRequestRef = useRef(0);
+    const activityRequestRef = useRef(0);
+
+    useEffect(() => {
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
 
     // Swipe gesture state
     const pan = useRef(new Animated.Value(0)).current;
@@ -151,7 +162,7 @@ export default function EmployeeDashboardScreen() {
         month?: number | null,
         year?: number | null,
     ) => {
-        if (!month || !year) {
+        if (!month || !year || month < 1 || month > 12) {
             return "Upcoming payout";
         }
         const date = new Date(year, month - 1, 1);
@@ -343,10 +354,10 @@ export default function EmployeeDashboardScreen() {
     };
 
     const loadAttendance = async (force: boolean = false) => {
+        const requestId = ++attendanceRequestRef.current;
         if (!force) {
             const cached = getCachedData<AttendanceRecord | null>(
                 EMPLOYEE_ATTENDANCE_CACHE_KEY,
-                EMPLOYEE_CACHE_TTL_MS,
             );
             if (cached) {
                 setAttendance(cached);
@@ -356,12 +367,17 @@ export default function EmployeeDashboardScreen() {
         setAttLoading(true);
         try {
             const latest = await fetchAttendance();
+            if (!isMountedRef.current || requestId !== attendanceRequestRef.current) {
+                return;
+            }
             setAttendance(latest);
-            setCachedData(EMPLOYEE_ATTENDANCE_CACHE_KEY, latest);
+            setCachedData(EMPLOYEE_ATTENDANCE_CACHE_KEY, latest, CACHE_TTL.ATTENDANCE);
         } catch (error: any) {
-            console.log("attendance fetch failed", error?.message);
+            logger.warn("attendance fetch failed", error?.message);
         } finally {
-            setAttLoading(false);
+            if (isMountedRef.current && requestId === attendanceRequestRef.current) {
+                setAttLoading(false);
+            }
         }
     };
 
@@ -529,10 +545,10 @@ export default function EmployeeDashboardScreen() {
     handlePunchRef.current = handlePunch;
 
     const loadProfile = async (force: boolean = false) => {
+        const requestId = ++profileRequestRef.current;
         if (!force) {
             const cached = getCachedData<EmployeeProfile | null>(
                 EMPLOYEE_PROFILE_CACHE_KEY,
-                EMPLOYEE_CACHE_TTL_MS,
             );
             if (cached) {
                 setProfile(cached);
@@ -542,21 +558,26 @@ export default function EmployeeDashboardScreen() {
         setProfileLoading(true);
         try {
             const data = await fetchEmployeeProfile();
+            if (!isMountedRef.current || requestId !== profileRequestRef.current) {
+                return;
+            }
             setProfile(data);
-            setCachedData(EMPLOYEE_PROFILE_CACHE_KEY, data);
+            setCachedData(EMPLOYEE_PROFILE_CACHE_KEY, data, CACHE_TTL.PROFILE);
             // also fetch last check-in image for this employee
         } catch (error: any) {
-            console.log("profile fetch failed", error?.message);
+            logger.warn("profile fetch failed", error?.message);
         } finally {
-            setProfileLoading(false);
+            if (isMountedRef.current && requestId === profileRequestRef.current) {
+                setProfileLoading(false);
+            }
         }
     };
 
     const loadRecentActivity = async (force: boolean = false) => {
+        const requestId = ++activityRequestRef.current;
         if (!force) {
             const cached = getCachedData<RecentActivityData | null>(
                 EMPLOYEE_ACTIVITY_CACHE_KEY,
-                EMPLOYEE_CACHE_TTL_MS,
             );
             if (cached) {
                 setActivityData(cached);
@@ -566,12 +587,17 @@ export default function EmployeeDashboardScreen() {
         setActivityLoading(true);
         try {
             const data = await fetchRecentActivity();
+            if (!isMountedRef.current || requestId !== activityRequestRef.current) {
+                return;
+            }
             setActivityData(data);
-            setCachedData(EMPLOYEE_ACTIVITY_CACHE_KEY, data);
+            setCachedData(EMPLOYEE_ACTIVITY_CACHE_KEY, data, CACHE_TTL.ATTENDANCE);
         } catch (error: any) {
-            console.log("recent activity fetch failed", error?.message);
+            logger.warn("recent activity fetch failed", error?.message);
         } finally {
-            setActivityLoading(false);
+            if (isMountedRef.current && requestId === activityRequestRef.current) {
+                setActivityLoading(false);
+            }
         }
     };
 
@@ -584,7 +610,7 @@ export default function EmployeeDashboardScreen() {
                 loadRecentActivity(true),
             ]);
         } catch (err) {
-            console.log("refresh failed", err);
+            logger.warn("refresh failed", err);
         } finally {
             setRefreshing(false);
         }
