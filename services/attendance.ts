@@ -17,6 +17,15 @@ export interface AttendanceRecord {
     totalWorkingDays?: number;
     timezone?: string;
     type?: "check_in" | "check_out";
+    breakInfo?: {
+        isOnBreak: boolean;
+        currentBreakStartedAt?: string | null;
+        totalBreakMinutes?: number;
+        breaks: Array<{
+            pausedAt?: string | null;
+            resumedAt?: string | null;
+        }>;
+    };
 }
 
 interface ApiEnvelope<T> {
@@ -63,6 +72,34 @@ interface AttendanceApiData {
     status?: string;
     timezone?: string;
     totalWorkingDays?: number;
+    breakInfo?: {
+        isOnBreak?: boolean;
+        currentBreakStartedAt?: string | null;
+        totalBreakMinutes?: number;
+        breaks?: Array<{
+            pausedAt?: string | null;
+            resumedAt?: string | null;
+        }>;
+    };
+}
+
+interface BreakActionApiData {
+    attendance?: AttendanceApiData;
+    id?: string;
+    date?: string;
+    checkIn?: {
+        time: string;
+        location?: string;
+    };
+    checkOut?: {
+        time: string;
+        location?: string;
+    };
+    workHours?: number;
+    status?: string;
+    timezone?: string;
+    totalWorkingDays?: number;
+    breakInfo?: AttendanceApiData["breakInfo"];
 }
 
 const normalizeFromCheck = (payload: CheckInApiData | CheckOutApiData): AttendanceRecord => {
@@ -105,7 +142,36 @@ const normalizeFromAttendance = (payload: AttendanceApiData): AttendanceRecord =
     status: payload.status,
     timezone: payload.timezone,
     totalWorkingDays: payload.totalWorkingDays,
+    breakInfo: {
+        isOnBreak: Boolean(payload.breakInfo?.isOnBreak),
+        currentBreakStartedAt: payload.breakInfo?.currentBreakStartedAt ?? null,
+        totalBreakMinutes: payload.breakInfo?.totalBreakMinutes ?? 0,
+        breaks: payload.breakInfo?.breaks ?? [],
+    },
 });
+
+const normalizeBreakAction = (payload: BreakActionApiData): AttendanceRecord => {
+    const source = payload.attendance ?? payload;
+    return {
+        id: source.id,
+        date: source.date,
+        checkIn: source.checkIn,
+        checkOut: source.checkOut,
+        workHours: source.workHours,
+        status: source.status,
+        timezone: source.timezone,
+        totalWorkingDays: source.totalWorkingDays,
+        breakInfo: source.breakInfo
+            ? {
+                  isOnBreak: Boolean(source.breakInfo.isOnBreak),
+                  currentBreakStartedAt:
+                      source.breakInfo.currentBreakStartedAt ?? null,
+                  totalBreakMinutes: source.breakInfo.totalBreakMinutes ?? 0,
+                  breaks: source.breakInfo.breaks ?? [],
+              }
+            : undefined,
+    };
+};
 
 export async function checkIn(image?: { uri: string; name?: string; type?: string } | null): Promise<AttendanceRecord> {
     if (image) {
@@ -139,6 +205,16 @@ export async function checkOut(): Promise<AttendanceRecord> {
 export async function fetchAttendance(): Promise<AttendanceRecord> {
     const response = await apiClient.get<ApiEnvelope<AttendanceApiData>>("/employees/attendance");
     return normalizeFromAttendance(response.data.data);
+}
+
+export async function pauseAttendance(): Promise<AttendanceRecord> {
+    const response = await apiClient.post<ApiEnvelope<BreakActionApiData>>("/employees/pause");
+    return normalizeBreakAction(response.data.data);
+}
+
+export async function resumeAttendance(): Promise<AttendanceRecord> {
+    const response = await apiClient.post<ApiEnvelope<BreakActionApiData>>("/employees/resume");
+    return normalizeBreakAction(response.data.data);
 }
 
 export interface TodayAttendanceItem {

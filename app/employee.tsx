@@ -10,6 +10,8 @@ import {
     checkIn,
     checkOut,
     fetchAttendance,
+    pauseAttendance,
+    resumeAttendance,
 
     type AttendanceRecord,
 } from "@/services/attendance";
@@ -37,6 +39,7 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    useWindowDimensions,
     View,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
@@ -70,10 +73,12 @@ interface PayslipEntry {
 export default function EmployeeDashboardScreen() {
     const { user, isLoading } = useAuth();
     const insets = useSafeAreaInsets();
+    const { width: windowWidth } = useWindowDimensions();
     const BOTTOM_BAR_BASE_HEIGHT = 76;
     const [attendance, setAttendance] = useState<AttendanceRecord | null>(null);
     const [attLoading, setAttLoading] = useState(false);
     const [punching, setPunching] = useState(false);
+    const [breakActionLoading, setBreakActionLoading] = useState(false);
     const [profile, setProfile] = useState<EmployeeProfile | null>(null);
     const [profileLoading, setProfileLoading] = useState(false);
     const [activityData, setActivityData] = useState<RecentActivityData | null>(
@@ -180,6 +185,92 @@ export default function EmployeeDashboardScreen() {
             return "--";
         }
         return `₹${value.toLocaleString("en-IN")}`;
+    };
+
+    const persistAttendance = (next: AttendanceRecord | null) => {
+        setAttendance(next);
+        setCachedData(
+            EMPLOYEE_ATTENDANCE_CACHE_KEY,
+            next,
+            CACHE_TTL.ATTENDANCE,
+        );
+    };
+
+    const formatAttendanceTime = (value?: string | null) => {
+        if (!value) {
+            return "--:--";
+        }
+
+        if (value.includes(",")) {
+            return value.split(",").pop()?.trim() || value;
+        }
+
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) {
+            return value;
+        }
+
+        return parsed.toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+        });
+    };
+
+    const formatAttendanceDateAndTime = (value?: string | null) => {
+        if (!value) {
+            return {
+                date: "-- --- ----",
+                time: "--:--",
+            };
+        }
+
+        if (value.includes(",")) {
+            const [datePart, timePart] = value.split(",");
+            return {
+                date: datePart?.trim() || "-- --- ----",
+                time: timePart?.trim() || "--:--",
+            };
+        }
+
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) {
+            return {
+                date: value,
+                time: "",
+            };
+        }
+
+        return {
+            date: parsed.toLocaleDateString(undefined, {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+            }),
+            time: parsed.toLocaleTimeString(undefined, {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true,
+            }),
+        };
+    };
+
+    const formatBreakMinutes = (value?: number | null) => {
+        if (typeof value !== "number" || Number.isNaN(value) || value <= 0) {
+            return "0 min";
+        }
+
+        if (value < 60) {
+            return `${value.toFixed(2)} min`;
+        }
+
+        const hours = Math.floor(value / 60);
+        const minutes = value - hours * 60;
+
+        if (hours > 0) {
+            return `${hours}h ${minutes.toFixed(2)}m`;
+        }
+
+        return `${value.toFixed(2)} min`;
     };
 
     const payslipYears = useMemo(() => {
@@ -360,7 +451,7 @@ export default function EmployeeDashboardScreen() {
                 EMPLOYEE_ATTENDANCE_CACHE_KEY,
             );
             if (cached) {
-                setAttendance(cached);
+                persistAttendance(cached);
                 return;
             }
         }
@@ -370,8 +461,7 @@ export default function EmployeeDashboardScreen() {
             if (!isMountedRef.current || requestId !== attendanceRequestRef.current) {
                 return;
             }
-            setAttendance(latest);
-            setCachedData(EMPLOYEE_ATTENDANCE_CACHE_KEY, latest, CACHE_TTL.ATTENDANCE);
+            persistAttendance(latest);
         } catch (error: any) {
             logger.warn("attendance fetch failed", error?.message);
         } finally {
@@ -425,12 +515,95 @@ export default function EmployeeDashboardScreen() {
         }
     };
 
-    const isCheckedIn =
-        Boolean(attendance?.checkIn?.time) &&
-        !Boolean(attendance?.checkOut?.time);
+    const hasCheckedInToday = Boolean(attendance?.checkIn?.time);
+    const isCheckedOut = Boolean(attendance?.checkOut?.time);
+    const isCheckedIn = hasCheckedInToday && !isCheckedOut;
+    const shouldResumeBreak = Boolean(
+        attendance?.breakInfo?.isOnBreak && !isCheckedOut,
+    );
+    const isOnBreak = Boolean(isCheckedIn && shouldResumeBreak);
+    const totalBreakMinutes = attendance?.breakInfo?.totalBreakMinutes ?? 0;
+    const completedBreakCount =
+        attendance?.breakInfo?.breaks?.filter((entry) => entry.resumedAt).length ??
+        0;
+    const activeBreakStartedAt =
+        attendance?.breakInfo?.currentBreakStartedAt ??
+        attendance?.breakInfo?.breaks
+            ?.slice()
+            .reverse()
+            .find((entry) => !entry.resumedAt)?.pausedAt ??
+        null;
+    const shouldShowBreakTime = hasCheckedInToday;
+    const shouldShowSwipePunch = !isCheckedOut && !shouldResumeBreak;
+    const canSwipePunch = shouldShowSwipePunch;
+    const halfTileWidth = Math.max((windowWidth - 48 - 10) / 2, 0);
+    const halfTileCardStyle = { width: halfTileWidth };
+    const checkInDateTime = formatAttendanceDateAndTime(attendance?.checkIn?.time);
+    const checkOutDateTime = formatAttendanceDateAndTime(attendance?.checkOut?.time);
+    const swipeLabel = isCheckedOut
+        ? "Checked Out for Today"
+        : shouldResumeBreak
+          ? "Resume Break to Check Out"
+          : isCheckedIn
+            ? "Swipe to Check Out"
+            : "Swipe to Check In";
+
+    const handleBreakAction = async (mode: "pause" | "resume") => {
+        if (!isCheckedIn) {
+            Alert.alert(
+                "Check in first",
+                "You can manage break time after checking in.",
+            );
+            return;
+        }
+
+        if (
+            (mode === "pause" && shouldResumeBreak) ||
+            (mode === "resume" && !shouldResumeBreak)
+        ) {
+            return;
+        }
+
+        setBreakActionLoading(true);
+        try {
+            const nextAttendance =
+                mode === "pause"
+                    ? await pauseAttendance()
+                    : await resumeAttendance();
+
+            persistAttendance({
+                ...attendance,
+                ...nextAttendance,
+                checkIn: nextAttendance.checkIn ?? attendance?.checkIn ?? null,
+                checkOut: nextAttendance.checkOut ?? attendance?.checkOut ?? null,
+                breakInfo: nextAttendance.breakInfo ?? attendance?.breakInfo,
+            });
+            await loadAttendance(true);
+        } catch (error: any) {
+            const message =
+                error?.response?.data?.message ||
+                error?.message ||
+                `Unable to ${mode} break right now.`;
+            Alert.alert("Attendance update failed", message);
+        } finally {
+            setBreakActionLoading(false);
+        }
+    };
 
     const handlePunch = async () => {
         if (!user) return;
+
+        if (isOnBreak) {
+            Alert.alert(
+                "Resume break first",
+                "Resume your active break before checking out.",
+            );
+            return;
+        }
+
+        if (isCheckedOut) {
+            return;
+        }
 
         try {
             const hasHardware = await LocalAuthentication.hasHardwareAsync();
@@ -477,11 +650,11 @@ export default function EmployeeDashboardScreen() {
 
             if (isCheckedIn) {
                 const res = await checkOut();
-                setAttendance((prev: any) => ({
-                    ...prev,
+                persistAttendance({
+                    ...attendance,
                     ...res,
-                    checkIn: prev?.checkIn || res.checkIn || null,
-                }));
+                    checkIn: attendance?.checkIn || res.checkIn || null,
+                });
             } else {
                 // Request camera permission and launch camera to take a check-in photo
                 const permission =
@@ -526,10 +699,16 @@ export default function EmployeeDashboardScreen() {
                 const image = { uri: localUri, name: filename, type: mime };
 
                 const res = await checkIn(image);
-                setAttendance((prev: any) => ({
-                    ...prev,
+                persistAttendance({
+                    ...attendance,
                     ...res,
-                }));
+                    breakInfo: {
+                        isOnBreak: false,
+                        currentBreakStartedAt: null,
+                        totalBreakMinutes: 0,
+                        breaks: [],
+                    },
+                });
             }
         } catch (error: any) {
             const msg =
@@ -760,7 +939,12 @@ export default function EmployeeDashboardScreen() {
             <ScrollView
                 contentContainerStyle={[
                     styles.content,
-                    { paddingBottom: BOTTOM_BAR_BASE_HEIGHT + insets.bottom + 80 },
+                    {
+                        paddingBottom:
+                            BOTTOM_BAR_BASE_HEIGHT +
+                            insets.bottom +
+                            (shouldShowSwipePunch ? 80 : 28),
+                    },
                 ]}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
@@ -773,7 +957,7 @@ export default function EmployeeDashboardScreen() {
             >
                 <View>
                     <View style={styles.tilesRow}>
-                        <View style={styles.tileCard}>
+                        <View style={[styles.tileCard, halfTileCardStyle]}>
                             <View style={styles.tileIconWrap}>
                                 <Ionicons
                                     name="log-in-outline"
@@ -782,18 +966,33 @@ export default function EmployeeDashboardScreen() {
                                 />
                             </View>
                             <Text style={styles.tileTitle}>Check In</Text>
-                            <Text style={styles.tileTime}>
+                            <View style={styles.tileDateTimeBlock}>
                                 {attLoading || profileLoading ? (
                                     <SkeletonBlock
-                                        style={{ height: 18, width: 80 }}
+                                        style={{ height: 44, width: "88%" }}
                                     />
                                 ) : (
-                                    attendance?.checkIn?.time || "--:--"
+                                    <>
+                                        <Text
+                                            style={styles.tileDateLine}
+                                            numberOfLines={1}
+                                        >
+                                            {checkInDateTime.date}
+                                        </Text>
+                                        <Text
+                                            style={styles.tileClockLine}
+                                            numberOfLines={1}
+                                        >
+                                            {checkInDateTime.time}
+                                        </Text>
+                                    </>
                                 )}
+                            </View>
+                            <Text style={styles.tileNote}>
+                                {attendance?.checkIn?.location || "Checked in"}
                             </Text>
-                            <Text style={styles.tileNote}>On Time</Text>
                         </View>
-                        <View style={styles.tileCard}>
+                        <View style={[styles.tileCard, halfTileCardStyle]}>
                             <View style={styles.tileIconWrap}>
                                 <Ionicons
                                     name="log-out-outline"
@@ -802,60 +1001,188 @@ export default function EmployeeDashboardScreen() {
                                 />
                             </View>
                             <Text style={styles.tileTitle}>Check Out</Text>
-                            <Text style={styles.tileTime}>
+                            <View style={styles.tileDateTimeBlock}>
                                 {attLoading || profileLoading ? (
                                     <SkeletonBlock
-                                        style={{ height: 18, width: 80 }}
+                                        style={{ height: 44, width: "88%" }}
                                     />
                                 ) : (
-                                    attendance?.checkOut?.time || "--:--"
+                                    <>
+                                        <Text
+                                            style={styles.tileDateLine}
+                                            numberOfLines={1}
+                                        >
+                                            {checkOutDateTime.date}
+                                        </Text>
+                                        <Text
+                                            style={styles.tileClockLine}
+                                            numberOfLines={1}
+                                        >
+                                            {checkOutDateTime.time}
+                                        </Text>
+                                    </>
                                 )}
+                            </View>
+                            <Text style={styles.tileNote}>
+                                {shouldResumeBreak
+                                    ? "Resume break first"
+                                    : isCheckedOut
+                                      ? attendance?.checkOut?.location ||
+                                        "Completed"
+                                      : "Go Home"}
                             </Text>
-                            <Text style={styles.tileNote}>Go Home</Text>
                         </View>
                     </View>
-                    <View style={styles.tilesRow}>
-                        <View style={styles.tileCard}>
-                            <View style={styles.tileIconWrap}>
-                                <Ionicons
-                                    name="cafe-outline"
-                                    size={16}
-                                    color="#F6C84C"
-                                />
-                            </View>
-                            <Text style={styles.tileTitle}>Break Time</Text>
-                            <Text style={styles.tileTime}>
-                                {profileLoading ? (
-                                    <SkeletonBlock
-                                        style={{ height: 18, width: 80 }}
+                    {shouldShowBreakTime ? (
+                        <View style={styles.tilesRow}>
+                            <View style={[styles.tileCard, halfTileCardStyle]}>
+                                <View style={styles.tileIconWrap}>
+                                    <Ionicons
+                                        name="cafe-outline"
+                                        size={16}
+                                        color="#F6C84C"
                                     />
-                                ) : (
-                                    "00:30 min"
-                                )}
-                            </Text>
-                            <Text style={styles.tileNote}>Avg Time 30 min</Text>
-                        </View>
-                        <View style={styles.tileCard}>
-                            <View style={styles.tileIconWrap}>
-                                <Ionicons
-                                    name="calendar-outline"
-                                    size={16}
-                                    color="#F6C84C"
-                                />
+                                </View>
+                                <Text style={styles.tileTitle}>Break Time</Text>
+                                <Text style={styles.tileTime}>
+                                    {profileLoading ? (
+                                        <SkeletonBlock
+                                            style={{ height: 18, width: 80 }}
+                                        />
+                                    ) : (
+                                        formatBreakMinutes(totalBreakMinutes)
+                                    )}
+                                </Text>
+                                <Text style={styles.tileNote}>
+                                    {isOnBreak
+                                        ? `Paused at ${formatAttendanceTime(activeBreakStartedAt)}`
+                                        : completedBreakCount > 0
+                                          ? `${completedBreakCount} break${completedBreakCount === 1 ? "" : "s"} logged`
+                                          : "No breaks logged yet"}
+                                </Text>
                             </View>
-                            <Text style={styles.tileTitle}>Total Days</Text>
-                            <Text style={styles.tileTime}>
-                                {profileLoading ? (
-                                    <SkeletonBlock
-                                        style={{ height: 18, width: 40 }}
+                            <View style={[styles.tileCard, halfTileCardStyle]}>
+                                <View style={styles.tileIconWrap}>
+                                    <Ionicons
+                                        name="calendar-outline"
+                                        size={16}
+                                        color="#F6C84C"
                                     />
-                                ) : (
-                                attendance?.totalWorkingDays
-                                )}
-                            </Text>
-                            <Text style={styles.tileNote}>Working Days</Text>
+                                </View>
+                                <Text style={styles.tileTitle}>Total Days</Text>
+                                <Text style={styles.tileTime}>
+                                    {profileLoading ? (
+                                        <SkeletonBlock
+                                            style={{ height: 18, width: 40 }}
+                                        />
+                                    ) : (
+                                        attendance?.totalWorkingDays ?? "--"
+                                    )}
+                                </Text>
+                                <Text style={styles.tileNote}>Working Days</Text>
+                            </View>
                         </View>
-                    </View>
+                    ) : (
+                        <View style={styles.singleTileRow}>
+                            <View style={[styles.tileCard, styles.tileCardFull]}>
+                                <View style={styles.tileIconWrap}>
+                                    <Ionicons
+                                        name="calendar-outline"
+                                        size={16}
+                                        color="#F6C84C"
+                                    />
+                                </View>
+                                <Text style={styles.tileTitle}>Total Days</Text>
+                                <Text style={styles.tileTime}>
+                                    {profileLoading ? (
+                                        <SkeletonBlock
+                                            style={{ height: 18, width: 40 }}
+                                        />
+                                    ) : (
+                                        attendance?.totalWorkingDays ?? "--"
+                                    )}
+                                </Text>
+                                <Text style={styles.tileNote}>Working Days</Text>
+                            </View>
+                        </View>
+                    )}
+
+                    {(isCheckedIn || shouldResumeBreak) && (
+                        <View style={styles.breakActionCard}>
+                            <View style={styles.breakActionHeader}>
+                                <View style={styles.breakActionIconWrap}>
+                                    <Ionicons
+                                        name={
+                                            shouldResumeBreak
+                                                ? "play-circle-outline"
+                                                : "pause-circle-outline"
+                                        }
+                                        size={18}
+                                        color="#D4A537"
+                                    />
+                                </View>
+                                <View style={styles.breakActionTextWrap}>
+                                    <Text style={styles.breakActionTitle}>
+                                        {shouldResumeBreak
+                                            ? "Break in progress"
+                                            : "Break controls"}
+                                    </Text>
+                                    <Text style={styles.breakActionSubtitle}>
+                                        {shouldResumeBreak
+                                            ? "Resume your break before checking out."
+                                            : "Pause time is tracked separately from your work hours."}
+                                    </Text>
+                                </View>
+                            </View>
+
+                            <Pressable
+                                style={[
+                                    styles.breakActionButton,
+                                    shouldResumeBreak
+                                        ? styles.breakResumeButton
+                                        : styles.breakPauseButton,
+                                    breakActionLoading &&
+                                        styles.breakActionButtonDisabled,
+                                ]}
+                                onPress={() =>
+                                    handleBreakAction(
+                                        shouldResumeBreak ? "resume" : "pause",
+                                    )
+                                }
+                                disabled={
+                                    breakActionLoading || punching || attLoading
+                                }
+                                accessibilityRole="button"
+                            >
+                                {breakActionLoading ? (
+                                    <ActivityIndicator color="#111827" />
+                                ) : (
+                                    <>
+                                        <Ionicons
+                                            name={shouldResumeBreak ? "play" : "pause"}
+                                            size={16}
+                                            color="#111827"
+                                        />
+                                        <Text
+                                            style={
+                                                styles.breakActionButtonText
+                                            }
+                                        >
+                                            {shouldResumeBreak
+                                                ? "Resume Break"
+                                                : "Pause Break"}
+                                        </Text>
+                                    </>
+                                )}
+                            </Pressable>
+
+                            <Text style={styles.breakActionHint}>
+                                {shouldResumeBreak
+                                    ? "Check-out stays locked until this break is resumed."
+                                    : "After resuming from break, swipe to check out as usual."}
+                            </Text>
+                        </View>
+                    )}
                 </View>
 
                 <Text style={styles.salaryCardTitle}>Salary Overview</Text>
@@ -1053,45 +1380,47 @@ export default function EmployeeDashboardScreen() {
                 {/* swipe placeholder removed (moved out of ScrollView for fixed positioning) */}
             </ScrollView>
 
-            <View
-                style={[
-                    styles.swipeFloatingWrap,
-                    { bottom: BOTTOM_BAR_BASE_HEIGHT + insets.bottom + 10 },
-                ]}
-                pointerEvents="box-none"
-            >
-                <View style={styles.swipeContainerFixed}>
-                    <View
-                        style={styles.swipeTrack}
-                        onLayout={(e) => {
-                            trackWidth.current = e.nativeEvent.layout.width;
-                        }}
-                    >
-                        <Text style={styles.swipeLabel}>
-                            {isCheckedIn
-                                ? "Swipe to Check Out"
-                                : "Swipe to Check In"}
-                        </Text>
-                        <Animated.View
-                            style={[
-                                styles.swipeHandle,
-                                { transform: [{ translateX: pan }] },
-                            ]}
-                            {...panResponder.panHandlers}
+            {shouldShowSwipePunch && (
+                <View
+                    style={[
+                        styles.swipeFloatingWrap,
+                        { bottom: BOTTOM_BAR_BASE_HEIGHT + insets.bottom + 10 },
+                    ]}
+                    pointerEvents="box-none"
+                >
+                    <View style={styles.swipeContainerFixed}>
+                        <View
+                            style={styles.swipeTrack}
+                            onLayout={(e) => {
+                                trackWidth.current = e.nativeEvent.layout.width;
+                            }}
                         >
-                            {punching || attLoading ? (
-                                <ActivityIndicator color="#F2C94C" />
-                            ) : (
-                                <Ionicons
-                                    name="arrow-forward"
-                                    size={20}
-                                    color="#F2C94C"
-                                />
-                            )}
-                        </Animated.View>
+                            <Text style={styles.swipeLabel}>
+                                {swipeLabel}
+                            </Text>
+                            <Animated.View
+                                style={[
+                                    styles.swipeHandle,
+                                    !canSwipePunch && styles.swipeHandleDisabled,
+                                    { transform: [{ translateX: pan }] },
+                                ]}
+                                pointerEvents={canSwipePunch ? "auto" : "none"}
+                                {...panResponder.panHandlers}
+                            >
+                                {punching || attLoading ? (
+                                    <ActivityIndicator color="#F2C94C" />
+                                ) : (
+                                    <Ionicons
+                                        name="arrow-forward"
+                                        size={20}
+                                        color="#F2C94C"
+                                    />
+                                )}
+                            </Animated.View>
+                        </View>
                     </View>
                 </View>
-            </View>
+            )}
 
             <View
                 style={[
@@ -1425,14 +1754,20 @@ const styles = StyleSheet.create({
     tilesRow: {
         flexDirection: "row",
         justifyContent: "space-between",
+        alignItems: "stretch",
         marginTop: 12,
         gap: 10,
     },
+    singleTileRow: {
+        marginTop: 12,
+    },
     tileCard: {
-        flex: 1,
+        minWidth: 0,
         backgroundColor: "#FFFFFF",
         borderRadius: 14,
-        padding: 12,
+        paddingHorizontal: 12,
+        paddingTop: 12,
+        paddingBottom: 14,
         borderWidth: 1,
         borderColor: "#F1F5F9",
         shadowColor: "#000",
@@ -1440,7 +1775,11 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 4 },
         position: "relative",
-        minHeight: 128,
+        minHeight: 136,
+    },
+    tileCardFull: {
+        flex: undefined,
+        width: "100%",
     },
     tileTitle: {
         color: "#9CA3AF",
@@ -1455,12 +1794,33 @@ const styles = StyleSheet.create({
         marginTop: 6,
         lineHeight: 24,
         minHeight: 48,
-        paddingRight: 18,
+        paddingRight: 40,
+    },
+    tileDateTimeBlock: {
+        marginTop: 6,
+        minHeight: 60,
+        justifyContent: "center",
+        paddingRight: 40,
+    },
+    tileDateLine: {
+        fontSize: 11,
+        lineHeight: 16,
+        color: "#6B7280",
+        letterSpacing: 0.3,
+    },
+    tileClockLine: {
+        marginTop: 2,
+        fontSize: 17,
+        lineHeight: 22,
+        fontWeight: "700",
+        color: "#111827",
     },
     tileNote: {
         color: "#6B7280",
         fontSize: 12,
         marginTop: 4,
+        lineHeight: 18,
+        minHeight: 36,
     },
     swipeWrap: {
         marginTop: 16,
@@ -1788,6 +2148,75 @@ const styles = StyleSheet.create({
         fontSize: 12,
         paddingVertical: 8,
     },
+    breakActionCard: {
+        marginTop: 14,
+        backgroundColor: "#FFFFFF",
+        borderRadius: 16,
+        padding: 14,
+        borderWidth: 1,
+        borderColor: "#F3E9D4",
+        shadowColor: "#000",
+        shadowOpacity: 0.03,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+        gap: 12,
+    },
+    breakActionHeader: {
+        flexDirection: "row",
+        alignItems: "flex-start",
+        gap: 10,
+    },
+    breakActionIconWrap: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#FEF8EF",
+        borderWidth: 1,
+        borderColor: "#F8EFD6",
+    },
+    breakActionTextWrap: {
+        flex: 1,
+        gap: 2,
+    },
+    breakActionTitle: {
+        fontSize: 15,
+        fontWeight: "700",
+        color: "#111827",
+    },
+    breakActionSubtitle: {
+        fontSize: 13,
+        color: "#6B7280",
+        lineHeight: 18,
+    },
+    breakActionButton: {
+        minHeight: 46,
+        borderRadius: 12,
+        alignItems: "center",
+        justifyContent: "center",
+        flexDirection: "row",
+        gap: 8,
+    },
+    breakPauseButton: {
+        backgroundColor: "#F8D99A",
+    },
+    breakResumeButton: {
+        backgroundColor: "#F6C84C",
+    },
+    breakActionButtonDisabled: {
+        opacity: 0.6,
+    },
+    breakActionButtonText: {
+        color: "#111827",
+        fontWeight: "700",
+        fontSize: 14,
+    },
+    breakActionHint: {
+        fontSize: 12,
+        color: "#6B7280",
+        lineHeight: 18,
+    },
     /* Swipe track styles */
     swipeContainer: {
         margin: 20,
@@ -1829,6 +2258,9 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.06,
         shadowRadius: 10,
         shadowOffset: { width: 0, height: 6 },
+    },
+    swipeHandleDisabled: {
+        opacity: 0.55,
     },
 
     /* fixed swipe wrapper above bottom bar */
