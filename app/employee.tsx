@@ -1,4 +1,5 @@
 import SkeletonBlock from "@/components/SkeletonBlock";
+import { useCheckInLocation } from "@/components/check-in-location";
 import { CACHE_TTL } from "@/constants/cache";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -12,6 +13,7 @@ import {
     fetchAttendance,
     pauseAttendance,
     resumeAttendance,
+    sanitizeAttendanceRecord,
 
     type AttendanceRecord,
 } from "@/services/attendance";
@@ -72,6 +74,7 @@ interface PayslipEntry {
 
 export default function EmployeeDashboardScreen() {
     const { user, isLoading } = useAuth();
+    const { getCheckInLocation, isGettingLocation } = useCheckInLocation();
     const insets = useSafeAreaInsets();
     const { width: windowWidth } = useWindowDimensions();
     const BOTTOM_BAR_BASE_HEIGHT = 76;
@@ -188,10 +191,11 @@ export default function EmployeeDashboardScreen() {
     };
 
     const persistAttendance = (next: AttendanceRecord | null) => {
-        setAttendance(next);
+        const sanitized = sanitizeAttendanceRecord(next);
+        setAttendance(sanitized);
         setCachedData(
             EMPLOYEE_ATTENDANCE_CACHE_KEY,
-            next,
+            sanitized,
             CACHE_TTL.ATTENDANCE,
         );
     };
@@ -656,6 +660,8 @@ export default function EmployeeDashboardScreen() {
                     checkIn: attendance?.checkIn || res.checkIn || null,
                 });
             } else {
+                const location = await getCheckInLocation();
+
                 // Request camera permission and launch camera to take a check-in photo
                 const permission =
                     await ImagePicker.requestCameraPermissionsAsync();
@@ -698,7 +704,7 @@ export default function EmployeeDashboardScreen() {
 
                 const image = { uri: localUri, name: filename, type: mime };
 
-                const res = await checkIn(image);
+                const res = await checkIn(image, location);
                 persistAttendance({
                     ...attendance,
                     ...res,
@@ -1396,7 +1402,9 @@ export default function EmployeeDashboardScreen() {
                             }}
                         >
                             <Text style={styles.swipeLabel}>
-                                {swipeLabel}
+                                {isGettingLocation
+                                    ? "Getting location..."
+                                    : swipeLabel}
                             </Text>
                             <Animated.View
                                 style={[

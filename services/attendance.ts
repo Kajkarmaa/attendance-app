@@ -1,6 +1,30 @@
 import { logger } from "@/utils/logger";
 import apiClient from "./api";
 
+export interface CheckInLocationPayload {
+    locationLat: number;
+    locationLng: number;
+    locationCity: string;
+    locationState: string;
+}
+
+type AttendanceLocationInput =
+    | string
+    | {
+          lat?: number | string;
+          lng?: number | string;
+          city?: string;
+          state?: string;
+          locationLat?: number | string;
+          locationLng?: number | string;
+          locationCity?: string;
+          locationState?: string;
+          latitude?: number | string;
+          longitude?: number | string;
+      }
+    | null
+    | undefined;
+
 export interface AttendanceRecord {
     id?: string;
     date?: string;
@@ -41,7 +65,7 @@ interface CheckInApiData {
         type: "check_in";
         checkInTime: string;
         timezone?: string;
-        location?: string;
+        location?: AttendanceLocationInput;
     };
     employee?: { employeeId?: string };
 }
@@ -51,7 +75,7 @@ interface CheckOutApiData {
         type: "check_out";
         checkOutTime: string;
         timezone?: string;
-        location?: string;
+        location?: AttendanceLocationInput;
         workHours?: number;
     };
     employee?: { employeeId?: string };
@@ -62,11 +86,11 @@ interface AttendanceApiData {
     date?: string;
     checkIn?: {
         time: string;
-        location?: string;
+        location?: AttendanceLocationInput;
     };
     checkOut?: {
         time: string;
-        location?: string;
+        location?: AttendanceLocationInput;
     };
     workHours?: number;
     status?: string;
@@ -89,11 +113,11 @@ interface BreakActionApiData {
     date?: string;
     checkIn?: {
         time: string;
-        location?: string;
+        location?: AttendanceLocationInput;
     };
     checkOut?: {
         time: string;
-        location?: string;
+        location?: AttendanceLocationInput;
     };
     workHours?: number;
     status?: string;
@@ -101,6 +125,75 @@ interface BreakActionApiData {
     totalWorkingDays?: number;
     breakInfo?: AttendanceApiData["breakInfo"];
 }
+
+const normalizeLocation = (
+    location?: AttendanceLocationInput,
+): string | undefined => {
+    if (!location) {
+        return undefined;
+    }
+
+    if (typeof location === "string") {
+        const trimmed = location.trim();
+        return trimmed || undefined;
+    }
+
+    const city =
+        typeof location.city === "string"
+            ? location.city.trim()
+            : typeof location.locationCity === "string"
+              ? location.locationCity.trim()
+              : "";
+    const state =
+        typeof location.state === "string"
+            ? location.state.trim()
+            : typeof location.locationState === "string"
+              ? location.locationState.trim()
+              : "";
+
+    const label = [city, state].filter(Boolean).join(", ");
+    if (label) {
+        return label;
+    }
+
+    const lat =
+        location.lat ?? location.locationLat ?? location.latitude ?? undefined;
+    const lng =
+        location.lng ?? location.locationLng ?? location.longitude ?? undefined;
+
+    if (lat !== undefined && lng !== undefined) {
+        return `${lat}, ${lng}`;
+    }
+
+    return undefined;
+};
+
+const normalizeCheckpoint = <T extends { time: string; location?: AttendanceLocationInput }>(
+    checkpoint?: T | null,
+): { time: string; location?: string } | null => {
+    if (!checkpoint) {
+        return null;
+    }
+
+    return {
+        time: checkpoint.time,
+        location: normalizeLocation(checkpoint.location),
+    };
+};
+
+export const sanitizeAttendanceRecord = (
+    record?: AttendanceRecord | null,
+): AttendanceRecord | null => {
+    if (!record) {
+        return null;
+    }
+
+    return {
+        ...record,
+        checkIn: normalizeCheckpoint(record.checkIn),
+        checkOut: normalizeCheckpoint(record.checkOut),
+    };
+};
 
 const normalizeFromCheck = (payload: CheckInApiData | CheckOutApiData): AttendanceRecord => {
     const entry = payload.attendance;
@@ -110,7 +203,7 @@ const normalizeFromCheck = (payload: CheckInApiData | CheckOutApiData): Attendan
         return {
             checkIn: {
                 time: entry.checkInTime,
-                location: (entry as any).location,
+                location: normalizeLocation((entry as any).location),
             },
             checkOut: null,
             timezone: entry.timezone,
@@ -124,7 +217,7 @@ const normalizeFromCheck = (payload: CheckInApiData | CheckOutApiData): Attendan
         checkIn: null,
         checkOut: {
             time: outEntry.checkOutTime,
-            location: outEntry.location,
+            location: normalizeLocation(outEntry.location),
         },
         timezone: outEntry.timezone,
         workHours: outEntry.workHours,
@@ -136,8 +229,8 @@ const normalizeFromCheck = (payload: CheckInApiData | CheckOutApiData): Attendan
 const normalizeFromAttendance = (payload: AttendanceApiData): AttendanceRecord => ({
     id: payload.id,
     date: payload.date,
-    checkIn: payload.checkIn ?? null,
-    checkOut: payload.checkOut ?? null,
+    checkIn: normalizeCheckpoint(payload.checkIn),
+    checkOut: normalizeCheckpoint(payload.checkOut),
     workHours: payload.workHours,
     status: payload.status,
     timezone: payload.timezone,
@@ -155,8 +248,8 @@ const normalizeBreakAction = (payload: BreakActionApiData): AttendanceRecord => 
     return {
         id: source.id,
         date: source.date,
-        checkIn: source.checkIn,
-        checkOut: source.checkOut,
+        checkIn: normalizeCheckpoint(source.checkIn),
+        checkOut: normalizeCheckpoint(source.checkOut),
         workHours: source.workHours,
         status: source.status,
         timezone: source.timezone,
@@ -173,18 +266,31 @@ const normalizeBreakAction = (payload: BreakActionApiData): AttendanceRecord => 
     };
 };
 
-export async function checkIn(image?: { uri: string; name?: string; type?: string } | null): Promise<AttendanceRecord> {
-    if (image) {
+export async function checkIn(
+    image?: { uri: string; name?: string; type?: string } | null,
+    location?: CheckInLocationPayload | null,
+): Promise<AttendanceRecord> {
+    if (image || location) {
         const form = new FormData();
-        form.append(
-            "image",
-            // React Native / Expo expects an object with uri, name and type
-            {
-                uri: image.uri,
-                name: image.name ?? "photo.jpg",
-                type: image.type ?? "image/jpeg",
-            } as any,
-        );
+
+        if (image) {
+            form.append(
+                "image",
+                // React Native / Expo expects an object with uri, name and type
+                {
+                    uri: image.uri,
+                    name: image.name ?? "photo.jpg",
+                    type: image.type ?? "image/jpeg",
+                } as any,
+            );
+        }
+
+        if (location) {
+            form.append("locationLat", String(location.locationLat));
+            form.append("locationLng", String(location.locationLng));
+            form.append("locationCity", location.locationCity);
+            form.append("locationState", location.locationState);
+        }
 
         const response = await apiClient.post<ApiEnvelope<CheckInApiData>>("/employees/check-in", form, {
             headers: { "Content-Type": "multipart/form-data" },
