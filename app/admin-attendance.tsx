@@ -14,7 +14,6 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
-import MapView, { Marker } from "react-native-maps";
 import {
     ActivityIndicator,
     Alert,
@@ -29,6 +28,7 @@ import {
     Text,
     View,
 } from "react-native";
+import MapView, { Marker } from "react-native-maps";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 
