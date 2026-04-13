@@ -8,6 +8,14 @@ export interface CheckInLocationPayload {
     locationState: string;
 }
 
+export interface AttendanceLocation {
+    latitude?: number;
+    longitude?: number;
+    city?: string;
+    state?: string;
+    label?: string;
+}
+
 type AttendanceLocationInput =
     | string
     | {
@@ -129,13 +137,34 @@ interface BreakActionApiData {
 const normalizeLocation = (
     location?: AttendanceLocationInput,
 ): string | undefined => {
+    return parseAttendanceLocation(location)?.label;
+};
+
+const toCoordinate = (value?: number | string): number | undefined => {
+    if (typeof value === "number" && Number.isFinite(value)) {
+        return value;
+    }
+
+    if (typeof value === "string") {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed)) {
+            return parsed;
+        }
+    }
+
+    return undefined;
+};
+
+export const parseAttendanceLocation = (
+    location?: AttendanceLocationInput,
+): AttendanceLocation | null => {
     if (!location) {
-        return undefined;
+        return null;
     }
 
     if (typeof location === "string") {
         const trimmed = location.trim();
-        return trimmed || undefined;
+        return trimmed ? { label: trimmed } : null;
     }
 
     const city =
@@ -143,29 +172,38 @@ const normalizeLocation = (
             ? location.city.trim()
             : typeof location.locationCity === "string"
               ? location.locationCity.trim()
-              : "";
+              : undefined;
     const state =
         typeof location.state === "string"
             ? location.state.trim()
             : typeof location.locationState === "string"
               ? location.locationState.trim()
-              : "";
+              : undefined;
+    const latitude =
+        toCoordinate(location.lat) ??
+        toCoordinate(location.locationLat) ??
+        toCoordinate(location.latitude);
+    const longitude =
+        toCoordinate(location.lng) ??
+        toCoordinate(location.locationLng) ??
+        toCoordinate(location.longitude);
 
     const label = [city, state].filter(Boolean).join(", ");
-    if (label) {
-        return label;
+    if (!label && latitude === undefined && longitude === undefined) {
+        return null;
     }
 
-    const lat =
-        location.lat ?? location.locationLat ?? location.latitude ?? undefined;
-    const lng =
-        location.lng ?? location.locationLng ?? location.longitude ?? undefined;
-
-    if (lat !== undefined && lng !== undefined) {
-        return `${lat}, ${lng}`;
-    }
-
-    return undefined;
+    return {
+        latitude,
+        longitude,
+        city,
+        state,
+        label:
+            label ||
+            (latitude !== undefined && longitude !== undefined
+                ? `${latitude}, ${longitude}`
+                : undefined),
+    };
 };
 
 const normalizeCheckpoint = <T extends { time: string; location?: AttendanceLocationInput }>(
@@ -329,14 +367,31 @@ export interface TodayAttendanceItem {
     email?: string;
     department?: string;
     checkInTime?: string;
+    checkOutTime?: string | null;
     hasCheckInImage?: boolean;
     status?: string;
+    location?: AttendanceLocation | null;
+}
+
+interface TodayAttendanceApiItem {
+    employeeId: string;
+    name: string;
+    email?: string;
+    department?: string;
+    checkInTime?: string;
+    checkOutTime?: string | null;
+    hasCheckInImage?: boolean;
+    status?: string;
+    location?: AttendanceLocationInput;
 }
 
 export async function fetchTodayAttendance(status?: string): Promise<TodayAttendanceItem[]> {
     const url = status ? `/attendance/today?status=${encodeURIComponent(status)}` : "/attendance/today";
-    const response = await apiClient.get<ApiEnvelope<TodayAttendanceItem[]>>(url);
-    return response.data.data || [];
+    const response = await apiClient.get<ApiEnvelope<TodayAttendanceApiItem[]>>(url);
+    return (response.data.data || []).map((item) => ({
+        ...item,
+        location: parseAttendanceLocation(item.location),
+    }));
 }
 
 export async function fetchCheckinImageUrl(employeeId: string): Promise<string | null> {
@@ -355,13 +410,30 @@ export interface EmployeeAttendanceImageResponse {
     attendanceId?: string;
     imageUrl?: string;
     checkInTime?: string;
+    location?: AttendanceLocation | null;
+}
+
+interface EmployeeAttendanceImageApiResponse {
+    employeeId: string;
+    attendanceId?: string;
+    imageUrl?: string;
+    checkInTime?: string;
+    location?: AttendanceLocationInput;
 }
 
 export async function fetchEmployeeAttendanceImage(employeeId: string): Promise<EmployeeAttendanceImageResponse | null> {
     try {
         const url = `/attendance/employee/${encodeURIComponent(employeeId)}/image`;
-        const response = await apiClient.get<ApiEnvelope<EmployeeAttendanceImageResponse>>(url);
-        return response.data?.data ?? null;
+        const response = await apiClient.get<ApiEnvelope<EmployeeAttendanceImageApiResponse>>(url);
+        const data = response.data?.data;
+        if (!data) {
+            return null;
+        }
+
+        return {
+            ...data,
+            location: parseAttendanceLocation(data.location),
+        };
     } catch (err) {
         logger.warn("fetchEmployeeAttendanceImage failed", err);
         return null;

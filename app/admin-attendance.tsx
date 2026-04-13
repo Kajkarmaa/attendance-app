@@ -2,6 +2,7 @@ import SkeletonBlock from "@/components/SkeletonBlock";
 import { CACHE_TTL } from "@/constants/cache";
 import { useAuth } from "@/contexts/AuthContext";
 import {
+    AttendanceLocation,
     fetchCheckinImageUrl,
     fetchEmployeeAttendanceImage,
     fetchTodayAttendance,
@@ -10,13 +11,16 @@ import {
 import { getCachedData, setCachedData } from "@/stores/cacheStore";
 import { logger } from "@/utils/logger";
 import { Ionicons } from "@expo/vector-icons";
+import * as Location from "expo-location";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
+import MapView, { Marker } from "react-native-maps";
 import {
     ActivityIndicator,
     Alert,
     FlatList,
     Image,
+    Linking,
     Modal,
     Pressable,
     RefreshControl,
@@ -45,7 +49,11 @@ export default function AdminAttendanceScreen() {
         attendanceId?: string;
         imageUrl?: string | null;
         checkInTime?: string | null;
+        location?: AttendanceLocation | null;
     } | null>(null);
+    const [viewerLocation, setViewerLocation] = useState<AttendanceLocation | null>(null);
+    const [viewerLocationLoading, setViewerLocationLoading] = useState(false);
+    const [viewerLocationError, setViewerLocationError] = useState<string | null>(null);
 
     useEffect(() => {
         if (!isLoading && user && user.role !== "emp") {
@@ -58,6 +66,135 @@ export default function AdminAttendanceScreen() {
         const parts = name.trim().split(/\s+/);
         if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
         return (parts[0][0] + (parts[1][0] ?? '')).slice(0, 2).toUpperCase();
+    };
+
+    const getLocationLabel = (location?: AttendanceLocation | null) => {
+        if (!location) {
+            return "No location data available";
+        }
+
+        if (location.label) {
+            return location.label;
+        }
+
+        if (
+            typeof location.latitude === "number" &&
+            typeof location.longitude === "number"
+        ) {
+            return `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`;
+        }
+
+        return "No location data available";
+    };
+
+    const getRegionFromLocation = (location?: AttendanceLocation | null) => {
+        if (
+            typeof location?.latitude !== "number" ||
+            typeof location?.longitude !== "number"
+        ) {
+            return null;
+        }
+
+        return {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+        };
+    };
+
+    const getDistanceKm = (
+        from?: AttendanceLocation | null,
+        to?: AttendanceLocation | null,
+    ) => {
+        if (
+            typeof from?.latitude !== "number" ||
+            typeof from?.longitude !== "number" ||
+            typeof to?.latitude !== "number" ||
+            typeof to?.longitude !== "number"
+        ) {
+            return null;
+        }
+
+        const toRadians = (value: number) => (value * Math.PI) / 180;
+        const earthRadiusKm = 6371;
+        const deltaLat = toRadians(to.latitude - from.latitude);
+        const deltaLng = toRadians(to.longitude - from.longitude);
+        const a =
+            Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+            Math.cos(toRadians(from.latitude)) *
+                Math.cos(toRadians(to.latitude)) *
+                Math.sin(deltaLng / 2) *
+                Math.sin(deltaLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return earthRadiusKm * c;
+    };
+
+    const loadViewerLocation = async () => {
+        setViewerLocationLoading(true);
+        setViewerLocationError(null);
+
+        try {
+            const permission = await Location.requestForegroundPermissionsAsync();
+            if (permission.status !== "granted") {
+                setViewerLocation(null);
+                setViewerLocationError("Admin location permission was denied.");
+                return;
+            }
+
+            const current = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Balanced,
+            });
+            const latitude = current.coords.latitude;
+            const longitude = current.coords.longitude;
+            const [address] = await Location.reverseGeocodeAsync({
+                latitude,
+                longitude,
+            });
+            const city =
+                address?.city ||
+                address?.subregion ||
+                address?.district ||
+                undefined;
+            const state = address?.region || undefined;
+
+            setViewerLocation({
+                latitude,
+                longitude,
+                city,
+                state,
+                label: [city, state].filter(Boolean).join(", ") || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
+            });
+        } catch (error) {
+            logger.warn("fetch admin location failed", error);
+            setViewerLocation(null);
+            setViewerLocationError("Unable to get admin location.");
+        } finally {
+            setViewerLocationLoading(false);
+        }
+    };
+
+    const openLocationInMaps = async (location?: AttendanceLocation | null) => {
+        if (
+            typeof location?.latitude !== "number" ||
+            typeof location?.longitude !== "number"
+        ) {
+            Alert.alert("Location unavailable", "This employee has no location data.");
+            return;
+        }
+
+        const query = encodeURIComponent(
+            `${location.latitude},${location.longitude}`,
+        );
+        const url = `https://www.google.com/maps/search/?api=1&query=${query}`;
+        const canOpen = await Linking.canOpenURL(url);
+        if (!canOpen) {
+            Alert.alert("Unable to open maps", "No maps application is available.");
+            return;
+        }
+
+        await Linking.openURL(url);
     };
 
     const load = async (force: boolean = false) => {
@@ -205,8 +342,14 @@ export default function AdminAttendanceScreen() {
         }, [item.employeeId, item.hasCheckInImage]);
 
         const openModal = async () => {
-            setModalContent({ employeeId: item.employeeId, name: item.name });
+            setModalContent({
+                employeeId: item.employeeId,
+                name: item.name,
+                checkInTime: item.checkInTime ?? null,
+                location: item.location ?? null,
+            });
             setModalVisible(true);
+            loadViewerLocation();
             try {
                 const modalImageKey =
                     `admin:attendance:image-detail:${item.employeeId}`;
@@ -214,6 +357,7 @@ export default function AdminAttendanceScreen() {
                     attendanceId?: string;
                     imageUrl?: string | null;
                     checkInTime?: string | null;
+                    location?: AttendanceLocation | null;
                 }>(modalImageKey);
                 if (cachedDetails) {
                     setModalContent((prev) => {
@@ -224,6 +368,7 @@ export default function AdminAttendanceScreen() {
                             attendanceId: cachedDetails.attendanceId,
                             imageUrl: cachedDetails.imageUrl ?? null,
                             checkInTime: cachedDetails.checkInTime ?? null,
+                            location: cachedDetails.location ?? prev.location ?? null,
                         };
                     });
                     return;
@@ -236,6 +381,7 @@ export default function AdminAttendanceScreen() {
                     attendanceId: data?.attendanceId,
                     imageUrl: data?.imageUrl ?? null,
                     checkInTime: data?.checkInTime ?? null,
+                    location: data?.location ?? item.location ?? null,
                 }, CACHE_TTL.IMAGE);
                 setModalContent((prev) => {
                     if (!prev) return null;
@@ -245,6 +391,7 @@ export default function AdminAttendanceScreen() {
                         attendanceId: data?.attendanceId,
                         imageUrl: data?.imageUrl ?? null,
                         checkInTime: data?.checkInTime ?? null,
+                        location: data?.location ?? prev.location ?? item.location ?? null,
                     };
                 });
             } catch (err) {
@@ -301,7 +448,14 @@ export default function AdminAttendanceScreen() {
     const closeModal = () => {
         setModalVisible(false);
         setModalContent(null);
+        setViewerLocation(null);
+        setViewerLocationError(null);
     };
+
+    const employeeRegion = getRegionFromLocation(modalContent?.location);
+    const viewerRegion = getRegionFromLocation(viewerLocation);
+    const activeRegion = employeeRegion ?? viewerRegion;
+    const distanceKm = getDistanceKm(viewerLocation, modalContent?.location);
 
     return (
         <SafeAreaView style={styles.container}>
@@ -436,53 +590,145 @@ export default function AdminAttendanceScreen() {
                 animationType="fade"
                 onRequestClose={closeModal}
             >
-                <Pressable style={styles.modalOverlay} onPress={closeModal}>
-                    <View style={styles.modalCard}>
-                        {modalContent?.imageUrl ? (
-                            <Image
-                                source={{ uri: modalContent.imageUrl }}
-                                style={styles.modalImage}
-                                resizeMode="contain"
-                            />
-                        ) : (
-                            <View style={styles.modalPlaceholder}>
-                                <Ionicons
-                                    name="image"
-                                    size={48}
-                                    color="#9CA3AF"
-                                />
-                                <Text style={styles.modalNoImage}>
-                                    No image available
+                <View
+                    style={[
+                        styles.modalOverlay,
+                        {
+                            paddingTop: Math.max(insets.top, 16),
+                            paddingBottom: Math.max(insets.bottom, 16),
+                        },
+                    ]}
+                >
+                    <Pressable style={styles.modalBackdrop} onPress={closeModal} />
+                    <View style={styles.modalShell} pointerEvents="box-none">
+                        <View style={styles.modalCard}>
+                        <View style={styles.modalHeader}>
+                            <View style={styles.modalHandle} />
+                            <View style={styles.modalHeaderRow}>
+                                <Text style={styles.modalHeaderTitle}>
+                                    Employee Attendance
                                 </Text>
+                                <Pressable
+                                    style={styles.modalHeaderClose}
+                                    onPress={closeModal}
+                                >
+                                    <Ionicons
+                                        name="close"
+                                        size={18}
+                                        color="#111827"
+                                    />
+                                </Pressable>
                             </View>
-                        )}
-                        <Text style={styles.modalName}>
-                            {modalContent?.name}
-                        </Text>
-                        <Text style={styles.modalMeta}>
-                            ID: {modalContent?.employeeId}
-                        </Text>
-                        {modalContent?.attendanceId ? (
-                            <Text style={styles.modalMeta}>
-                                Attendance: {modalContent.attendanceId}
-                            </Text>
-                        ) : null}
-                        {modalContent?.checkInTime ? (
-                            <Text style={styles.modalMeta}>
-                                Time:{" "}
-                                {new Date(
-                                    modalContent.checkInTime,
-                                ).toLocaleString()}
-                            </Text>
-                        ) : null}
-                        <Pressable
-                            style={styles.modalClose}
-                            onPress={closeModal}
+                        </View>
+                        <ScrollView
+                            style={styles.modalScroll}
+                            contentContainerStyle={styles.modalScrollContent}
+                            showsVerticalScrollIndicator={false}
+                            bounces={false}
+                            alwaysBounceVertical={false}
+                            overScrollMode="never"
+                            nestedScrollEnabled
+                            keyboardShouldPersistTaps="handled"
+                            scrollEventThrottle={16}
                         >
-                            <Text style={styles.modalCloseText}>Close</Text>
-                        </Pressable>
+                            <View style={styles.locationBlock}>
+                                <Text style={styles.locationHeading}>Employee Location</Text>
+                                <Text style={styles.locationText}>
+                                    {getLocationLabel(modalContent?.location)}
+                                </Text>
+                                {viewerLocationLoading ? (
+                                    <Text style={styles.locationHint}>Getting admin location...</Text>
+                                ) : viewerLocation ? (
+                                    <Text style={styles.locationHint}>
+                                        Your location: {getLocationLabel(viewerLocation)}
+                                    </Text>
+                                ) : viewerLocationError ? (
+                                    <Text style={styles.locationHint}>{viewerLocationError}</Text>
+                                ) : null}
+                                {distanceKm !== null ? (
+                                    <Text style={styles.locationHint}>
+                                        Distance from you: {distanceKm.toFixed(2)} km
+                                    </Text>
+                                ) : null}
+                            </View>
+                            {activeRegion ? (
+                                <MapView style={styles.modalMap} region={activeRegion}>
+                                    {employeeRegion ? (
+                                        <Marker
+                                            coordinate={{
+                                                latitude: employeeRegion.latitude,
+                                                longitude: employeeRegion.longitude,
+                                            }}
+                                            title={modalContent?.name || "Employee"}
+                                            description={getLocationLabel(modalContent?.location)}
+                                            pinColor="#D4A537"
+                                        />
+                                    ) : null}
+                                    {viewerRegion ? (
+                                        <Marker
+                                            coordinate={{
+                                                latitude: viewerRegion.latitude,
+                                                longitude: viewerRegion.longitude,
+                                            }}
+                                            title="You"
+                                            description={getLocationLabel(viewerLocation)}
+                                            pinColor="#2563EB"
+                                        />
+                                    ) : null}
+                                </MapView>
+                            ) : (
+                                <View style={styles.modalMapEmpty}>
+                                    <Ionicons name="location-outline" size={28} color="#9CA3AF" />
+                                    <Text style={styles.modalNoImage}>No location data available</Text>
+                                </View>
+                            )}
+                            <Pressable
+                                style={styles.locationAction}
+                                onPress={() => openLocationInMaps(modalContent?.location)}
+                            >
+                                <Text style={styles.locationActionText}>Open Employee Location</Text>
+                            </Pressable>
+                            {modalContent?.imageUrl ? (
+                                <Image
+                                    source={{ uri: modalContent.imageUrl }}
+                                    style={styles.modalImage}
+                                    resizeMode="contain"
+                                />
+                            ) : (
+                                <View style={styles.modalPlaceholder}>
+                                    <Ionicons
+                                        name="image"
+                                        size={48}
+                                        color="#9CA3AF"
+                                    />
+                                    <Text style={styles.modalNoImage}>
+                                        No image available
+                                    </Text>
+                                </View>
+                            )}
+                            <Text style={styles.modalName}>
+                                {modalContent?.name}
+                            </Text>
+                            <Text style={styles.modalMeta}>
+                                ID: {modalContent?.employeeId}
+                            </Text>
+                            {modalContent?.attendanceId ? (
+                                <Text style={styles.modalMeta}>
+                                    Attendance: {modalContent.attendanceId}
+                                </Text>
+                            ) : null}
+                            {modalContent?.checkInTime ? (
+                                <Text style={styles.modalMeta}>
+                                    Time:{" "}
+                                    {new Date(
+                                        modalContent.checkInTime,
+                                    ).toLocaleString()}
+                                </Text>
+                            ) : null}
+                        </ScrollView>
+                        </View>
                     </View>
-                </Pressable>
+                </View>
             </Modal>
         </SafeAreaView>
     );
@@ -608,18 +854,120 @@ const styles = StyleSheet.create({
     cardRight: { alignItems: "flex-end", minWidth: 100 },
     approvedLabel: { color: "#D4A537", fontWeight: "700", fontSize: 12 },
     approvedDate: { color: "#D4A537", fontWeight: "700", marginTop: 6 },
+    locationBlock: {
+        width: "100%",
+        backgroundColor: "#F8FAFC",
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 12,
+    },
+    locationHeading: {
+        color: "#111827",
+        fontWeight: "700",
+        marginBottom: 6,
+    },
+    locationText: {
+        color: "#1F2937",
+        fontSize: 13,
+        lineHeight: 18,
+    },
+    locationHint: {
+        color: "#6B7280",
+        fontSize: 12,
+        marginTop: 6,
+    },
+    modalMap: {
+        width: "100%",
+        height: 220,
+        borderRadius: 12,
+        marginBottom: 12,
+    },
+    modalMapEmpty: {
+        width: "100%",
+        height: 120,
+        borderRadius: 12,
+        backgroundColor: "#F8FAFC",
+        justifyContent: "center",
+        alignItems: "center",
+        marginBottom: 12,
+    },
+    locationAction: {
+        width: "100%",
+        backgroundColor: "#EFF6FF",
+        borderRadius: 10,
+        paddingVertical: 10,
+        alignItems: "center",
+        marginBottom: 12,
+    },
+    locationActionText: {
+        color: "#1D4ED8",
+        fontWeight: "700",
+    },
     modalOverlay: {
         flex: 1,
         justifyContent: "center",
         alignItems: "center",
         backgroundColor: "rgba(0,0,0,0.5)",
+        paddingHorizontal: 16,
+    },
+    modalBackdrop: {
+        ...StyleSheet.absoluteFillObject,
+    },
+    modalShell: {
+        width: "100%",
+        flex: 1,
+        justifyContent: "center",
     },
     modalCard: {
-        width: "90%",
+        width: "100%",
+        maxHeight: "92%",
+        alignSelf: "center",
         backgroundColor: "#FFF",
-        borderRadius: 12,
+        borderRadius: 16,
+        overflow: "hidden",
+    },
+    modalHeader: {
+        paddingTop: 10,
+        paddingHorizontal: 16,
+        paddingBottom: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: "#EEF2F7",
+        backgroundColor: "#FFFFFF",
+    },
+    modalHandle: {
+        alignSelf: "center",
+        width: 42,
+        height: 4,
+        borderRadius: 999,
+        backgroundColor: "#D1D5DB",
+        marginBottom: 12,
+    },
+    modalHeaderRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+    },
+    modalHeaderTitle: {
+        color: "#111827",
+        fontSize: 16,
+        fontWeight: "700",
+    },
+    modalHeaderClose: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: "#F3F4F6",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    modalScroll: {
+        width: "100%",
+    },
+    modalScrollContent: {
         padding: 16,
         alignItems: "center",
+        paddingBottom: 24,
+        flexGrow: 1,
     },
     modalImage: {
         width: "100%",
@@ -638,14 +986,6 @@ const styles = StyleSheet.create({
     modalNoImage: { color: "#6B7280", marginTop: 8 },
     modalName: { fontWeight: "700", marginTop: 12, color: "#111827" },
     modalMeta: { color: "#6B7280", marginTop: 6 },
-    modalClose: {
-        marginTop: 12,
-        backgroundColor: "#D4A537",
-        paddingVertical: 8,
-        paddingHorizontal: 20,
-        borderRadius: 8,
-    },
-    modalCloseText: { color: "#111827", fontWeight: "700" },
     backBtn: {
         height: 38,
         width: 38,
