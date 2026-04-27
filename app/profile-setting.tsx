@@ -1113,7 +1113,7 @@ const styles = StyleSheet.create({
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#F8FAFC",
+        backgroundColor: "white",
     },
-    avatarInitials: { fontSize: 40, fontWeight: "800", color: "#111827" },
+    avatarInitials: { fontSize: 40, fontWeight: "800", color: "#111827" ,},
 });

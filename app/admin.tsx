@@ -702,7 +702,22 @@ export default function HomeScreen() {
                 </View>
             </View>
 
-            <View style={styles.statsWrapper}>
+
+            <ScrollView
+                style={styles.flex}
+                contentContainerStyle={[
+                    styles.listContent,
+                    { paddingBottom: 200 + insets.bottom },
+                ]}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={["#D4A537"]}
+                    />
+                }
+            >
+                            <View style={styles.statsWrapper}>
                 <View style={styles.statsCard}>
                     <View style={styles.statsHeader}>
                         <Text style={styles.statsTitle}>
@@ -796,21 +811,6 @@ export default function HomeScreen() {
                     </View>
                 </View>
             </View>
-
-            <ScrollView
-                style={styles.flex}
-                contentContainerStyle={[
-                    styles.listContent,
-                    { paddingBottom: 200 + insets.bottom },
-                ]}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={onRefresh}
-                        colors={["#D4A537"]}
-                    />
-                }
-            >
                 <View style={styles.searchBar}>
                     <Feather name="search" size={16} color="#9CA3AF" />
                     <TextInput
@@ -1076,7 +1076,7 @@ export default function HomeScreen() {
                     style={styles.bottomIcon}
                     onPress={() => router.replace("/admin-leaves")}
                 >
-                    <Ionicons name="leaf" size={22} color="#9CA3AF" />
+                    <Ionicons name="document-text-outline" size={22} color="#9CA3AF" />
                 </Pressable>
                 <Pressable
                     style={styles.bottomIcon}
@@ -1667,9 +1667,9 @@ const styles = StyleSheet.create({
     },
     header: {
         backgroundColor: "#2F2F2F",
-        paddingHorizontal: 24,
-        paddingTop: 20,
-        paddingBottom: 32,
+        paddingHorizontal: 15,
+        paddingTop: 15,
+        paddingBottom: 15,
     },
     headerRow: {
         flexDirection: "row",
@@ -1718,8 +1718,9 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     statsWrapper: {
-        marginTop: -24,
-        paddingHorizontal: 24,
+        marginTop:4,
+        paddingHorizontal: 0,
+        paddingBottom: 12,
     },
     statsCard: {
         backgroundColor: "#FFFFFF",

@@ -1773,9 +1773,9 @@ const styles = StyleSheet.create({
         minWidth: 0,
         backgroundColor: "#FFFFFF",
         borderRadius: 14,
-        paddingHorizontal: 12,
-        paddingTop: 12,
-        paddingBottom: 14,
+        paddingHorizontal: 10,
+        paddingTop: 10,
+        paddingBottom: 10,
         borderWidth: 1,
         borderColor: "#F1F5F9",
         shadowColor: "#000",
@@ -1783,7 +1783,7 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 4 },
         position: "relative",
-        minHeight: 136,
+        minHeight: 100,
     },
     tileCardFull: {
         flex: undefined,
@@ -1805,7 +1805,7 @@ const styles = StyleSheet.create({
         paddingRight: 40,
     },
     tileDateTimeBlock: {
-        marginTop: 6,
+        marginTop: 0,
         minHeight: 60,
         justifyContent: "center",
         paddingRight: 40,
@@ -1826,7 +1826,7 @@ const styles = StyleSheet.create({
     tileNote: {
         color: "#6B7280",
         fontSize: 12,
-        marginTop: 4,
+        marginTop: 2,
         lineHeight: 18,
         minHeight: 36,
     },
@@ -1837,7 +1837,7 @@ const styles = StyleSheet.create({
     swipeButton: {
         width: "92%",
         backgroundColor: "#F2C94C",
-        paddingVertical: 14,
+        paddingVertical: 10,
         borderRadius: 28,
         flexDirection: "row",
         alignItems: "center",
