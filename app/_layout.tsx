@@ -38,6 +38,10 @@ export default function RootLayout() {
                             options={{ headerShown: false }}
                         />
                         <Stack.Screen
+                            name="admin-policy"
+                            options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
                             name="employee"
                             options={{ headerShown: false, gestureEnabled: false }}
                         />

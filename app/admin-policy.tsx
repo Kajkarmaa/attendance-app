@@ -464,6 +464,13 @@ export default function AdminPolicyScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
+            <View style={styles.headerRow}>
+                                <Pressable style={styles.backBtn} onPress={() => router.back()}>
+                                    <Ionicons name="chevron-back" size={22} color="#111827" />
+                                </Pressable>
+                                <Text style={styles.headerTitle}>Policy</Text>
+                                <View style={{ width: 38 }} />
+                            </View>
             <ScrollView
                 contentContainerStyle={[
                     styles.content,
@@ -480,12 +487,7 @@ export default function AdminPolicyScreen() {
                     />
                 }
             >
-                <View style={styles.headerRow}>
-                    <Text style={styles.headerTitle}>Policy Management</Text>
-                    {screenLoading ? (
-                        <ActivityIndicator size="small" color="#111827" />
-                    ) : null}
-                </View>
+                 
                 <Text style={styles.headerSubTitle}>
                     Update leave and attendance policies for all employees.
                 </Text>
@@ -924,7 +926,9 @@ export default function AdminPolicyScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: "#F3F4F6",
+         backgroundColor: "#FFFFFF",
+        paddingTop: 10,
+        paddingHorizontal: 12,
     },
     loadingContainer: {
         flex: 1,
@@ -933,8 +937,7 @@ const styles = StyleSheet.create({
         backgroundColor: "#F3F4F6",
     },
     content: {
-        paddingHorizontal: 16,
-        paddingTop: 18,
+        paddingTop: 8,
         paddingBottom: 120,
         gap: 14,
     },
@@ -942,6 +945,10 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
+        marginBottom: 24,
+    },
+    headerRight: {
+        width: 38,
     },
     headerTitle: {
         fontSize: 24,
@@ -1098,5 +1105,18 @@ const styles = StyleSheet.create({
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: "#FEF8EF",
+    },
+    backBtn: {
+        height: 38,
+        width: 38,
+        borderRadius: 12,
+        backgroundColor: "#FFFFFF",
+        alignItems: "center",
+        justifyContent: "center",
+        shadowColor: "#000000",
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 2,
     },
 });
