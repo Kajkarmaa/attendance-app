@@ -719,7 +719,7 @@ export default function AdminLeavesScreen() {
                     style={styles.bottomIconActive}
                     onPress={() => router.replace("/admin-leaves")}
                 >
-                    <Ionicons name="leaf" size={22} color="#D4A537" />
+                    <Ionicons name="document-text-outline" size={22} color="#D4A537" />
                 </Pressable>
                 <Pressable
                     style={styles.bottomIcon}
