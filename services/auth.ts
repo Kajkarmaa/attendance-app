@@ -2,7 +2,11 @@ import { logger } from "@/utils/logger";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
-import apiClient, { API_BASE_URL, setCachedAccessToken } from "./api";
+import apiClient, {
+    API_BASE_URL,
+    clearStoredAuthState,
+    setCachedAccessToken,
+} from "./api";
 
 const ACCESS_TOKEN_KEY = "authToken";
 const REFRESH_TOKEN_KEY = "refreshToken";
@@ -185,11 +189,9 @@ export async function getUser(): Promise<User | null> {
 }
 
 export async function clearStoredTokens(): Promise<void> {
-    setCachedAccessToken(null);
-    await Promise.all([
-        SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
-        SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY),
-    ]);
+    // Delegate to the single source of truth in api.ts so the in-memory data
+    // cache and the user object get wiped along with the tokens.
+    await clearStoredAuthState();
 }
 
 /**
@@ -221,22 +223,33 @@ export async function refreshAuthTokens(): Promise<string> {
 }
 
 export async function logout(): Promise<void> {
-    try {
-        const refreshToken = await getRefreshToken();
-        await apiClient.post(
-            "/users/logout",
-            refreshToken ? { refreshToken } : {},
-        );
-    } catch (error) {
-        // Best-effort logout; continue clearing local state
-        logger.warn("logout api failed", (error as any)?.message);
-    } finally {
-        await clearStoredTokens();
-        await AsyncStorage.removeItem("user");
-    }
+    // Fire-and-forget the server call so the UI never blocks on a slow /
+    // hung network. Local state is cleared immediately — the user is now
+    // logged out from their perspective even if the request is still in
+    // flight or fails.
+    const refreshToken = await getRefreshToken();
+    apiClient
+        .post("/users/logout", refreshToken ? { refreshToken } : {})
+        .catch((error) => {
+            logger.warn("logout api failed", (error as any)?.message);
+        });
+
+    await clearStoredTokens();
 }
 
 export async function isAuthenticated(): Promise<boolean> {
     const token = await getToken();
     return !!token;
+}
+
+/**
+ * Re-fetch the current user from the server. Used on app boot so changes
+ * made by an admin while the user was offline (role bump, designation
+ * change, deactivation) are reflected without forcing a logout.
+ */
+export async function fetchCurrentUser(): Promise<User> {
+    const response = await apiClient.get<{ success: boolean; data: User }>(
+        "/users/profile",
+    );
+    return response.data.data;
 }

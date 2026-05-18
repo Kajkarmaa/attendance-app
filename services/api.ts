@@ -1,3 +1,4 @@
+import { useCacheStore } from "@/stores/cacheStore";
 import { logger } from "@/utils/logger";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios, { AxiosError, AxiosRequestConfig } from "axios";
@@ -36,6 +37,9 @@ export async function getStoredAuthToken(): Promise<string | null> {
 
 export async function clearStoredAuthState(): Promise<void> {
     cachedAccessToken = null;
+    // Drop the in-memory data cache so user B can't see user A's profile /
+    // attendance / admin lists after a logout or forced sign-out.
+    useCacheStore.getState().clearAll();
     await Promise.all([
         SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
         SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY),

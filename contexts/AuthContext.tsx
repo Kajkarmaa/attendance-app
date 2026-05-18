@@ -10,9 +10,12 @@ import {
     User,
     login as authLogin,
     logout as authLogout,
+    fetchCurrentUser,
     getToken,
     getUser,
+    storeUser,
 } from "../services/auth";
+import { logger } from "../utils/logger";
 
 interface AuthContextType {
     user: User | null;
@@ -61,9 +64,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 return;
             }
 
-            // Ignore stale hydration results if auth changed while loading.
+            // Show the stored user immediately for a fast first paint, then
+            // ask the server for the latest copy. Admin-side changes (role,
+            // designation, deactivation) take effect on the next launch
+            // without needing a manual re-login.
             if (authVersionRef.current === versionAtStart) {
                 setUser(storedUser);
+            }
+
+            try {
+                const fresh = await fetchCurrentUser();
+                if (authVersionRef.current !== versionAtStart) {
+                    return;
+                }
+                await storeUser(fresh);
+                setUser(fresh);
+            } catch (error) {
+                // Network or refresh failure: keep the stored copy. A real
+                // 401 will be handled by the api interceptor's unauthorized
+                // handler, which calls setUser(null) for us.
+                logger.warn(
+                    "user re-hydration failed",
+                    (error as any)?.message,
+                );
             }
         } finally {
             setIsLoading(false);

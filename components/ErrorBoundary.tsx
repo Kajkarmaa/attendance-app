@@ -7,20 +7,27 @@ interface ErrorBoundaryProps {
 
 interface ErrorBoundaryState {
     hasError: boolean;
+    // Incremented on Retry. Used as a key on the children wrapper to force a
+    // full remount, which re-runs effects and re-fetches data instead of just
+    // hiding the fallback over a stale tree.
+    resetKey: number;
 }
 
 export default class ErrorBoundary extends React.Component<
     ErrorBoundaryProps,
     ErrorBoundaryState
 > {
-    state: ErrorBoundaryState = { hasError: false };
+    state: ErrorBoundaryState = { hasError: false, resetKey: 0 };
 
-    static getDerivedStateFromError(): ErrorBoundaryState {
+    static getDerivedStateFromError(): Partial<ErrorBoundaryState> {
         return { hasError: true };
     }
 
     reset = () => {
-        this.setState({ hasError: false });
+        this.setState((prev) => ({
+            hasError: false,
+            resetKey: prev.resetKey + 1,
+        }));
     };
 
     render() {
@@ -38,7 +45,11 @@ export default class ErrorBoundary extends React.Component<
             );
         }
 
-        return this.props.children;
+        return (
+            <React.Fragment key={this.state.resetKey}>
+                {this.props.children}
+            </React.Fragment>
+        );
     }
 }
 

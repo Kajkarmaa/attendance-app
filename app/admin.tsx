@@ -1,3 +1,4 @@
+import InlineErrorBanner from "@/components/InlineErrorBanner";
 import SkeletonBlock from "@/components/SkeletonBlock";
 import MonthYearPicker from "@/components/ui/month-year-picker";
 import { CACHE_TTL } from "@/constants/cache";
@@ -18,6 +19,7 @@ import {
 } from "@/services/users";
 import { getCachedData, setCachedData } from "@/stores/cacheStore";
 import { logger } from "@/utils/logger";
+import { classifyNetworkError } from "@/utils/network";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -113,6 +115,18 @@ export default function HomeScreen() {
         useState<DailyAttendanceSummary | null>(null);
     const [summaryLoading, setSummaryLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+    type AdminDashboardErrors = {
+        summary?: { message: string; retry: () => void };
+        lists?: { message: string; retry: () => void };
+        departments?: { message: string; retry: () => void };
+    };
+    const [dashboardErrors, setDashboardErrors] = useState<AdminDashboardErrors>(
+        {},
+    );
+    const dashboardError =
+        dashboardErrors.summary ||
+        dashboardErrors.lists ||
+        dashboardErrors.departments;
     const isMountedRef = useRef(true);
     const departmentsRequestRef = useRef(0);
     const listsRequestRef = useRef(0);
@@ -268,10 +282,21 @@ export default function HomeScreen() {
             const next = Array.isArray(data) ? data : [];
             setDepartments(next);
             setCachedData(ADMIN_DEPARTMENTS_CACHE_KEY, next, CACHE_TTL.LISTS);
+            setDashboardErrors((prev) => ({ ...prev, departments: undefined }));
         } catch (error: any) {
             logger.warn("departments fetch failed", error?.message);
             if (isMountedRef.current && requestId === departmentsRequestRef.current) {
                 setDepartments([]);
+            }
+            const classified = classifyNetworkError(error);
+            if (classified.kind !== "unauthorized") {
+                setDashboardErrors((prev) => ({
+                    ...prev,
+                    departments: {
+                        message: `Departments: ${classified.message}`,
+                        retry: () => loadDepartments(true),
+                    },
+                }));
             }
         } finally {
             if (isMountedRef.current && requestId === departmentsRequestRef.current) {
@@ -312,8 +337,19 @@ export default function HomeScreen() {
                 employees: nextEmployees,
                 pendingUsers: nextPendingUsers,
             }, CACHE_TTL.LISTS);
+            setDashboardErrors((prev) => ({ ...prev, lists: undefined }));
         } catch (error: any) {
             logger.warn("list fetch failed", error?.message);
+            const classified = classifyNetworkError(error);
+            if (classified.kind !== "unauthorized") {
+                setDashboardErrors((prev) => ({
+                    ...prev,
+                    lists: {
+                        message: `Employees: ${classified.message}`,
+                        retry: () => loadLists(query, true),
+                    },
+                }));
+            }
         } finally {
             if (isMountedRef.current && requestId === listsRequestRef.current) {
                 setListLoading(false);
@@ -341,8 +377,19 @@ export default function HomeScreen() {
             }
             setDailySummary(summary);
             setCachedData(ADMIN_DAILY_SUMMARY_CACHE_KEY, summary, CACHE_TTL.ATTENDANCE);
+            setDashboardErrors((prev) => ({ ...prev, summary: undefined }));
         } catch (error: any) {
             logger.warn("daily summary fetch failed", error?.message);
+            const classified = classifyNetworkError(error);
+            if (classified.kind !== "unauthorized") {
+                setDashboardErrors((prev) => ({
+                    ...prev,
+                    summary: {
+                        message: `Daily summary: ${classified.message}`,
+                        retry: () => loadDailySummary(true),
+                    },
+                }));
+            }
         } finally {
             if (isMountedRef.current && requestId === summaryRequestRef.current) {
                 setSummaryLoading(false);
@@ -717,6 +764,12 @@ export default function HomeScreen() {
                     />
                 }
             >
+                {dashboardError && (
+                    <InlineErrorBanner
+                        message={dashboardError.message}
+                        onRetry={() => dashboardError.retry()}
+                    />
+                )}
                             <View style={styles.statsWrapper}>
                 <View style={styles.statsCard}>
                     <View style={styles.statsHeader}>

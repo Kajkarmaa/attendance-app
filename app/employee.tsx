@@ -1,3 +1,4 @@
+import InlineErrorBanner from "@/components/InlineErrorBanner";
 import SkeletonBlock from "@/components/SkeletonBlock";
 import { useCheckInLocation } from "@/components/check-in-location";
 import { CACHE_TTL } from "@/constants/cache";
@@ -21,6 +22,7 @@ import { getPayslipDownloadUrl } from "@/services/payroll";
 import { fetchEmployeeProfile, type EmployeeProfile } from "@/services/profile";
 import { getCachedData, setCachedData } from "@/stores/cacheStore";
 import { logger } from "@/utils/logger";
+import { classifyNetworkError } from "@/utils/network";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
@@ -91,6 +93,16 @@ export default function EmployeeDashboardScreen() {
     const [checkinImageLoading, setCheckinImageLoading] = useState(false);
     const [previewVisible, setPreviewVisible] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+    type DashboardErrors = {
+        attendance?: { message: string; retry: () => void };
+        profile?: { message: string; retry: () => void };
+        activity?: { message: string; retry: () => void };
+    };
+    const [dashboardErrors, setDashboardErrors] = useState<DashboardErrors>({});
+    const dashboardError =
+        dashboardErrors.attendance ||
+        dashboardErrors.profile ||
+        dashboardErrors.activity;
     const handlePunchRef = useRef<() => void>(() => {});
     const isMountedRef = useRef(true);
     const attendanceRequestRef = useRef(0);
@@ -466,8 +478,20 @@ export default function EmployeeDashboardScreen() {
                 return;
             }
             persistAttendance(latest);
+            setDashboardErrors((prev) => ({ ...prev, attendance: undefined }));
         } catch (error: any) {
             logger.warn("attendance fetch failed", error?.message);
+            const classified = classifyNetworkError(error);
+            // The api interceptor already redirects on 401; don't double-up.
+            if (classified.kind !== "unauthorized") {
+                setDashboardErrors((prev) => ({
+                    ...prev,
+                    attendance: {
+                        message: `Attendance: ${classified.message}`,
+                        retry: () => loadAttendance(true),
+                    },
+                }));
+            }
         } finally {
             if (isMountedRef.current && requestId === attendanceRequestRef.current) {
                 setAttLoading(false);
@@ -610,6 +634,8 @@ export default function EmployeeDashboardScreen() {
         }
 
         try {
+            // Fail fast: verify biometric hardware is available and enrolled
+            // *before* asking for anything else. Cheap check, no UI prompt.
             const hasHardware = await LocalAuthentication.hasHardwareAsync();
             const isEnrolled = await LocalAuthentication.isEnrolledAsync();
 
@@ -627,6 +653,37 @@ export default function EmployeeDashboardScreen() {
                     "Please register your fingerprint in your device settings to punch in or out.",
                 );
                 return;
+            }
+
+            // For check-IN we need both location and camera. Request those
+            // permissions up front so a denial doesn't waste the user's
+            // fingerprint scan + a captured photo. Check-OUT only needs
+            // biometric — skip the heavy permission dance.
+            let prefetchedLocation: Awaited<
+                ReturnType<typeof getCheckInLocation>
+            > | null = null;
+
+            if (!isCheckedIn) {
+                const cameraPermission =
+                    await ImagePicker.requestCameraPermissionsAsync();
+                if (cameraPermission.status !== "granted") {
+                    Alert.alert(
+                        "Permission required",
+                        "Camera permission is required to capture a check-in photo.",
+                    );
+                    return;
+                }
+
+                try {
+                    prefetchedLocation = await getCheckInLocation();
+                } catch (locationError: any) {
+                    Alert.alert(
+                        "Location required",
+                        locationError?.message ||
+                            "We couldn't get your current location.",
+                    );
+                    return;
+                }
             }
 
             const authResult = await LocalAuthentication.authenticateAsync({
@@ -660,18 +717,7 @@ export default function EmployeeDashboardScreen() {
                     checkIn: attendance?.checkIn || res.checkIn || null,
                 });
             } else {
-                const location = await getCheckInLocation();
-
-                // Request camera permission and launch camera to take a check-in photo
-                const permission =
-                    await ImagePicker.requestCameraPermissionsAsync();
-                if (permission.status !== "granted") {
-                    Alert.alert(
-                        "Permission required",
-                        "Camera permission is required to capture a check-in photo.",
-                    );
-                    return;
-                }
+                const location = prefetchedLocation!;
 
                 const pickerResult = await ImagePicker.launchCameraAsync({
                     allowsEditing: false,
@@ -681,6 +727,10 @@ export default function EmployeeDashboardScreen() {
                 });
 
                 if (pickerResult.canceled) {
+                    Alert.alert(
+                        "Check-in cancelled",
+                        "You closed the camera before taking a photo. Try again when ready.",
+                    );
                     return;
                 }
 
@@ -748,9 +798,20 @@ export default function EmployeeDashboardScreen() {
             }
             setProfile(data);
             setCachedData(EMPLOYEE_PROFILE_CACHE_KEY, data, CACHE_TTL.PROFILE);
+            setDashboardErrors((prev) => ({ ...prev, profile: undefined }));
             // also fetch last check-in image for this employee
         } catch (error: any) {
             logger.warn("profile fetch failed", error?.message);
+            const classified = classifyNetworkError(error);
+            if (classified.kind !== "unauthorized") {
+                setDashboardErrors((prev) => ({
+                    ...prev,
+                    profile: {
+                        message: `Profile: ${classified.message}`,
+                        retry: () => loadProfile(true),
+                    },
+                }));
+            }
         } finally {
             if (isMountedRef.current && requestId === profileRequestRef.current) {
                 setProfileLoading(false);
@@ -777,8 +838,19 @@ export default function EmployeeDashboardScreen() {
             }
             setActivityData(data);
             setCachedData(EMPLOYEE_ACTIVITY_CACHE_KEY, data, CACHE_TTL.ATTENDANCE);
+            setDashboardErrors((prev) => ({ ...prev, activity: undefined }));
         } catch (error: any) {
             logger.warn("recent activity fetch failed", error?.message);
+            const classified = classifyNetworkError(error);
+            if (classified.kind !== "unauthorized") {
+                setDashboardErrors((prev) => ({
+                    ...prev,
+                    activity: {
+                        message: `Recent activity: ${classified.message}`,
+                        retry: () => loadRecentActivity(true),
+                    },
+                }));
+            }
         } finally {
             if (isMountedRef.current && requestId === activityRequestRef.current) {
                 setActivityLoading(false);
@@ -962,6 +1034,12 @@ export default function EmployeeDashboardScreen() {
                 }
             >
                 <View>
+                    {dashboardError && (
+                        <InlineErrorBanner
+                            message={dashboardError.message}
+                            onRetry={() => dashboardError.retry()}
+                        />
+                    )}
                     <View style={styles.tilesRow}>
                         <View style={[styles.tileCard, halfTileCardStyle]}>
                             <View style={styles.tileIconWrap}>
