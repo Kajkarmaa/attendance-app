@@ -1,7 +1,7 @@
 {
     "expo": {
         "name": "Soni Jewellers",
-        "slug": "soni-jewellers",
+        "slug": "attendance",
         "version": "1.0.0",
         "orientation": "portrait",
         "icon": "./assets/logo.png",
