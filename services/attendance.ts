@@ -394,17 +394,6 @@ export async function fetchTodayAttendance(status?: string): Promise<TodayAttend
     }));
 }
 
-export async function fetchCheckinImageUrl(employeeId: string): Promise<string | null> {
-    try {
-        const url = `/attendance/checkin-image?employeeId=${encodeURIComponent(employeeId)}`;
-        const response = await apiClient.get<ApiEnvelope<{ url?: string }>>(url);
-        return response.data?.data?.url ?? null;
-    } catch (err) {
-        logger.warn("fetchCheckinImageUrl failed", err);
-        return null;
-    }
-}
-
 export interface EmployeeAttendanceImageResponse {
     employeeId: string;
     attendanceId?: string;
@@ -452,8 +441,25 @@ export interface DailyAttendanceSummary {
     averageWorkHours: number;
 }
 
-export async function fetchDailySummary(): Promise<DailyAttendanceSummary> {
-    const response = await apiClient.get<ApiEnvelope<DailyAttendanceSummary>>("/attendance/daily-summary");
+export interface DailySummaryFilters {
+    /** Department name. Omit or pass "All" to skip filtering. */
+    department?: string;
+    /** ISO date string (YYYY-MM-DD). Defaults to today on the server. */
+    date?: string;
+}
+
+export async function fetchDailySummary(
+    filters: DailySummaryFilters = {},
+): Promise<DailyAttendanceSummary> {
+    const params: Record<string, string> = {};
+    if (filters.date) params.date = filters.date;
+    if (filters.department && filters.department !== "All") {
+        params.department = filters.department;
+    }
+    const response = await apiClient.get<ApiEnvelope<DailyAttendanceSummary>>(
+        "/attendance/daily-summary",
+        { params },
+    );
     return response.data.data;
 }
 

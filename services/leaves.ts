@@ -202,16 +202,23 @@ export async function rejectAdminLeave(
     return response.data;
 }
 
+/**
+ * Resolve a download URL for a leave attachment. `s3KeyOrLegacyUrl` is either
+ * an S3 object key (new uploads) or a full URL from the legacy attachment
+ * storage. The backend handles both.
+ */
 export async function fetchLeaveAttachmentUrl(
     leaveId: string,
-    fileName: string,
+    s3KeyOrLegacyUrl: string,
 ): Promise<string | undefined> {
     const response = await apiClient.get<AttachmentDownloadResponse>(
         "/leaves/attachment/download",
         {
             params: {
                 leaveId,
-                fileName,
+                // The server-side param is still named `fileName` for
+                // backwards compat; this is the only place that converts.
+                fileName: s3KeyOrLegacyUrl,
             },
         },
     );

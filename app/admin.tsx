@@ -261,6 +261,15 @@ export default function HomeScreen() {
         loadLists(searchTerm);
     }, [searchTerm, user, isLoading]);
 
+    // Refetch the daily summary whenever the department filter changes.
+    useEffect(() => {
+        if (isLoading || !user || user.role === "emp") {
+            return;
+        }
+        loadDailySummary();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [department]);
+
     const loadDepartments = async (force: boolean = false) => {
         const requestId = ++departmentsRequestRef.current;
         if (!force) {
@@ -359,10 +368,12 @@ export default function HomeScreen() {
 
     const loadDailySummary = async (force: boolean = false) => {
         const requestId = ++summaryRequestRef.current;
+        // Cache key includes department so switching filters doesn't show
+        // stale numbers from the previous selection.
+        const departmentKey = department && department !== "All" ? department : "all";
+        const cacheKey = `${ADMIN_DAILY_SUMMARY_CACHE_KEY}:${departmentKey}`;
         if (!force) {
-            const cached = getCachedData<DailyAttendanceSummary | null>(
-                ADMIN_DAILY_SUMMARY_CACHE_KEY,
-            );
+            const cached = getCachedData<DailyAttendanceSummary | null>(cacheKey);
             if (cached) {
                 setDailySummary(cached);
                 return;
@@ -371,12 +382,12 @@ export default function HomeScreen() {
 
         setSummaryLoading(true);
         try {
-            const summary = await fetchDailySummary();
+            const summary = await fetchDailySummary({ department });
             if (!isMountedRef.current || requestId !== summaryRequestRef.current) {
                 return;
             }
             setDailySummary(summary);
-            setCachedData(ADMIN_DAILY_SUMMARY_CACHE_KEY, summary, CACHE_TTL.ATTENDANCE);
+            setCachedData(cacheKey, summary, CACHE_TTL.ATTENDANCE);
             setDashboardErrors((prev) => ({ ...prev, summary: undefined }));
         } catch (error: any) {
             logger.warn("daily summary fetch failed", error?.message);

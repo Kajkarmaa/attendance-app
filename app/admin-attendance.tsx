@@ -3,7 +3,6 @@ import { CACHE_TTL } from "@/constants/cache";
 import { useAuth } from "@/contexts/AuthContext";
 import {
     AttendanceLocation,
-    fetchCheckinImageUrl,
     fetchEmployeeAttendanceImage,
     fetchTodayAttendance,
     TodayAttendanceItem,
@@ -324,11 +323,12 @@ export default function AdminAttendanceScreen() {
                 }
 
                 setLoadingImg(true);
-                fetchCheckinImageUrl(item.employeeId)
-                    .then((u) => {
+                fetchEmployeeAttendanceImage(item.employeeId)
+                    .then((data) => {
                         if (!mounted) return;
-                        setImgUri(u);
-                        setCachedData(imageKey, u, CACHE_TTL.IMAGE);
+                        const url = data?.imageUrl ?? null;
+                        setImgUri(url);
+                        setCachedData(imageKey, url, CACHE_TTL.IMAGE);
                     })
                     .catch(() => {
                         if (!mounted) return;

@@ -1,4 +1,5 @@
 import { logger } from "@/utils/logger";
+import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -26,6 +27,9 @@ export default function RegisterScreen() {
         phone: "",
         passcode: "",
     });
+    const [profileImage, setProfileImage] = useState<auth.RegisterImage | null>(
+        null,
+    );
     const [loading, setLoading] = useState(false);
     const [otp, setOtp] = useState("");
     const [otpPendingEmail, setOtpPendingEmail] = useState("");
@@ -58,10 +62,95 @@ export default function RegisterScreen() {
 
     const resetFlow = () => {
         setForm({ name: "", email: "", phone: "", passcode: "" });
+        setProfileImage(null);
         setOtp("");
         setOtpStepVisible(false);
         setOtpPendingEmail("");
         setResendCooldown(0);
+    };
+
+    const adoptPickerResult = (
+        result: ImagePicker.ImagePickerResult,
+    ): boolean => {
+        if (result.canceled) return false;
+        const asset = result.assets?.[0];
+        if (!asset?.uri) return false;
+        const fallbackName = asset.uri.split("/").pop() || `profile_${Date.now()}.jpg`;
+        setProfileImage({
+            uri: asset.uri,
+            name: asset.fileName || fallbackName,
+            type: asset.mimeType || "image/jpeg",
+        });
+        return true;
+    };
+
+    const handlePickProfileImage = () => {
+        const takePhoto = async () => {
+            try {
+                const permission =
+                    await ImagePicker.requestCameraPermissionsAsync();
+                if (permission.status !== "granted") {
+                    Alert.alert(
+                        "Permission required",
+                        "Camera permission is required to take a photo.",
+                    );
+                    return;
+                }
+                const result = await ImagePicker.launchCameraAsync({
+                    allowsEditing: true,
+                    quality: 0.7,
+                    cameraType: ImagePicker.CameraType.front,
+                });
+                adoptPickerResult(result);
+            } catch (err: any) {
+                Alert.alert(
+                    "Photo error",
+                    err?.message || "Unable to take photo.",
+                );
+            }
+        };
+
+        const pickFromLibrary = async () => {
+            try {
+                const permission =
+                    await ImagePicker.requestMediaLibraryPermissionsAsync();
+                if (permission.status !== "granted") {
+                    Alert.alert(
+                        "Permission required",
+                        "Photo library permission is required to choose a photo.",
+                    );
+                    return;
+                }
+                const result = await ImagePicker.launchImageLibraryAsync({
+                    allowsEditing: true,
+                    quality: 0.7,
+                });
+                adoptPickerResult(result);
+            } catch (err: any) {
+                Alert.alert(
+                    "Photo error",
+                    err?.message || "Unable to pick photo.",
+                );
+            }
+        };
+
+        const buttons: any[] = [
+            { text: "Cancel", style: "cancel" as const },
+            { text: "Take Photo", onPress: takePhoto },
+            { text: "Choose from Library", onPress: pickFromLibrary },
+        ];
+        if (profileImage) {
+            buttons.push({
+                text: "Remove",
+                style: "destructive" as const,
+                onPress: () => setProfileImage(null),
+            });
+        }
+        Alert.alert(
+            "Profile photo",
+            "Add a profile photo (optional)",
+            buttons,
+        );
     };
 
     const openOtpStep = async (email: string, showAlertMessage?: string) => {
@@ -101,12 +190,15 @@ export default function RegisterScreen() {
 
         setLoading(true);
         try {
-            const response = await auth.registerUser({
-                name: name.trim(),
-                email: email.trim(),
-                phone: phone.trim(),
-                passcode: passcode.trim(),
-            });
+            const response = await auth.registerUser(
+                {
+                    name: name.trim(),
+                    email: email.trim(),
+                    phone: phone.trim(),
+                    passcode: passcode.trim(),
+                },
+                profileImage ?? undefined,
+            );
 
             if (response.success) {
                 Alert.alert("Registration", response.message || "OTP sent to your email");
@@ -213,9 +305,35 @@ export default function RegisterScreen() {
                         <Text style={styles.subtitle}>Set up your attendance access</Text>
                     </View>
 
-                    <View style={[styles.card, { width: cardWidth }]}> 
+                    <View style={[styles.card, { width: cardWidth }]}>
                         {!otpStepVisible ? (
                             <>
+                                <View style={styles.avatarBlock}>
+                                    <Pressable
+                                        onPress={handlePickProfileImage}
+                                        style={styles.avatarPressable}
+                                        accessibilityLabel="Add profile photo"
+                                    >
+                                        {profileImage ? (
+                                            <Image
+                                                source={{ uri: profileImage.uri }}
+                                                style={styles.avatarImage}
+                                            />
+                                        ) : (
+                                            <View style={styles.avatarPlaceholder}>
+                                                <Text style={styles.avatarPlaceholderText}>
+                                                    +
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </Pressable>
+                                    <Text style={styles.avatarHint}>
+                                        {profileImage
+                                            ? "Tap to change photo"
+                                            : "Add a profile photo (optional)"}
+                                    </Text>
+                                </View>
+
                                 <Text style={styles.label}>NAME</Text>
                                 <TextInput
                                     style={styles.input}
@@ -406,6 +524,42 @@ const styles = StyleSheet.create({
         shadowRadius: 16,
         shadowOffset: { width: 0, height: 8 },
         elevation: 3,
+    },
+    avatarBlock: {
+        alignItems: "center",
+        marginBottom: 16,
+    },
+    avatarPressable: {
+        height: 84,
+        width: 84,
+        borderRadius: 42,
+        overflow: "hidden",
+        backgroundColor: "#F3F4F6",
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    avatarImage: {
+        height: "100%",
+        width: "100%",
+        resizeMode: "cover",
+    },
+    avatarPlaceholder: {
+        flex: 1,
+        width: "100%",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    avatarPlaceholderText: {
+        fontSize: 36,
+        color: "#9CA3AF",
+        lineHeight: 38,
+    },
+    avatarHint: {
+        marginTop: 8,
+        color: "#6B7280",
+        fontSize: 12,
     },
     label: {
         color: "#2F2F2F",

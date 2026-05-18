@@ -56,6 +56,12 @@ export interface RegisterPayload {
     passcode: string;
 }
 
+export interface RegisterImage {
+    uri: string;
+    name?: string;
+    type?: string;
+}
+
 export interface RegisterResponse {
     success: boolean;
     message: string;
@@ -113,15 +119,59 @@ export async function login(
 
 export async function registerUser(
     payload: RegisterPayload,
+    image?: RegisterImage,
 ): Promise<RegisterResponse> {
-    const response = await apiClient.post<RegisterResponse>("/users/register", {
-        ...payload,
+    const fields = {
         name: payload.name.trim(),
         email: normalizeEmail(payload.email),
         phone: payload.phone.trim(),
         passcode: normalizePasscode(payload.passcode),
-    });
+    };
 
+    // Without an image we keep posting JSON — same wire format the backend
+    // has always accepted via multer's optional `req.file`.
+    if (!image) {
+        const response = await apiClient.post<RegisterResponse>(
+            "/users/register",
+            fields,
+        );
+        return response.data;
+    }
+
+    // With an image we have to use multipart/form-data because that's what
+    // multer parses on the server.
+    const form = new FormData();
+    form.append("name", fields.name);
+    form.append("email", fields.email);
+    form.append("phone", fields.phone);
+    form.append("passcode", fields.passcode);
+
+    const filename = image.name || `profile_${Date.now()}.jpg`;
+    let mimeType = image.type || "image/jpeg";
+    // Android sometimes returns just "image" — coerce to a real MIME.
+    if (mimeType === "image" || !mimeType.includes("/")) {
+        const ext = filename.split(".").pop()?.toLowerCase();
+        const mimeMap: Record<string, string> = {
+            jpg: "image/jpeg",
+            jpeg: "image/jpeg",
+            png: "image/png",
+            gif: "image/gif",
+            webp: "image/webp",
+        };
+        mimeType = mimeMap[ext || "jpg"] || "image/jpeg";
+    }
+
+    form.append("image", {
+        uri: image.uri,
+        name: filename,
+        type: mimeType,
+    } as any);
+
+    const response = await apiClient.post<RegisterResponse>(
+        "/users/register",
+        form,
+        { headers: { "Content-Type": "multipart/form-data" } },
+    );
     return response.data;
 }
 
