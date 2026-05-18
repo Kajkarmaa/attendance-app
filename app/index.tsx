@@ -66,12 +66,14 @@ export default function LoginScreen() {
     return (
         <View style={styles.container}>
             <KeyboardAvoidingView
-                behavior={Platform.OS === "ios" ? "padding" : undefined}
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
                 style={styles.flex}
             >
                 <ScrollView
                     contentContainerStyle={styles.scrollContent}
                     keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="on-drag"
+                    showsVerticalScrollIndicator={false}
                 >
                     <View style={styles.headerBlock}>
                         <View style={styles.logoWrap}>
@@ -180,8 +182,10 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     scrollContent: {
+        // Intentionally no `justifyContent: "center"` — that forces the
+        // content to viewport-size and prevents the ScrollView from
+        // scrolling past inputs when the keyboard opens.
         flexGrow: 1,
-        justifyContent: "center",
         paddingHorizontal: 24,
         paddingVertical: 40,
     },

@@ -70,8 +70,13 @@ export default function ResetPasswordScreen() {
 
   return (
     <View style={styles.container}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.headerBlock}>
             <View style={styles.logoWrap}>
               <Image source={APP_LOGO} style={styles.logoImage} />
@@ -132,7 +137,10 @@ export default function ResetPasswordScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#2F2F2F" },
   flex: { flex: 1 },
-  scrollContent: { flexGrow: 1, justifyContent: "center", paddingHorizontal: 24, paddingVertical: 40 },
+  // Intentionally no `justifyContent: "center"` — that forces the content to
+  // viewport-size and prevents the ScrollView from scrolling past inputs when
+  // the keyboard opens.
+  scrollContent: { flexGrow: 1, paddingHorizontal: 24, paddingVertical: 40 },
   headerBlock: { marginBottom: 24, alignItems: "center" },
   logoWrap: { height: 92, width: 92, borderRadius: 46, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", marginBottom: 12, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" },
   logoImage: { height: 64, width: 64, resizeMode: "contain" },
