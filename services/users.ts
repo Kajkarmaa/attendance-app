@@ -164,3 +164,17 @@ export async function fetchDepartments() {
     const res = await apiClient.get<DepartmentsResponse>("/employees/departments");
     return res.data.data;
 }
+
+interface UpdateSalaryResponse {
+    success: boolean;
+    message?: string;
+    data?: { id: string; salary: number };
+}
+
+export async function updateEmployeeSalary(employeeRecordId: string, salary: number) {
+    const res = await apiClient.patch<UpdateSalaryResponse>(
+        `/users/${encodeURIComponent(employeeRecordId)}/salary`,
+        { salary },
+    );
+    return res.data;
+}

@@ -1,4 +1,5 @@
 import InlineErrorBanner from "@/components/InlineErrorBanner";
+import MonthlyAttendanceGrid from "@/components/MonthlyAttendanceGrid";
 import SkeletonBlock from "@/components/SkeletonBlock";
 import { useCheckInLocation } from "@/components/check-in-location";
 import { CACHE_TTL } from "@/constants/cache";
@@ -1127,6 +1128,21 @@ export default function EmployeeDashboardScreen() {
                             </View>
                         </View>
                     )}
+
+                    <View style={{ marginTop: 8 }}>
+                        <Text
+                            style={{
+                                fontSize: 16,
+                                fontWeight: "700",
+                                color: "#111827",
+                                marginTop: 8,
+                                marginBottom: 10,
+                            }}
+                        >
+                            Attendance
+                        </Text>
+                        <MonthlyAttendanceGrid readOnly />
+                    </View>
 
                     {(isCheckedIn || shouldResumeBreak) && (
                         <View style={styles.breakActionCard}>

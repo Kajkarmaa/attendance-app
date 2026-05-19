@@ -427,3 +427,69 @@ export async function fetchAttendanceHistory(): Promise<AttendanceHistoryRespons
     );
     return response.data.data;
 }
+
+export type AttendanceDayStatus = "present" | "half_day" | "absent";
+
+export interface MonthlyGridDay {
+    /** ISO calendar date, YYYY-MM-DD. */
+    date: string;
+    day: number;
+    /** 0 = Sunday … 6 = Saturday. */
+    weekday: number;
+    isWorkingDay: boolean;
+    isToday: boolean;
+    isFuture: boolean;
+    status: AttendanceDayStatus | null;
+    checkIn: string | null;
+    checkOut: string | null;
+    workHours: number | null;
+}
+
+export interface MonthlyAttendanceGridData {
+    employeeId?: string;
+    month: number;
+    year: number;
+    days: MonthlyGridDay[];
+    summary: {
+        present: number;
+        halfDay: number;
+        absent: number;
+        workingDays: number;
+    };
+}
+
+/** Admin: monthly grid for a specific employee. */
+export async function fetchMonthlyAttendanceGrid(
+    employeeId: string,
+    month: number,
+    year: number,
+): Promise<MonthlyAttendanceGridData> {
+    const response = await apiClient.get<ApiEnvelope<MonthlyAttendanceGridData>>(
+        `/attendance/monthly-grid/${encodeURIComponent(employeeId)}`,
+        { params: { month, year } },
+    );
+    return response.data.data;
+}
+
+/** Employee: monthly grid for the logged-in user (read-only self view). */
+export async function fetchMyAttendanceGrid(
+    month: number,
+    year: number,
+): Promise<MonthlyAttendanceGridData> {
+    const response = await apiClient.get<ApiEnvelope<MonthlyAttendanceGridData>>(
+        "/employees/attendance/monthly-grid",
+        { params: { month, year } },
+    );
+    return response.data.data;
+}
+
+export async function updateAttendanceDay(
+    employeeId: string,
+    date: string,
+    status: AttendanceDayStatus,
+): Promise<{ employeeId: string; date: string; status: AttendanceDayStatus }> {
+    const response = await apiClient.put<
+        ApiEnvelope<{ employeeId: string; date: string; status: AttendanceDayStatus }>
+    >(`/attendance/${encodeURIComponent(employeeId)}/day`, { date, status });
+    return response.data.data;
+}

@@ -9,14 +9,16 @@ import {
   Alert,
   Image,
   Linking,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { getPayslipDownloadUrl } from '@/services/payroll';
-import { fetchEmployeeDetail, type EmployeeDetail } from '@/services/users';
+import { fetchEmployeeDetail, updateEmployeeSalary, type EmployeeDetail } from '@/services/users';
 import { getCachedData, setCachedData } from '@/stores/cacheStore';
 import { logger } from '@/utils/logger';
 
@@ -41,6 +43,9 @@ export default function EmployeeProfileScreen() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [payslipDownloading, setPayslipDownloading] = useState(false);
+  const [salaryModalVisible, setSalaryModalVisible] = useState(false);
+  const [salaryInput, setSalaryInput] = useState('');
+  const [savingSalary, setSavingSalary] = useState(false);
 
   const recordId = useMemo(() => {
     const value = params.employeeRecordId;
@@ -226,6 +231,39 @@ export default function EmployeeProfileScreen() {
     return `₹${value.toLocaleString('en-IN')}`;
   };
 
+  const openSalaryModal = () => {
+    setSalaryInput(monthlySalary != null ? String(monthlySalary) : '');
+    setSalaryModalVisible(true);
+  };
+
+  const submitSalary = async () => {
+    const value = Number(salaryInput);
+    if (!Number.isFinite(value) || value <= 0) {
+      Alert.alert('Invalid salary', 'Enter a valid amount greater than 0.');
+      return;
+    }
+    if (!recordId) {
+      Alert.alert('Salary', 'Missing employee identifier.');
+      return;
+    }
+    setSavingSalary(true);
+    try {
+      const res = await updateEmployeeSalary(recordId, value);
+      if (!res?.success) {
+        throw new Error(res?.message || 'Failed to update salary.');
+      }
+      setSalaryModalVisible(false);
+      await loadProfile(true);
+      Alert.alert('Salary updated', res.message || 'Salary updated successfully.');
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message || err?.message || 'Unable to update salary.';
+      Alert.alert('Salary', message);
+    } finally {
+      setSavingSalary(false);
+    }
+  };
+
   const renderOverview = () => (
     <>
       <View style={styles.sectionCard}>
@@ -259,7 +297,17 @@ export default function EmployeeProfileScreen() {
           </View>
           <View>
             <Text style={styles.infoSmall}>Base Salary</Text>
-            <Text style={styles.infoLarge}>{salaryDisplay}</Text>
+            <View style={styles.salaryValueRow}>
+              <Text style={styles.infoLarge}>{salaryDisplay}</Text>
+              <Pressable
+                onPress={openSalaryModal}
+                hitSlop={8}
+                style={styles.salaryEditBtn}
+                accessibilityRole="button"
+              >
+                <Feather name="edit-2" size={13} color="#D4A537" />
+              </Pressable>
+            </View>
           </View>
         </View>
         <View style={[styles.infoRow, { marginTop: 16 }]}> 
@@ -303,26 +351,26 @@ export default function EmployeeProfileScreen() {
   );
 
   const renderAttendance = () => {
-    if (!attendanceSummary) {
-      return (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>No attendance records</Text>
-          <Text style={styles.emptySubtitle}>Attendance data will populate after the first check-in.</Text>
-        </View>
-      );
-    }
-
-    const stats = [
-      { label: 'Present', value: attendanceSummary.present, color: '#22C55E' },
-      { label: 'Absent', value: attendanceSummary.absent, color: '#F97316' },
-      { label: 'Late', value: attendanceSummary.late, color: '#FACC15' },
-      { label: 'Half Day', value: attendanceSummary.halfDay, color: '#8B5CF6' },
-      { label: 'Total Days', value: attendanceSummary.totalDays, color: '#3B82F6' },
-      { label: 'Avg Hours', value: attendanceSummary.averageWorkHours, color: '#0EA5E9' },
-    ];
+    const stats = attendanceSummary
+      ? [
+          { label: 'Present', value: attendanceSummary.present, color: '#22C55E' },
+          { label: 'Absent', value: attendanceSummary.absent, color: '#F97316' },
+          { label: 'Late', value: attendanceSummary.late, color: '#FACC15' },
+          { label: 'Half Day', value: attendanceSummary.halfDay, color: '#8B5CF6' },
+          { label: 'Total Days', value: attendanceSummary.totalDays, color: '#3B82F6' },
+          { label: 'Avg Hours', value: attendanceSummary.averageWorkHours, color: '#0EA5E9' },
+        ]
+      : [];
 
     return (
       <View style={styles.attendanceGrid}>
+        {/* Monthly attendance grid first - admin can view history and edit past days */}
+        <View style={{ width: '100%' }}>
+          <MonthlyAttendanceGrid
+            employeeId={headerEmployeeId}
+            onChange={() => loadProfile(true)}
+          />
+        </View>
         {stats.map((item) => (
           <View key={item.label} style={styles.attendanceCard}>
             <Text style={[styles.attendanceLabel, { color: item.color }]}>{item.label}</Text>
@@ -335,10 +383,6 @@ export default function EmployeeProfileScreen() {
             </Text>
           </View>
         ))}
-        {/* Monthly attendance grid - admin can view history and edit past days */}
-        <View style={{ width: '100%', marginTop: 16 }}>
-          <MonthlyAttendanceGrid employeeId={headerEmployeeId} />
-        </View>
       </View>
     );
   };
@@ -668,6 +712,59 @@ export default function EmployeeProfileScreen() {
               : 'DOWNLOAD LATEST PAYSLIP'}
         </Text>
       </Pressable>
+
+      <Modal
+        visible={salaryModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !savingSalary && setSalaryModalVisible(false)}
+      >
+        <View style={styles.salaryModalRoot}>
+          <Pressable
+            style={styles.salaryBackdrop}
+            onPress={() => !savingSalary && setSalaryModalVisible(false)}
+          />
+          <View style={styles.salaryModalCard}>
+            <Text style={styles.salaryModalTitle}>Edit Salary</Text>
+            <Text style={styles.salaryModalSub}>
+              Monthly base salary for {headerName}
+            </Text>
+            <View style={styles.salaryInputRow}>
+              <Text style={styles.salaryCurrency}>₹</Text>
+              <TextInput
+                style={styles.salaryInput}
+                value={salaryInput}
+                onChangeText={setSalaryInput}
+                keyboardType="number-pad"
+                placeholder="0"
+                placeholderTextColor="#9CA3AF"
+                editable={!savingSalary}
+                autoFocus
+              />
+            </View>
+            <Pressable
+              style={[styles.salarySaveBtn, savingSalary && { opacity: 0.6 }]}
+              onPress={submitSalary}
+              disabled={savingSalary}
+              accessibilityRole="button"
+            >
+              {savingSalary ? (
+                <ActivityIndicator color="#111111" />
+              ) : (
+                <Text style={styles.salarySaveText}>Save Salary</Text>
+              )}
+            </Pressable>
+            <Pressable
+              style={styles.salaryCancelBtn}
+              onPress={() => setSalaryModalVisible(false)}
+              disabled={savingSalary}
+              accessibilityRole="button"
+            >
+              <Text style={styles.salaryCancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1112,5 +1209,92 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '600',
     color: '#111111',
+  },
+  salaryValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  salaryEditBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#FFF6DC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  salaryModalRoot: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  salaryBackdrop: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  salaryModalCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 20,
+  },
+  salaryModalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  salaryModalSub: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+    marginBottom: 14,
+  },
+  salaryInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+  },
+  salaryCurrency: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    marginRight: 4,
+  },
+  salaryInput: {
+    flex: 1,
+    height: 48,
+    fontSize: 16,
+    color: '#111827',
+  },
+  salarySaveBtn: {
+    marginTop: 16,
+    backgroundColor: '#D4A537',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  salarySaveText: {
+    color: '#111111',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  salaryCancelBtn: {
+    marginTop: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  salaryCancelText: {
+    color: '#6B7280',
+    fontWeight: '600',
   },
 });
