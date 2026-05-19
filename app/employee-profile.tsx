@@ -1,3 +1,4 @@
+import MonthlyAttendanceGrid from '@/components/MonthlyAttendanceGrid';
 import SkeletonBlock from '@/components/SkeletonBlock';
 import { CACHE_TTL } from '@/constants/cache';
 import { Feather } from '@expo/vector-icons';
@@ -14,8 +15,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { Calendar } from 'react-native-calendars';
-
 import { getPayslipDownloadUrl } from '@/services/payroll';
 import { fetchEmployeeDetail, type EmployeeDetail } from '@/services/users';
 import { getCachedData, setCachedData } from '@/stores/cacheStore';
@@ -162,68 +161,6 @@ export default function EmployeeProfileScreen() {
     }
 
     return null;
-  };
-
-  // Local calendar state for toggling absent/present per day (YYYY-MM-DD -> 'absent'|'present')
-  const [localDayStatus, setLocalDayStatus] = useState<Record<string, 'absent' | 'present'>>({});
-
-  // Initialize localDayStatus from API absentDate array when profile or attendanceSummary changes
-  useEffect(() => {
-    const obj: Record<string, 'absent' | 'present'> = {};
-    try {
-      const now = new Date();
-      const y = now.getFullYear();
-      const m = now.getMonth() + 1;
-      (attendanceSummary?.absentDate || []).forEach((d: number) => {
-        if (!Number.isFinite(d)) return;
-        const dd = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        obj[dd] = 'absent';
-      });
-    } catch (e) {
-      // ignore
-    }
-    setLocalDayStatus(obj);
-  }, [attendanceSummary]);
-
-  const toggleDayStatus = (dateString: string) => {
-    setLocalDayStatus((prev) => {
-      const next = { ...prev };
-      if (next[dateString] === 'absent') {
-        next[dateString] = 'present';
-      } else if (next[dateString] === 'present') {
-        delete next[dateString];
-      } else {
-        next[dateString] = 'absent';
-      }
-
-      // Also update profile.attendance.thisMonth.absentDate to reflect absents
-      const absentDays: number[] = [];
-      Object.keys(next).forEach((k) => {
-        if (next[k] === 'absent') {
-          const parts = k.split('-');
-          const day = Number(parts[2]);
-          if (Number.isFinite(day)) absentDays.push(day);
-        }
-      });
-      setProfile((prev) => {
-        if (!prev) return prev;
-        const copy = { ...prev };
-        copy.attendance = copy.attendance || { thisMonth: undefined };
-        copy.attendance.thisMonth = copy.attendance.thisMonth || {
-          present: 0,
-          absent: 0,
-          late: 0,
-          halfDay: 0,
-          totalDays: 0,
-          averageWorkHours: '0',
-          absentDate: [],
-        };
-        copy.attendance.thisMonth.absentDate = absentDays;
-        return copy;
-      });
-
-      return next;
-    });
   };
 
   const handleDownloadLatestPayslip = useCallback(async () => {
@@ -398,40 +335,9 @@ export default function EmployeeProfileScreen() {
             </Text>
           </View>
         ))}
-        {/* Calendar showing absent/present days for current month */}
+        {/* Monthly attendance grid - admin can view history and edit past days */}
         <View style={{ width: '100%', marginTop: 16 }}>
-          <Calendar
-            current={new Date().toISOString().slice(0, 10)}
-            onDayPress={(day: any) => toggleDayStatus(day.dateString)}
-            markingType={'custom'}
-            markedDates={Object.keys(localDayStatus).reduce((acc, key) => {
-              const status = localDayStatus[key];
-              acc[key] = {
-                customStyles: {
-                  container: {
-                    backgroundColor: status === 'absent' ? '#FEE2E2' : '#DCFCE7',
-                    borderRadius: 6,
-                  },
-                  text: {
-                    color: status === 'absent' ? '#B91C1C' : '#065F46',
-                    fontWeight: '700',
-                  },
-                },
-              } as any;
-              return acc;
-            }, {} as Record<string, any>)}
-          />
-
-          <View style={styles.calendarLegendRow}>
-            <View style={styles.calendarLegendItem}>
-              <View style={[styles.calendarLegendDot, { backgroundColor: '#DCFCE7' }]} />
-              <Text style={styles.calendarLegendText}>Present</Text>
-            </View>
-            <View style={styles.calendarLegendItem}>
-              <View style={[styles.calendarLegendDot, { backgroundColor: '#FEE2E2' }]} />
-              <Text style={styles.calendarLegendText}>Absent</Text>
-            </View>
-          </View>
+          <MonthlyAttendanceGrid employeeId={headerEmployeeId} />
         </View>
       </View>
     );
@@ -1206,25 +1112,5 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '600',
     color: '#111111',
-  },
-  calendarLegendRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 24,
-    marginTop: 16,
-  },
-  calendarLegendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  calendarLegendDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  calendarLegendText: {
-    fontSize: 12,
-    color: '#6B7280',
   },
 });
