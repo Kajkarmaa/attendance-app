@@ -22,9 +22,7 @@
             "permissions": [
                 "android.permission.CAMERA",
                 "android.permission.ACCESS_FINE_LOCATION",
-                "android.permission.ACCESS_COARSE_LOCATION",
-                "android.permission.USE_BIOMETRIC",
-                "android.permission.USE_FINGERPRINT"
+                "android.permission.ACCESS_COARSE_LOCATION"
             ],
             "blockedPermissions": [
                 "android.permission.RECORD_AUDIO"
@@ -53,7 +51,7 @@
             [
                 "expo-image-picker",
                 {
-                    "cameraPermission": "Allow Soni Jewellers to use the camera so you can capture check-in and profile photos.",
+                    "cameraPermission": "Allow Soni Jewellers to use the camera so you can capture a profile photo.",
                     "photosPermission": "Allow Soni Jewellers to access your photos so you can upload a profile picture.",
                     "microphonePermission": false
                 }
@@ -64,12 +62,6 @@
                     "locationWhenInUsePermission": "Soni Jewellers uses your location to verify check-ins from approved sites.",
                     "isAndroidBackgroundLocationEnabled": false,
                     "isAndroidForegroundServiceEnabled": false
-                }
-            ],
-            [
-                "expo-local-authentication",
-                {
-                    "faceIDPermission": "Allow Soni Jewellers to use Face ID for secure check-in and check-out."
                 }
             ]
         ],

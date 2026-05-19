@@ -3,7 +3,6 @@ import { CACHE_TTL } from "@/constants/cache";
 import { useAuth } from "@/contexts/AuthContext";
 import {
     AttendanceLocation,
-    fetchEmployeeAttendanceImage,
     fetchTodayAttendance,
     TodayAttendanceItem,
 } from "@/services/attendance";
@@ -17,7 +16,6 @@ import {
     ActivityIndicator,
     Alert,
     FlatList,
-    Image,
     Linking,
     Modal,
     Pressable,
@@ -45,8 +43,6 @@ export default function AdminAttendanceScreen() {
     const [modalContent, setModalContent] = useState<{
         employeeId: string;
         name?: string;
-        attendanceId?: string;
-        imageUrl?: string | null;
         checkInTime?: string | null;
         location?: AttendanceLocation | null;
     } | null>(null);
@@ -305,43 +301,7 @@ export default function AdminAttendanceScreen() {
     };
 
     function RowWithThumbnail({ item }: { item: TodayAttendanceItem }) {
-        const [imgUri, setImgUri] = useState<string | null>(null);
-        const [loadingImg, setLoadingImg] = useState(false);
-
-        useEffect(() => {
-            let mounted = true;
-            if (item.hasCheckInImage) {
-                const imageKey = `admin:attendance:image-url:${item.employeeId}`;
-                const cachedImage = getCachedData<string | null>(
-                    imageKey,
-                );
-                if (cachedImage) {
-                    setImgUri(cachedImage);
-                    return () => {
-                        mounted = false;
-                    };
-                }
-
-                setLoadingImg(true);
-                fetchEmployeeAttendanceImage(item.employeeId)
-                    .then((data) => {
-                        if (!mounted) return;
-                        const url = data?.imageUrl ?? null;
-                        setImgUri(url);
-                        setCachedData(imageKey, url, CACHE_TTL.IMAGE);
-                    })
-                    .catch(() => {
-                        if (!mounted) return;
-                        setImgUri(null);
-                    })
-                    .finally(() => mounted && setLoadingImg(false));
-            }
-            return () => {
-                mounted = false;
-            };
-        }, [item.employeeId, item.hasCheckInImage]);
-
-        const openModal = async () => {
+        const openModal = () => {
             setModalContent({
                 employeeId: item.employeeId,
                 name: item.name,
@@ -350,53 +310,6 @@ export default function AdminAttendanceScreen() {
             });
             setModalVisible(true);
             loadViewerLocation();
-            try {
-                const modalImageKey =
-                    `admin:attendance:image-detail:${item.employeeId}`;
-                const cachedDetails = getCachedData<{
-                    attendanceId?: string;
-                    imageUrl?: string | null;
-                    checkInTime?: string | null;
-                    location?: AttendanceLocation | null;
-                }>(modalImageKey);
-                if (cachedDetails) {
-                    setModalContent((prev) => {
-                        if (!prev) return null;
-                        return {
-                            employeeId: prev.employeeId,
-                            name: prev.name,
-                            attendanceId: cachedDetails.attendanceId,
-                            imageUrl: cachedDetails.imageUrl ?? null,
-                            checkInTime: cachedDetails.checkInTime ?? null,
-                            location: cachedDetails.location ?? prev.location ?? null,
-                        };
-                    });
-                    return;
-                }
-
-                const data = await fetchEmployeeAttendanceImage(
-                    item.employeeId,
-                );
-                setCachedData(modalImageKey, {
-                    attendanceId: data?.attendanceId,
-                    imageUrl: data?.imageUrl ?? null,
-                    checkInTime: data?.checkInTime ?? null,
-                    location: data?.location ?? item.location ?? null,
-                }, CACHE_TTL.IMAGE);
-                setModalContent((prev) => {
-                    if (!prev) return null;
-                    return {
-                        employeeId: prev.employeeId,
-                        name: prev.name,
-                        attendanceId: data?.attendanceId,
-                        imageUrl: data?.imageUrl ?? null,
-                        checkInTime: data?.checkInTime ?? null,
-                        location: data?.location ?? prev.location ?? item.location ?? null,
-                    };
-                });
-            } catch (err) {
-                logger.warn("fetch employee image failed", err);
-            }
         };
 
         return (
@@ -422,23 +335,6 @@ export default function AdminAttendanceScreen() {
                         <Text style={styles.approvedDate}>
                             {new Date(item.checkInTime).toLocaleDateString()}
                         </Text>
-                    ) : null}
-                    {item.hasCheckInImage ? (
-                        imgUri ? (
-                            <Image
-                                source={{ uri: imgUri }}
-                                style={styles.thumbSmall}
-                            />
-                        ) : loadingImg ? (
-                            <ActivityIndicator style={{ marginTop: 6 }} />
-                        ) : (
-                            <Ionicons
-                                name="image"
-                                size={20}
-                                color="#6B7280"
-                                style={{ marginTop: 8 }}
-                            />
-                        )
                     ) : null}
                 </View>
             </Pressable>
@@ -688,35 +584,12 @@ export default function AdminAttendanceScreen() {
                             >
                                 <Text style={styles.locationActionText}>Open Employee Location</Text>
                             </Pressable>
-                            {modalContent?.imageUrl ? (
-                                <Image
-                                    source={{ uri: modalContent.imageUrl }}
-                                    style={styles.modalImage}
-                                    resizeMode="contain"
-                                />
-                            ) : (
-                                <View style={styles.modalPlaceholder}>
-                                    <Ionicons
-                                        name="image"
-                                        size={48}
-                                        color="#9CA3AF"
-                                    />
-                                    <Text style={styles.modalNoImage}>
-                                        No image available
-                                    </Text>
-                                </View>
-                            )}
                             <Text style={styles.modalName}>
                                 {modalContent?.name}
                             </Text>
                             <Text style={styles.modalMeta}>
                                 ID: {modalContent?.employeeId}
                             </Text>
-                            {modalContent?.attendanceId ? (
-                                <Text style={styles.modalMeta}>
-                                    Attendance: {modalContent.attendanceId}
-                                </Text>
-                            ) : null}
                             {modalContent?.checkInTime ? (
                                 <Text style={styles.modalMeta}>
                                     Time:{" "}
@@ -789,7 +662,6 @@ const styles = StyleSheet.create({
     statusText: { color: "#6B7280" },
     sep: { height: 1, backgroundColor: "#F3F4F6" },
     thumb: { width: 44, height: 44, borderRadius: 6, marginTop: 6 },
-    thumbSmall: { width: 36, height: 36, borderRadius: 8, marginTop: 8 },
     bottomBar: {
         position: "absolute",
         left: 0,
@@ -968,20 +840,6 @@ const styles = StyleSheet.create({
         alignItems: "center",
         paddingBottom: 24,
         flexGrow: 1,
-    },
-    modalImage: {
-        width: "100%",
-        height: 320,
-        borderRadius: 8,
-        backgroundColor: "#F3F4F6",
-    },
-    modalPlaceholder: {
-        width: "100%",
-        height: 320,
-        borderRadius: 8,
-        backgroundColor: "#F8FAFC",
-        justifyContent: "center",
-        alignItems: "center",
     },
     modalNoImage: { color: "#6B7280", marginTop: 8 },
     modalName: { fontWeight: "700", marginTop: 12, color: "#111827" },

@@ -12,13 +12,14 @@ import {
 import { getCachedData, setCachedData } from "@/stores/cacheStore";
 import { logger } from "@/utils/logger";
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
+import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Alert,
-    Image,
     Modal,
     Pressable,
     RefreshControl,
@@ -75,6 +76,7 @@ export default function ProfileSettingScreen() {
     };
 
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
+    const [imageLoading, setImageLoading] = useState(false);
 
     const [refreshing, setRefreshing] = useState(false);
 
@@ -104,23 +106,27 @@ export default function ProfileSettingScreen() {
             const asset = result.assets?.[0];
             if (!asset?.uri) return;
 
-            let uri = asset.uri;
-            // Android content:// URIs work with FormData, but ensure file:// prefix exists for file paths
-            if (!uri.startsWith("file://") && !uri.startsWith("content://")) {
-                uri = "file://" + uri;
-            }
-
             const previous = photoUriRef.current;
-            setPhotoUri(uri);
             setUploadingPhoto(true);
             try {
-                const name =
-                    asset.fileName ??
-                    uri.split("/").pop() ??
-                    `photo_${Date.now()}.jpg`;
-                // asset.mimeType is the reliable field in newer expo-image-picker
-                const type = asset.mimeType ?? asset.type ?? "image/jpeg";
-                await updateProfileImage({ uri, name, type });
+                // Resize + compress before upload so the file stays small and
+                // loads quickly afterwards (profile photos don't need to be large).
+                const resized = await ImageManipulator.manipulateAsync(
+                    asset.uri,
+                    [{ resize: { width: 512 } }],
+                    {
+                        compress: 0.7,
+                        format: ImageManipulator.SaveFormat.JPEG,
+                    },
+                );
+                const uri = resized.uri;
+                setPhotoUri(uri);
+
+                await updateProfileImage({
+                    uri,
+                    name: `photo_${Date.now()}.jpg`,
+                    type: "image/jpeg",
+                });
                 Alert.alert("Uploaded", "Profile photo uploaded.");
                 await load(true);
             } catch (err: any) {
@@ -412,45 +418,56 @@ export default function ProfileSettingScreen() {
                 </View>
 
                 <View style={styles.avatarWrap}>
-                    <Pressable
-                        onPress={handlePickImage}
-                        accessibilityRole="imagebutton"
-                    >
-                        <View style={styles.avatarCircle}>
-                            {photoUri ? (
-                                <Image
-                                    source={{
-                                        uri: photoUri,
-                                        cache: "reload",
-                                    }}
-                                    style={styles.avatarImage}
-                                />
-                            ) : (
-                                <View style={styles.avatarPlaceholder}>
-                                    <Text style={styles.avatarInitials}>
-                                        {getInitials(
-                                            profile?.name ?? user?.name,
-                                        )}
-                                    </Text>
-                                </View>
-                            )}
-                        </View>
-                    </Pressable>
-                    {uploadingPhoto && (
-                        <View
-                            style={styles.avatarSpinnerOverlay}
-                            pointerEvents="none"
+                    <View style={styles.avatarContainer}>
+                        <Pressable
+                            onPress={handlePickImage}
+                            accessibilityRole="imagebutton"
                         >
-                            <ActivityIndicator size="large" color="#D4A537" />
-                        </View>
-                    )}
-                    <Pressable
-                        onPress={handlePickImage}
-                        style={styles.cameraBadge}
-                        accessibilityRole="button"
-                    >
-                        <Ionicons name="camera" size={16} color="#fff" />
-                    </Pressable>
+                            <View style={styles.avatarCircle}>
+                                {photoUri ? (
+                                    <Image
+                                        source={photoUri}
+                                        style={styles.avatarImage}
+                                        contentFit="cover"
+                                        cachePolicy="memory-disk"
+                                        transition={200}
+                                        onLoadStart={() =>
+                                            setImageLoading(true)
+                                        }
+                                        onLoadEnd={() =>
+                                            setImageLoading(false)
+                                        }
+                                    />
+                                ) : (
+                                    <View style={styles.avatarPlaceholder}>
+                                        <Text style={styles.avatarInitials}>
+                                            {getInitials(
+                                                profile?.name ?? user?.name,
+                                            )}
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+                        </Pressable>
+                        {(uploadingPhoto || imageLoading) && (
+                            <View
+                                style={styles.avatarSpinnerOverlay}
+                                pointerEvents="none"
+                            >
+                                <ActivityIndicator
+                                    size="large"
+                                    color="#D4A537"
+                                />
+                            </View>
+                        )}
+                        <Pressable
+                            onPress={handlePickImage}
+                            style={styles.cameraBadge}
+                            accessibilityRole="button"
+                        >
+                            <Ionicons name="camera" size={18} color="#fff" />
+                        </Pressable>
+                    </View>
                     <Text style={styles.nameText}>
                         {profile?.name ?? user?.name ?? "Employee"}
                     </Text>
@@ -867,6 +884,11 @@ const styles = StyleSheet.create({
         marginLeft: 8,
     },
     avatarWrap: { alignItems: "center", marginTop: 12, marginBottom: 18 },
+    avatarContainer: {
+        width: 160,
+        height: 160,
+        position: "relative",
+    },
     avatarCircle: {
         width: 160,
         height: 160,
@@ -878,11 +900,11 @@ const styles = StyleSheet.create({
         borderColor: "#F2C94C",
         overflow: "hidden",
     },
-    avatarImage: { width: "100%", height: "100%", resizeMode: "cover" },
+    avatarImage: { width: "100%", height: "100%" },
     cameraBadge: {
         position: "absolute",
-        right: 56,
-        top: 148,
+        right: 6,
+        bottom: 6,
         width: 40,
         height: 40,
         borderRadius: 20,
@@ -1101,9 +1123,10 @@ const styles = StyleSheet.create({
     },
     avatarSpinnerOverlay: {
         position: "absolute",
-        top: 24, // aligns to avatarWrap center (avatarCircle top position)
-        width: 160,
-        height: 160,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
         borderRadius: 80,
         alignItems: "center",
         justifyContent: "center",

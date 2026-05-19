@@ -1,4 +1,3 @@
-import { logger } from "@/utils/logger";
 import apiClient from "./api";
 
 export interface CheckInLocationPayload {
@@ -305,39 +304,17 @@ const normalizeBreakAction = (payload: BreakActionApiData): AttendanceRecord => 
 };
 
 export async function checkIn(
-    image?: { uri: string; name?: string; type?: string } | null,
-    location?: CheckInLocationPayload | null,
+    location: CheckInLocationPayload,
 ): Promise<AttendanceRecord> {
-    if (image || location) {
-        const form = new FormData();
-
-        if (image) {
-            form.append(
-                "image",
-                // React Native / Expo expects an object with uri, name and type
-                {
-                    uri: image.uri,
-                    name: image.name ?? "photo.jpg",
-                    type: image.type ?? "image/jpeg",
-                } as any,
-            );
-        }
-
-        if (location) {
-            form.append("locationLat", String(location.locationLat));
-            form.append("locationLng", String(location.locationLng));
-            form.append("locationCity", location.locationCity);
-            form.append("locationState", location.locationState);
-        }
-
-        const response = await apiClient.post<ApiEnvelope<CheckInApiData>>("/employees/check-in", form, {
-            headers: { "Content-Type": "multipart/form-data" },
-        });
-
-        return normalizeFromCheck(response.data.data);
-    }
-
-    const response = await apiClient.post<ApiEnvelope<CheckInApiData>>("/employees/check-in");
+    const response = await apiClient.post<ApiEnvelope<CheckInApiData>>(
+        "/employees/check-in",
+        {
+            locationLat: location.locationLat,
+            locationLng: location.locationLng,
+            locationCity: location.locationCity,
+            locationState: location.locationState,
+        },
+    );
     return normalizeFromCheck(response.data.data);
 }
 
@@ -368,7 +345,6 @@ export interface TodayAttendanceItem {
     department?: string;
     checkInTime?: string;
     checkOutTime?: string | null;
-    hasCheckInImage?: boolean;
     status?: string;
     location?: AttendanceLocation | null;
 }
@@ -380,7 +356,6 @@ interface TodayAttendanceApiItem {
     department?: string;
     checkInTime?: string;
     checkOutTime?: string | null;
-    hasCheckInImage?: boolean;
     status?: string;
     location?: AttendanceLocationInput;
 }
@@ -392,41 +367,6 @@ export async function fetchTodayAttendance(status?: string): Promise<TodayAttend
         ...item,
         location: parseAttendanceLocation(item.location),
     }));
-}
-
-export interface EmployeeAttendanceImageResponse {
-    employeeId: string;
-    attendanceId?: string;
-    imageUrl?: string;
-    checkInTime?: string;
-    location?: AttendanceLocation | null;
-}
-
-interface EmployeeAttendanceImageApiResponse {
-    employeeId: string;
-    attendanceId?: string;
-    imageUrl?: string;
-    checkInTime?: string;
-    location?: AttendanceLocationInput;
-}
-
-export async function fetchEmployeeAttendanceImage(employeeId: string): Promise<EmployeeAttendanceImageResponse | null> {
-    try {
-        const url = `/attendance/employee/${encodeURIComponent(employeeId)}/image`;
-        const response = await apiClient.get<ApiEnvelope<EmployeeAttendanceImageApiResponse>>(url);
-        const data = response.data?.data;
-        if (!data) {
-            return null;
-        }
-
-        return {
-            ...data,
-            location: parseAttendanceLocation(data.location),
-        };
-    } catch (err) {
-        logger.warn("fetchEmployeeAttendanceImage failed", err);
-        return null;
-    }
 }
 
 export interface DailyAttendanceSummary {

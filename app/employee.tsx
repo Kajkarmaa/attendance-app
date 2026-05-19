@@ -15,7 +15,6 @@ import {
     pauseAttendance,
     resumeAttendance,
     sanitizeAttendanceRecord,
-
     type AttendanceRecord,
 } from "@/services/attendance";
 import { getPayslipDownloadUrl } from "@/services/payroll";
@@ -24,9 +23,7 @@ import { getCachedData, setCachedData } from "@/stores/cacheStore";
 import { logger } from "@/utils/logger";
 import { classifyNetworkError } from "@/utils/network";
 import { Ionicons } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
-import * as LocalAuthentication from "expo-local-authentication";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -46,7 +43,10 @@ import {
     useWindowDimensions,
     View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+    SafeAreaView,
+    useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 const ACTIVITY_COLOR_MAP: Record<string, string> = {
     attendance: "#34D399",
@@ -90,7 +90,6 @@ export default function EmployeeDashboardScreen() {
         null,
     );
     const [activityLoading, setActivityLoading] = useState(false);
-    const [checkinImageLoading, setCheckinImageLoading] = useState(false);
     const [previewVisible, setPreviewVisible] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     type DashboardErrors = {
@@ -474,7 +473,10 @@ export default function EmployeeDashboardScreen() {
         setAttLoading(true);
         try {
             const latest = await fetchAttendance();
-            if (!isMountedRef.current || requestId !== attendanceRequestRef.current) {
+            if (
+                !isMountedRef.current ||
+                requestId !== attendanceRequestRef.current
+            ) {
                 return;
             }
             persistAttendance(latest);
@@ -493,7 +495,10 @@ export default function EmployeeDashboardScreen() {
                 }));
             }
         } finally {
-            if (isMountedRef.current && requestId === attendanceRequestRef.current) {
+            if (
+                isMountedRef.current &&
+                requestId === attendanceRequestRef.current
+            ) {
                 setAttLoading(false);
             }
         }
@@ -552,8 +557,8 @@ export default function EmployeeDashboardScreen() {
     const isOnBreak = Boolean(isCheckedIn && shouldResumeBreak);
     const totalBreakMinutes = attendance?.breakInfo?.totalBreakMinutes ?? 0;
     const completedBreakCount =
-        attendance?.breakInfo?.breaks?.filter((entry) => entry.resumedAt).length ??
-        0;
+        attendance?.breakInfo?.breaks?.filter((entry) => entry.resumedAt)
+            .length ?? 0;
     const activeBreakStartedAt =
         attendance?.breakInfo?.currentBreakStartedAt ??
         attendance?.breakInfo?.breaks
@@ -566,8 +571,12 @@ export default function EmployeeDashboardScreen() {
     const canSwipePunch = shouldShowSwipePunch;
     const halfTileWidth = Math.max((windowWidth - 48 - 10) / 2, 0);
     const halfTileCardStyle = { width: halfTileWidth };
-    const checkInDateTime = formatAttendanceDateAndTime(attendance?.checkIn?.time);
-    const checkOutDateTime = formatAttendanceDateAndTime(attendance?.checkOut?.time);
+    const checkInDateTime = formatAttendanceDateAndTime(
+        attendance?.checkIn?.time,
+    );
+    const checkOutDateTime = formatAttendanceDateAndTime(
+        attendance?.checkOut?.time,
+    );
     const swipeLabel = isCheckedOut
         ? "Checked Out for Today"
         : shouldResumeBreak
@@ -603,7 +612,8 @@ export default function EmployeeDashboardScreen() {
                 ...attendance,
                 ...nextAttendance,
                 checkIn: nextAttendance.checkIn ?? attendance?.checkIn ?? null,
-                checkOut: nextAttendance.checkOut ?? attendance?.checkOut ?? null,
+                checkOut:
+                    nextAttendance.checkOut ?? attendance?.checkOut ?? null,
                 breakInfo: nextAttendance.breakInfo ?? attendance?.breakInfo,
             });
             await loadAttendance(true);
@@ -634,82 +644,9 @@ export default function EmployeeDashboardScreen() {
         }
 
         try {
-            // Fail fast: verify biometric hardware is available and enrolled
-            // *before* asking for anything else. Cheap check, no UI prompt.
-            const hasHardware = await LocalAuthentication.hasHardwareAsync();
-            const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-
-            if (!hasHardware) {
-                Alert.alert(
-                    "Fingerprint not supported",
-                    "This device does not support biometric authentication.",
-                );
-                return;
-            }
-
-            if (!isEnrolled) {
-                Alert.alert(
-                    "Fingerprint not set up",
-                    "Please register your fingerprint in your device settings to punch in or out.",
-                );
-                return;
-            }
-
-            // For check-IN we need both location and camera. Request those
-            // permissions up front so a denial doesn't waste the user's
-            // fingerprint scan + a captured photo. Check-OUT only needs
-            // biometric — skip the heavy permission dance.
-            let prefetchedLocation: Awaited<
-                ReturnType<typeof getCheckInLocation>
-            > | null = null;
-
-            if (!isCheckedIn) {
-                const cameraPermission =
-                    await ImagePicker.requestCameraPermissionsAsync();
-                if (cameraPermission.status !== "granted") {
-                    Alert.alert(
-                        "Permission required",
-                        "Camera permission is required to capture a check-in photo.",
-                    );
-                    return;
-                }
-
-                try {
-                    prefetchedLocation = await getCheckInLocation();
-                } catch (locationError: any) {
-                    Alert.alert(
-                        "Location required",
-                        locationError?.message ||
-                            "We couldn't get your current location.",
-                    );
-                    return;
-                }
-            }
-
-            const authResult = await LocalAuthentication.authenticateAsync({
-                promptMessage: isCheckedIn
-                    ? "Confirm to check out"
-                    : "Confirm to check in",
-                fallbackLabel: "Use device passcode",
-                cancelLabel: "Cancel",
-            });
-
-            if (!authResult.success) {
-                if (
-                    authResult.error !== "user_cancel" &&
-                    authResult.error !== "system_cancel"
-                ) {
-                    Alert.alert(
-                        "Authentication failed",
-                        "We couldn't verify your identity.",
-                    );
-                }
-                return;
-            }
-
-            setPunching(true);
-
             if (isCheckedIn) {
+                // Check-out needs nothing extra.
+                setPunching(true);
                 const res = await checkOut();
                 persistAttendance({
                     ...attendance,
@@ -717,44 +654,21 @@ export default function EmployeeDashboardScreen() {
                     checkIn: attendance?.checkIn || res.checkIn || null,
                 });
             } else {
-                const location = prefetchedLocation!;
-
-                const pickerResult = await ImagePicker.launchCameraAsync({
-                    allowsEditing: false,
-                    quality: 0.6,
-                    exif: false,
-                    cameraType: ImagePicker.CameraType.front,
-                });
-
-                if (pickerResult.canceled) {
+                // Check-in requires the employee's current location.
+                let location: Awaited<ReturnType<typeof getCheckInLocation>>;
+                try {
+                    location = await getCheckInLocation();
+                } catch (locationError: any) {
                     Alert.alert(
-                        "Check-in cancelled",
-                        "You closed the camera before taking a photo. Try again when ready.",
+                        "Location required",
+                        locationError?.message ||
+                            "We couldn't get your current location. Please enable location access to check in.",
                     );
                     return;
                 }
 
-                const asset = (pickerResult as any).assets?.[0];
-                const localUri = asset?.uri ?? (pickerResult as any).uri;
-                if (!localUri) {
-                    Alert.alert(
-                        "Capture failed",
-                        "Unable to read captured image.",
-                    );
-                    return;
-                }
-
-                const filename = localUri.split("/").pop() || "photo.jpg";
-                const match = /\.(\w+)$/.exec(filename);
-                const ext = match ? match[1].toLowerCase() : "jpg";
-                const mime =
-                    ext === "jpg" || ext === "jpeg"
-                        ? "image/jpeg"
-                        : `image/${ext}`;
-
-                const image = { uri: localUri, name: filename, type: mime };
-
-                const res = await checkIn(image, location);
+                setPunching(true);
+                const res = await checkIn(location);
                 persistAttendance({
                     ...attendance,
                     ...res,
@@ -793,7 +707,10 @@ export default function EmployeeDashboardScreen() {
         setProfileLoading(true);
         try {
             const data = await fetchEmployeeProfile();
-            if (!isMountedRef.current || requestId !== profileRequestRef.current) {
+            if (
+                !isMountedRef.current ||
+                requestId !== profileRequestRef.current
+            ) {
                 return;
             }
             setProfile(data);
@@ -813,7 +730,10 @@ export default function EmployeeDashboardScreen() {
                 }));
             }
         } finally {
-            if (isMountedRef.current && requestId === profileRequestRef.current) {
+            if (
+                isMountedRef.current &&
+                requestId === profileRequestRef.current
+            ) {
                 setProfileLoading(false);
             }
         }
@@ -833,11 +753,18 @@ export default function EmployeeDashboardScreen() {
         setActivityLoading(true);
         try {
             const data = await fetchRecentActivity();
-            if (!isMountedRef.current || requestId !== activityRequestRef.current) {
+            if (
+                !isMountedRef.current ||
+                requestId !== activityRequestRef.current
+            ) {
                 return;
             }
             setActivityData(data);
-            setCachedData(EMPLOYEE_ACTIVITY_CACHE_KEY, data, CACHE_TTL.ATTENDANCE);
+            setCachedData(
+                EMPLOYEE_ACTIVITY_CACHE_KEY,
+                data,
+                CACHE_TTL.ATTENDANCE,
+            );
             setDashboardErrors((prev) => ({ ...prev, activity: undefined }));
         } catch (error: any) {
             logger.warn("recent activity fetch failed", error?.message);
@@ -852,7 +779,10 @@ export default function EmployeeDashboardScreen() {
                 }));
             }
         } finally {
-            if (isMountedRef.current && requestId === activityRequestRef.current) {
+            if (
+                isMountedRef.current &&
+                requestId === activityRequestRef.current
+            ) {
                 setActivityLoading(false);
             }
         }
@@ -881,7 +811,8 @@ export default function EmployeeDashboardScreen() {
                         styles.content,
                         {
                             paddingTop: 32,
-                            paddingBottom: BOTTOM_BAR_BASE_HEIGHT + insets.bottom + 80,
+                            paddingBottom:
+                                BOTTOM_BAR_BASE_HEIGHT + insets.bottom + 80,
                         },
                     ]}
                     showsVerticalScrollIndicator={false}
@@ -1160,15 +1091,19 @@ export default function EmployeeDashboardScreen() {
                                             style={{ height: 18, width: 40 }}
                                         />
                                     ) : (
-                                        attendance?.totalWorkingDays ?? "--"
+                                        (attendance?.totalWorkingDays ?? "--")
                                     )}
                                 </Text>
-                                <Text style={styles.tileNote}>Working Days</Text>
+                                <Text style={styles.tileNote}>
+                                    Working Days
+                                </Text>
                             </View>
                         </View>
                     ) : (
                         <View style={styles.singleTileRow}>
-                            <View style={[styles.tileCard, styles.tileCardFull]}>
+                            <View
+                                style={[styles.tileCard, styles.tileCardFull]}
+                            >
                                 <View style={styles.tileIconWrap}>
                                     <Ionicons
                                         name="calendar-outline"
@@ -1183,10 +1118,12 @@ export default function EmployeeDashboardScreen() {
                                             style={{ height: 18, width: 40 }}
                                         />
                                     ) : (
-                                        attendance?.totalWorkingDays ?? "--"
+                                        (attendance?.totalWorkingDays ?? "--")
                                     )}
                                 </Text>
-                                <Text style={styles.tileNote}>Working Days</Text>
+                                <Text style={styles.tileNote}>
+                                    Working Days
+                                </Text>
                             </View>
                         </View>
                     )}
@@ -1243,14 +1180,16 @@ export default function EmployeeDashboardScreen() {
                                 ) : (
                                     <>
                                         <Ionicons
-                                            name={shouldResumeBreak ? "play" : "pause"}
+                                            name={
+                                                shouldResumeBreak
+                                                    ? "play"
+                                                    : "pause"
+                                            }
                                             size={16}
                                             color="#111827"
                                         />
                                         <Text
-                                            style={
-                                                styles.breakActionButtonText
-                                            }
+                                            style={styles.breakActionButtonText}
                                         >
                                             {shouldResumeBreak
                                                 ? "Resume Break"
@@ -1487,7 +1426,8 @@ export default function EmployeeDashboardScreen() {
                             <Animated.View
                                 style={[
                                     styles.swipeHandle,
-                                    !canSwipePunch && styles.swipeHandleDisabled,
+                                    !canSwipePunch &&
+                                        styles.swipeHandleDisabled,
                                     { transform: [{ translateX: pan }] },
                                 ]}
                                 pointerEvents={canSwipePunch ? "auto" : "none"}
@@ -1641,13 +1581,13 @@ const styles = StyleSheet.create({
     header: {
         paddingTop: 20,
         paddingHorizontal: 24,
-        paddingBottom: 16,
+        paddingBottom: 1,
     },
     headerTop: {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "space-between",
-        marginBottom: 12,
+        marginBottom: 1,
     },
     headerLeft: {
         flexDirection: "row",
@@ -1812,19 +1752,6 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
 
-    checkinImageWrap: {
-        alignSelf: "center",
-        marginTop: 12,
-        borderRadius: 12,
-        overflow: "hidden",
-        borderWidth: 1,
-        borderColor: "#F1F5F9",
-    },
-    checkinImage: {
-        width: 84,
-        height: 84,
-        resizeMode: "cover",
-    },
     bannerWrap: {
         marginTop: 12,
         borderRadius: 14,
@@ -1841,7 +1768,7 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "stretch",
-        marginTop: 12,
+        marginTop: 5,
         gap: 10,
     },
     singleTileRow: {
