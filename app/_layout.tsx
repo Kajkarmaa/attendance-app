@@ -38,7 +38,7 @@ export default function RootLayout() {
                             options={{ headerShown: false }}
                         />
                         <Stack.Screen
-                            name="admin-policy"
+                            name="admin-settings"
                             options={{ headerShown: false }}
                         />
                         <Stack.Screen

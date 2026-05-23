@@ -36,7 +36,10 @@ import {
     View,
     useWindowDimensions,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+    SafeAreaView,
+    useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 const ADMIN_DEPARTMENTS_CACHE_KEY = "admin:departments";
 const ADMIN_DAILY_SUMMARY_CACHE_KEY = "admin:daily-summary";
@@ -102,8 +105,7 @@ export default function HomeScreen() {
     const [showConvertModal, setShowConvertModal] = useState(false);
     const [selectedPendingUser, setSelectedPendingUser] =
         useState<PendingUser | null>(null);
-    const [convertDesignation, setConvertDesignation] =
-        useState("Software Developer");
+    const [convertDesignation, setConvertDesignation] = useState("Staff");
     const [convertDepartment, setConvertDepartment] = useState("Engineering");
     const [convertSalary, setConvertSalary] = useState("50000");
     const [convertLoading, setConvertLoading] = useState(false);
@@ -120,9 +122,8 @@ export default function HomeScreen() {
         lists?: { message: string; retry: () => void };
         departments?: { message: string; retry: () => void };
     };
-    const [dashboardErrors, setDashboardErrors] = useState<AdminDashboardErrors>(
-        {},
-    );
+    const [dashboardErrors, setDashboardErrors] =
+        useState<AdminDashboardErrors>({});
     const dashboardError =
         dashboardErrors.summary ||
         dashboardErrors.lists ||
@@ -243,10 +244,10 @@ export default function HomeScreen() {
     }, [user, isLoading]);
 
     const getInitials = (name?: string) => {
-        if (!name) return '';
+        if (!name) return "";
         const parts = name.trim().split(/\s+/);
         if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-        return (parts[0][0] + (parts[1][0] ?? '')).slice(0, 2).toUpperCase();
+        return (parts[0][0] + (parts[1][0] ?? "")).slice(0, 2).toUpperCase();
     };
 
     useEffect(() => {
@@ -273,9 +274,7 @@ export default function HomeScreen() {
     const loadDepartments = async (force: boolean = false) => {
         const requestId = ++departmentsRequestRef.current;
         if (!force) {
-            const cached = getCachedData<string[]>(
-                ADMIN_DEPARTMENTS_CACHE_KEY,
-            );
+            const cached = getCachedData<string[]>(ADMIN_DEPARTMENTS_CACHE_KEY);
             if (cached) {
                 setDepartments(cached);
                 return;
@@ -285,7 +284,10 @@ export default function HomeScreen() {
         setDepartmentsLoading(true);
         try {
             const data = await fetchDepartments();
-            if (!isMountedRef.current || requestId !== departmentsRequestRef.current) {
+            if (
+                !isMountedRef.current ||
+                requestId !== departmentsRequestRef.current
+            ) {
                 return;
             }
             const next = Array.isArray(data) ? data : [];
@@ -294,7 +296,10 @@ export default function HomeScreen() {
             setDashboardErrors((prev) => ({ ...prev, departments: undefined }));
         } catch (error: any) {
             logger.warn("departments fetch failed", error?.message);
-            if (isMountedRef.current && requestId === departmentsRequestRef.current) {
+            if (
+                isMountedRef.current &&
+                requestId === departmentsRequestRef.current
+            ) {
                 setDepartments([]);
             }
             const classified = classifyNetworkError(error);
@@ -308,7 +313,10 @@ export default function HomeScreen() {
                 }));
             }
         } finally {
-            if (isMountedRef.current && requestId === departmentsRequestRef.current) {
+            if (
+                isMountedRef.current &&
+                requestId === departmentsRequestRef.current
+            ) {
                 setDepartmentsLoading(false);
             }
         }
@@ -335,17 +343,24 @@ export default function HomeScreen() {
                 fetchEmployees(query),
                 fetchPendingUsers(),
             ]);
-            if (!isMountedRef.current || requestId !== listsRequestRef.current) {
+            if (
+                !isMountedRef.current ||
+                requestId !== listsRequestRef.current
+            ) {
                 return;
             }
             const nextEmployees = emps || [];
             const nextPendingUsers = pend || [];
             setEmployees(nextEmployees);
             setPendingUsers(nextPendingUsers);
-            setCachedData(cacheKey, {
-                employees: nextEmployees,
-                pendingUsers: nextPendingUsers,
-            }, CACHE_TTL.LISTS);
+            setCachedData(
+                cacheKey,
+                {
+                    employees: nextEmployees,
+                    pendingUsers: nextPendingUsers,
+                },
+                CACHE_TTL.LISTS,
+            );
             setDashboardErrors((prev) => ({ ...prev, lists: undefined }));
         } catch (error: any) {
             logger.warn("list fetch failed", error?.message);
@@ -370,10 +385,13 @@ export default function HomeScreen() {
         const requestId = ++summaryRequestRef.current;
         // Cache key includes department so switching filters doesn't show
         // stale numbers from the previous selection.
-        const departmentKey = department && department !== "All" ? department : "all";
+        const departmentKey =
+            department && department !== "All" ? department : "all";
         const cacheKey = `${ADMIN_DAILY_SUMMARY_CACHE_KEY}:${departmentKey}`;
         if (!force) {
-            const cached = getCachedData<DailyAttendanceSummary | null>(cacheKey);
+            const cached = getCachedData<DailyAttendanceSummary | null>(
+                cacheKey,
+            );
             if (cached) {
                 setDailySummary(cached);
                 return;
@@ -383,7 +401,10 @@ export default function HomeScreen() {
         setSummaryLoading(true);
         try {
             const summary = await fetchDailySummary({ department });
-            if (!isMountedRef.current || requestId !== summaryRequestRef.current) {
+            if (
+                !isMountedRef.current ||
+                requestId !== summaryRequestRef.current
+            ) {
                 return;
             }
             setDailySummary(summary);
@@ -402,7 +423,10 @@ export default function HomeScreen() {
                 }));
             }
         } finally {
-            if (isMountedRef.current && requestId === summaryRequestRef.current) {
+            if (
+                isMountedRef.current &&
+                requestId === summaryRequestRef.current
+            ) {
                 setSummaryLoading(false);
             }
         }
@@ -535,11 +559,7 @@ export default function HomeScreen() {
         }
 
         const selectedDate = new Date(bonusYear, bonusMonth - 1, 1);
-        const currentDate = new Date(
-            currentYear,
-            currentMonth - 1,
-            1,
-        );
+        const currentDate = new Date(currentYear, currentMonth - 1, 1);
         if (selectedDate < currentDate) {
             setBonusMessage({
                 text: "Only current or upcoming month/year is allowed.",
@@ -760,7 +780,6 @@ export default function HomeScreen() {
                 </View>
             </View>
 
-
             <ScrollView
                 style={styles.flex}
                 contentContainerStyle={[
@@ -781,100 +800,112 @@ export default function HomeScreen() {
                         onRetry={() => dashboardError.retry()}
                     />
                 )}
-                            <View style={styles.statsWrapper}>
-                <View style={styles.statsCard}>
-                    <View style={styles.statsHeader}>
-                        <Text style={styles.statsTitle}>
-                            Attendance Tracking
-                        </Text>
-                        <View style={styles.statsHeaderRight}>
-                            {summaryLoading ? (
-                                <SkeletonBlock
-                                    style={{
-                                        height: 18,
-                                        width: 100,
-                                        borderRadius: 6,
-                                    }}
-                                />
-                            ) : (
-                                <>
-                                    <Text style={styles.statsMonth}>
-                                        {summaryMonthLabel}
-                                    </Text>
-                                    <Feather
-                                        name="calendar"
-                                        size={14}
-                                        color="#9CA3AF"
+                <View style={styles.statsWrapper}>
+                    <View style={styles.statsCard}>
+                        <View style={styles.statsHeader}>
+                            <Text style={styles.statsTitle}>
+                                Attendance Tracking
+                            </Text>
+                            <View style={styles.statsHeaderRight}>
+                                {summaryLoading ? (
+                                    <SkeletonBlock
+                                        style={{
+                                            height: 18,
+                                            width: 100,
+                                            borderRadius: 6,
+                                        }}
                                     />
-                                </>
-                            )}
+                                ) : (
+                                    <>
+                                        <Text style={styles.statsMonth}>
+                                            {summaryMonthLabel}
+                                        </Text>
+                                        <Feather
+                                            name="calendar"
+                                            size={14}
+                                            color="#9CA3AF"
+                                        />
+                                    </>
+                                )}
+                            </View>
+                        </View>
+
+                        <View style={styles.statsGrid}>
+                            {summaryLoading
+                                ? stats.map((_, idx) => (
+                                      <View
+                                          key={`skeleton-${idx}`}
+                                          style={{
+                                              width: isWide ? "31%" : "48%",
+                                          }}
+                                      >
+                                          <View style={styles.statItemRow}>
+                                              <View
+                                                  style={[
+                                                      styles.statBar,
+                                                      {
+                                                          backgroundColor:
+                                                              "#E6E9EE",
+                                                      },
+                                                  ]}
+                                              />
+                                              <View
+                                                  style={styles.statTextBlock}
+                                              >
+                                                  <SkeletonBlock
+                                                      style={{
+                                                          height: 18,
+                                                          width: 60,
+                                                          marginBottom: 6,
+                                                      }}
+                                                  />
+                                                  <SkeletonBlock
+                                                      style={{
+                                                          height: 12,
+                                                          width: 120,
+                                                      }}
+                                                  />
+                                              </View>
+                                          </View>
+                                      </View>
+                                  ))
+                                : stats.map((item) => (
+                                      <View
+                                          key={item.label}
+                                          style={{
+                                              width: isWide ? "31%" : "48%",
+                                          }}
+                                      >
+                                          <View style={styles.statItemRow}>
+                                              <View
+                                                  style={[
+                                                      styles.statBar,
+                                                      {
+                                                          backgroundColor:
+                                                              item.color,
+                                                      },
+                                                  ]}
+                                              />
+                                              <View
+                                                  style={styles.statTextBlock}
+                                              >
+                                                  <Text
+                                                      style={styles.statValue}
+                                                  >
+                                                      {item.value}
+                                                  </Text>
+                                                  <Text
+                                                      style={styles.statLabel}
+                                                  >
+                                                      {item.label}
+                                                  </Text>
+                                              </View>
+                                          </View>
+                                      </View>
+                                  ))}
                         </View>
                     </View>
-
-                    <View style={styles.statsGrid}>
-                        {summaryLoading
-                            ? stats.map((_, idx) => (
-                                  <View
-                                      key={`skeleton-${idx}`}
-                                      style={{ width: isWide ? "31%" : "48%" }}
-                                  >
-                                      <View style={styles.statItemRow}>
-                                          <View
-                                              style={[
-                                                  styles.statBar,
-                                                  {
-                                                      backgroundColor:
-                                                          "#E6E9EE",
-                                                  },
-                                              ]}
-                                          />
-                                          <View style={styles.statTextBlock}>
-                                              <SkeletonBlock
-                                                  style={{
-                                                      height: 18,
-                                                      width: 60,
-                                                      marginBottom: 6,
-                                                  }}
-                                              />
-                                              <SkeletonBlock
-                                                  style={{
-                                                      height: 12,
-                                                      width: 120,
-                                                  }}
-                                              />
-                                          </View>
-                                      </View>
-                                  </View>
-                              ))
-                            : stats.map((item) => (
-                                  <View
-                                      key={item.label}
-                                      style={{ width: isWide ? "31%" : "48%" }}
-                                  >
-                                      <View style={styles.statItemRow}>
-                                          <View
-                                              style={[
-                                                  styles.statBar,
-                                                  {
-                                                      backgroundColor:
-                                                          item.color,
-                                                  },
-                                              ]}
-                                          />
-                                          <View style={styles.statTextBlock}>
-                                              <Text style={styles.statValue}>
-                                                  {item.value}
-                                              </Text>
-                                              <Text style={styles.statLabel}>
-                                                  {item.label}
-                                              </Text>
-                                          </View>
-                                      </View>
-                                  </View>
-                              ))}
-                    </View>
                 </View>
-            </View>
                 <View style={styles.searchBar}>
                     <Feather name="search" size={16} color="#9CA3AF" />
                     <TextInput
@@ -951,7 +982,10 @@ export default function HomeScreen() {
                             disabled={bonusLoading}
                         >
                             {bonusLoading ? (
-                                <ActivityIndicator color="#111827" size="small" />
+                                <ActivityIndicator
+                                    color="#111827"
+                                    size="small"
+                                />
                             ) : (
                                 <Text style={styles.topGenerateAllButtonText}>
                                     Generate Bonus For All Employees
@@ -981,8 +1015,7 @@ export default function HomeScreen() {
                             const empId = emp?.employeeId;
                             const recordId = emp?.id || emp?.userId?._id;
                             const email = emp?.userId?.email || "";
-                            const avatarUrl =
-                                (emp as any)?.profilePicture
+                            const avatarUrl = (emp as any)?.profilePicture;
                             return (
                                 <Pressable
                                     key={emp.id || emp.employeeId}
@@ -1002,16 +1035,18 @@ export default function HomeScreen() {
                                         })
                                     }
                                 >
-                                            {avatarUrl ? (
-                                                <Image
-                                                    source={{ uri: avatarUrl }}
-                                                    style={styles.staffAvatar}
-                                                />
-                                            ) : (
-                                                <View style={styles.placeholderAvatar}>
-                                                    <Text style={styles.avatarInitials}>{getInitials(name)}</Text>
-                                                </View>
-                                            )}
+                                    {avatarUrl ? (
+                                        <Image
+                                            source={{ uri: avatarUrl }}
+                                            style={styles.staffAvatar}
+                                        />
+                                    ) : (
+                                        <View style={styles.placeholderAvatar}>
+                                            <Text style={styles.avatarInitials}>
+                                                {getInitials(name)}
+                                            </Text>
+                                        </View>
+                                    )}
                                     <View style={styles.staffInfo}>
                                         <Text style={styles.staffName}>
                                             {name}
@@ -1063,16 +1098,23 @@ export default function HomeScreen() {
                         activeTab === "pending" &&
                         filteredPending.map((p) => (
                             <View key={p.id} style={styles.staffCard}>
-                                    {((p as any)?.profilePicture || (p as any)?.avatar) ? (
-                                        <Image
-                                            source={{ uri: (p as any).profilePicture || (p as any).avatar }}
-                                            style={styles.staffAvatar}
-                                        />
-                                    ) : (
-                                        <View style={styles.placeholderAvatar}>
-                                            <Text style={styles.avatarInitials}>{getInitials(p.name)}</Text>
-                                        </View>
-                                    )}
+                                {(p as any)?.profilePicture ||
+                                (p as any)?.avatar ? (
+                                    <Image
+                                        source={{
+                                            uri:
+                                                (p as any).profilePicture ||
+                                                (p as any).avatar,
+                                        }}
+                                        style={styles.staffAvatar}
+                                    />
+                                ) : (
+                                    <View style={styles.placeholderAvatar}>
+                                        <Text style={styles.avatarInitials}>
+                                            {getInitials(p.name)}
+                                        </Text>
+                                    </View>
+                                )}
                                 <View style={styles.staffInfo}>
                                     <Text style={styles.staffName}>
                                         {p.name}
@@ -1140,7 +1182,11 @@ export default function HomeScreen() {
                     style={styles.bottomIcon}
                     onPress={() => router.replace("/admin-leaves")}
                 >
-                    <Ionicons name="document-text-outline" size={22} color="#9CA3AF" />
+                    <Ionicons
+                        name="document-text-outline"
+                        size={22}
+                        color="#9CA3AF"
+                    />
                 </Pressable>
                 <Pressable
                     style={styles.bottomIcon}
@@ -1150,9 +1196,13 @@ export default function HomeScreen() {
                 </Pressable>
                 <Pressable
                     style={styles.bottomIcon}
-                    onPress={() => router.push("/admin-policy")}
+                    onPress={() => router.push("/admin-settings")}
                 >
-                    <Ionicons name="settings-outline" size={22} color="#9CA3AF" />
+                    <Ionicons
+                        name="settings-outline"
+                        size={22}
+                        color="#9CA3AF"
+                    />
                 </Pressable>
             </View>
 
@@ -1554,7 +1604,10 @@ export default function HomeScreen() {
                 animationType="fade"
                 onRequestClose={closeBonusModal}
             >
-                <Pressable style={styles.centeredOverlay} onPress={closeBonusModal}>
+                <Pressable
+                    style={styles.centeredOverlay}
+                    onPress={closeBonusModal}
+                >
                     <Pressable
                         style={styles.bonusCard}
                         onPress={(event) => event.stopPropagation()}
@@ -1567,12 +1620,14 @@ export default function HomeScreen() {
                                   selectedBonusEmployee?.employeeId ||
                                   "Select employee"}
                         </Text>
-                        {!bonusForAllMode && selectedBonusEmployee?.employeeId && (
-                            <Text style={styles.bonusMeta}>
-                                ID: {selectedBonusEmployee.employeeId} •{" "}
-                                {selectedBonusEmployee.department || "Department"}
-                            </Text>
-                        )}
+                        {!bonusForAllMode &&
+                            selectedBonusEmployee?.employeeId && (
+                                <Text style={styles.bonusMeta}>
+                                    ID: {selectedBonusEmployee.employeeId} •{" "}
+                                    {selectedBonusEmployee.department ||
+                                        "Department"}
+                                </Text>
+                            )}
 
                         <View style={styles.bonusFieldGroup}>
                             <Text style={styles.bonusLabel}>Month & Year</Text>
@@ -1627,7 +1682,10 @@ export default function HomeScreen() {
                         <View style={styles.bonusFieldGroup}>
                             <Text style={styles.bonusLabel}>Notes</Text>
                             <TextInput
-                                style={[styles.bonusInput, styles.bonusNotesInput]}
+                                style={[
+                                    styles.bonusInput,
+                                    styles.bonusNotesInput,
+                                ]}
                                 value={bonusNotes}
                                 onChangeText={setBonusNotes}
                                 placeholder="Updated bonus amount"
@@ -1654,7 +1712,9 @@ export default function HomeScreen() {
                                 disabled={bonusLoading}
                                 onPress={closeBonusModal}
                             >
-                                <Text style={styles.payrollCancelText}>Cancel</Text>
+                                <Text style={styles.payrollCancelText}>
+                                    Cancel
+                                </Text>
                             </Pressable>
                             <Pressable
                                 style={[
@@ -1662,17 +1722,23 @@ export default function HomeScreen() {
                                     bonusLoading &&
                                         styles.payrollSubmitButtonDisabled,
                                 ]}
-                                onPress={() => handleGenerateBonus(bonusForAllMode)}
+                                onPress={() =>
+                                    handleGenerateBonus(bonusForAllMode)
+                                }
                                 disabled={bonusLoading}
                             >
                                 {bonusLoading ? (
-                                    <ActivityIndicator color="#FFFFFF" size="small" />
+                                    <ActivityIndicator
+                                        color="#FFFFFF"
+                                        size="small"
+                                    />
                                 ) : (
-                                    <Text style={styles.payrollSubmitText}>Generate</Text>
+                                    <Text style={styles.payrollSubmitText}>
+                                        Generate
+                                    </Text>
                                 )}
                             </Pressable>
                         </View>
-                        
                     </Pressable>
                 </Pressable>
             </Modal>
@@ -1782,7 +1848,7 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     statsWrapper: {
-        marginTop:4,
+        marginTop: 4,
         paddingHorizontal: 0,
         paddingBottom: 12,
     },
@@ -1961,15 +2027,13 @@ const styles = StyleSheet.create({
     },
     placeholderAvatar: {
         height: 50,
-    width: 50,
-    borderRadius: 25,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
+        width: 50,
+        borderRadius: 25,
+        backgroundColor: "#F3F4F6",
+        alignItems: "center",
+        justifyContent: "center",
     },
-    avatarInitials: {  fontSize: 15,
-    fontWeight: '600',
-    color: '#111111', },
+    avatarInitials: { fontSize: 15, fontWeight: "600", color: "#111111" },
     staffInfo: {
         flex: 1,
         marginLeft: 12,

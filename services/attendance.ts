@@ -428,7 +428,7 @@ export async function fetchAttendanceHistory(): Promise<AttendanceHistoryRespons
     return response.data.data;
 }
 
-export type AttendanceDayStatus = "present" | "half_day" | "absent";
+export type AttendanceDayStatus = "present" | "absent";
 
 export interface MonthlyGridDay {
     /** ISO calendar date, YYYY-MM-DD. */
@@ -491,5 +491,46 @@ export async function updateAttendanceDay(
     const response = await apiClient.put<
         ApiEnvelope<{ employeeId: string; date: string; status: AttendanceDayStatus }>
     >(`/attendance/${encodeURIComponent(employeeId)}/day`, { date, status });
+    return response.data.data;
+}
+
+export interface MonthlyAccumulator {
+    accumulated: number;
+    fullSalary: number;
+    percent: number;
+    daysBefore10: number;
+    daysAfter10: number;
+    dailyRateBefore10: number;
+    dailyRateAfter10: number;
+    month: number;
+    year: number;
+}
+
+export async function fetchMonthlyAccumulator(
+    month?: number,
+    year?: number,
+): Promise<MonthlyAccumulator> {
+    const params: Record<string, number> = {};
+    if (month !== undefined) params.month = month;
+    if (year !== undefined) params.year = year;
+    const response = await apiClient.get<ApiEnvelope<MonthlyAccumulator>>(
+        "/attendance/accumulator",
+        Object.keys(params).length ? { params } : undefined,
+    );
+    return response.data.data;
+}
+
+export async function fetchMonthlyAccumulatorForUser(
+    userId: string,
+    month?: number,
+    year?: number,
+): Promise<MonthlyAccumulator> {
+    const params: Record<string, number> = {};
+    if (month !== undefined) params.month = month;
+    if (year !== undefined) params.year = year;
+    const response = await apiClient.get<ApiEnvelope<MonthlyAccumulator>>(
+        `/attendance/accumulator/${encodeURIComponent(userId)}`,
+        Object.keys(params).length ? { params } : undefined,
+    );
     return response.data.data;
 }

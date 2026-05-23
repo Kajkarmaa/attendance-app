@@ -60,17 +60,13 @@ interface ConvertToEmployeeResponse {
 export interface EmployeeAttendanceBreakdown {
     present: number;
     absent: number;
-    late: number;
-    halfDay: number;
     totalDays: number;
     averageWorkHours: string;
-    absentDate: number[]; 
+    absentDate: number[];
 }
 
 export interface EmployeeLeaveBalance {
-    total: number;
     used: number;
-    remaining: number;
 }
 
 export interface EmployeePayslip {

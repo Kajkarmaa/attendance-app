@@ -475,7 +475,7 @@ export default function AdminAttendanceScreen() {
                 </Pressable>
                 <Pressable
                                     style={styles.bottomIcon}
-                                    onPress={() => router.push("/admin-policy")}
+                                    onPress={() => router.push("/admin-settings")}
                                 >
                                     <Ionicons name="settings-outline" size={22} color="#9CA3AF" />
                                 </Pressable>

@@ -1,4 +1,5 @@
 import MonthlyAttendanceGrid from '@/components/MonthlyAttendanceGrid';
+import SalaryProgressBar from '@/components/SalaryProgressBar';
 import SkeletonBlock from '@/components/SkeletonBlock';
 import { CACHE_TTL } from '@/constants/cache';
 import { Feather } from '@expo/vector-icons';
@@ -122,10 +123,6 @@ export default function EmployeeProfileScreen() {
   }, [profile?.joinDate]);
 
   const leaveBalance = profile?.leaveBalance;
-  const leavePercent = useMemo(() => {
-    if (!leaveBalance || leaveBalance.total === 0) return 0;
-    return Math.min(100, Math.round((leaveBalance.used / leaveBalance.total) * 100));
-  }, [leaveBalance]);
 
   const attendanceSummary = profile?.attendance?.thisMonth;
   const hasPayslips = (profile?.Payslips?.length ?? 0) > 0;
@@ -325,23 +322,15 @@ export default function EmployeeProfileScreen() {
       </View>
 
       <View style={styles.sectionCard}>
-        <Text style={styles.sectionLabel}>Leave Balance</Text>
+        <Text style={styles.sectionLabel}>Leaves Taken This Year</Text>
         {leaveBalance ? (
           <>
-            <View style={styles.infoRow}>
-              <View>
-                <Text style={styles.infoSmall}>Total</Text>
-                <Text style={styles.infoLarge}>{leaveBalance.total}</Text>
-              </View>
-              <View>
-                <Text style={styles.infoSmall}>Remaining</Text>
-                <Text style={styles.infoLarge}>{leaveBalance.remaining}</Text>
-              </View>
-            </View>
-            <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${leavePercent}%` }]} />
-            </View>
-            <Text style={styles.progressCaption}>{leavePercent}% used • {leaveBalance.used} days taken</Text>
+            <Text style={styles.infoLarge}>
+              {leaveBalance.used} {leaveBalance.used === 1 ? 'day' : 'days'}
+            </Text>
+            <Text style={styles.progressCaption}>
+              Approved sick, casual, and earned leaves combined (excludes maternity/paternity).
+            </Text>
           </>
         ) : (
           <Text style={styles.infoValue}>Leave data not available</Text>
@@ -355,8 +344,6 @@ export default function EmployeeProfileScreen() {
       ? [
           { label: 'Present', value: attendanceSummary.present, color: '#22C55E' },
           { label: 'Absent', value: attendanceSummary.absent, color: '#F97316' },
-          { label: 'Late', value: attendanceSummary.late, color: '#FACC15' },
-          { label: 'Half Day', value: attendanceSummary.halfDay, color: '#8B5CF6' },
           { label: 'Total Days', value: attendanceSummary.totalDays, color: '#3B82F6' },
           { label: 'Avg Hours', value: attendanceSummary.averageWorkHours, color: '#0EA5E9' },
         ]
@@ -390,21 +377,16 @@ export default function EmployeeProfileScreen() {
   const renderSalary = () => {
     const annualSalary = monthlySalary ? monthlySalary * 12 : null;
     const latestPayslip = profile?.Payslips?.[0];
-    const allowances = [
-      { label: 'Housing Support (20%)', value: monthlySalary ? monthlySalary * 0.2 : null },
-      { label: 'Travel Allowance (10%)', value: monthlySalary ? monthlySalary * 0.1 : null },
-      { label: 'Wellness Stipend (5%)', value: monthlySalary ? monthlySalary * 0.05 : null },
-      { label: 'Other Benefits', value: null },
-    ];
-    const deductions = [
-      { label: 'Provident Fund (12%)', value: monthlySalary ? monthlySalary * 0.12 : null },
-      { label: 'Professional Tax', value: monthlySalary ? monthlySalary * 0.02 : null },
-      { label: 'Insurance', value: null },
-      { label: 'Other Deductions', value: null },
-    ];
 
     return (
       <>
+        {profile?.id ? (
+          <SalaryProgressBar
+            userId={profile.id}
+            style={{ marginBottom: 14 }}
+          />
+        ) : null}
+
         <View style={styles.sectionCard}>
           <Text style={styles.sectionLabel}>Salary Overview</Text>
           <View style={styles.infoRow}>
@@ -417,7 +399,7 @@ export default function EmployeeProfileScreen() {
               <Text style={styles.infoLarge}>{formatCurrency(annualSalary)}</Text>
             </View>
           </View>
-          <View style={[styles.infoRow, { marginTop: 16 }]}> 
+          <View style={[styles.infoRow, { marginTop: 16 }]}>
             <View>
               <Text style={styles.infoSmall}>Latest Payslip</Text>
               <Text style={styles.infoLarge}>{latestPayslip?.month ?? 'Not issued'}</Text>
@@ -430,32 +412,6 @@ export default function EmployeeProfileScreen() {
             </View>
           </View>
           <Text style={styles.salaryNote}>Figures sourced from employee detail API. Update actual payouts from payroll.</Text>
-        </View>
-
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>Allowances Snapshot</Text>
-          <View style={styles.salaryGrid}>
-            {allowances.map((item) => (
-              <View key={item.label} style={styles.salaryTile}>
-                <Text style={styles.salaryLabel}>{item.label}</Text>
-                <Text style={styles.salaryValue}>{formatCurrency(item.value)}</Text>
-              </View>
-            ))}
-          </View>
-          <Text style={styles.salaryNote}>Allowances are indicative percentages of the base salary.</Text>
-        </View>
-
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>Deductions</Text>
-          <View style={styles.salaryGrid}>
-            {deductions.map((item) => (
-              <View key={item.label} style={styles.salaryTile}>
-                <Text style={styles.salaryLabel}>{item.label}</Text>
-                <Text style={styles.salaryValue}>{formatCurrency(item.value)}</Text>
-              </View>
-            ))}
-          </View>
-          <Text style={styles.salaryNote}>Adjust statutory deductions within the payroll console.</Text>
         </View>
 
         <View style={styles.sectionCard}>
@@ -940,17 +896,6 @@ const styles = StyleSheet.create({
     color: '#15803D',
     fontWeight: '600',
   },
-  progressTrack: {
-    marginTop: 12,
-    height: 6,
-    borderRadius: 4,
-    backgroundColor: '#F3F4F6',
-  },
-  progressFill: {
-    height: 6,
-    borderRadius: 4,
-    backgroundColor: '#D4A537',
-  },
   progressCaption: {
     marginTop: 8,
     fontSize: 11,
@@ -978,31 +923,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
     color: '#111111',
-  },
-  salaryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  salaryTile: {
-    width: '48%',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-    padding: 14,
-    backgroundColor: '#FFFFFF',
-  },
-  salaryLabel: {
-    fontSize: 11,
-    color: '#6B7280',
-    letterSpacing: 0.5,
-  },
-  salaryValue: {
-    marginTop: 6,
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
   },
   salaryNote: {
     marginTop: 10,

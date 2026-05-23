@@ -1,5 +1,6 @@
 import InlineErrorBanner from "@/components/InlineErrorBanner";
 import MonthlyAttendanceGrid from "@/components/MonthlyAttendanceGrid";
+import SalaryProgressBar from "@/components/SalaryProgressBar";
 import SkeletonBlock from "@/components/SkeletonBlock";
 import { useCheckInLocation } from "@/components/check-in-location";
 import { CACHE_TTL } from "@/constants/cache";
@@ -972,6 +973,10 @@ export default function EmployeeDashboardScreen() {
                             onRetry={() => dashboardError.retry()}
                         />
                     )}
+                    <SalaryProgressBar
+                        style={{ marginBottom: 14 }}
+                        refreshKey={attendance?.checkIn?.time}
+                    />
                     <View style={styles.tilesRow}>
                         <View style={[styles.tileCard, halfTileCardStyle]}>
                             <View style={styles.tileIconWrap}>

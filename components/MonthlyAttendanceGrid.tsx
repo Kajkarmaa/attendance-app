@@ -25,8 +25,7 @@ const MONTHS = [
 ];
 
 const STATUS_OPTIONS: { label: string; value: AttendanceDayStatus }[] = [
-    { label: "Full Day Present", value: "present" },
-    { label: "Half Day", value: "half_day" },
+    { label: "Present", value: "present" },
     { label: "Absent", value: "absent" },
 ];
 
@@ -34,8 +33,6 @@ const statusColor = (status: AttendanceDayStatus): string => {
     switch (status) {
         case "present":
             return "#22C55E";
-        case "half_day":
-            return "#FACC15";
         case "absent":
             return "#EF4444";
         default:
@@ -48,8 +45,6 @@ const cellColors = (day: MonthlyGridDay): { bg: string; text: string } => {
     switch (day.status) {
         case "present":
             return { bg: "#22C55E", text: "#FFFFFF" };
-        case "half_day":
-            return { bg: "#FACC15", text: "#7C5E10" };
         case "absent":
             return { bg: "#EF4444", text: "#FFFFFF" };
         default:
@@ -62,8 +57,6 @@ const cellLabel = (day: MonthlyGridDay): string => {
     switch (day.status) {
         case "present":
             return "Present";
-        case "half_day":
-            return "Half";
         case "absent":
             return "Absent";
         default:
@@ -258,7 +251,6 @@ export default function MonthlyAttendanceGrid({
             <View style={styles.legendRow}>
                 {[
                     { c: "#22C55E", t: "Present" },
-                    { c: "#FACC15", t: "Half Day" },
                     { c: "#EF4444", t: "Absent" },
                     { c: "#E5E7EB", t: "No record" },
                 ].map((l) => (
