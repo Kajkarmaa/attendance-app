@@ -8,12 +8,12 @@
             "developmentClient": true,
             "distribution": "internal",
             "env": {
-                "GOOGLE_MAPS_API_KEY": "AIza...your-key..."
+                "GOOGLE_MAPS_API_KEY": "AIzaSyCnjtZBiHQHT2kNOd_Pko5l_8Cucx7wvr0"
             }
         },
         "preview": {
             "env": {
-                "GOOGLE_MAPS_API_KEY": "AIza...your-key..."
+                "GOOGLE_MAPS_API_KEY": "AIzaSyCnjtZBiHQHT2kNOd_Pko5l_8Cucx7wvr0"
             },
             "android": {
                 "buildType": "apk"
@@ -22,7 +22,7 @@
         "production": {
             "autoIncrement": true,
             "env": {
-                "GOOGLE_MAPS_API_KEY": "AIza...your-key..."
+                "GOOGLE_MAPS_API_KEY": "AIzaSyCnjtZBiHQHT2kNOd_Pko5l_8Cucx7wvr0"
             },
             "android": {
                 "buildType": "app-bundle"
