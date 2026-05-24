@@ -1,3 +1,4 @@
+import BonusProgressBar from '@/components/BonusProgressBar';
 import MonthlyAttendanceGrid from '@/components/MonthlyAttendanceGrid';
 import SalaryProgressBar from '@/components/SalaryProgressBar';
 import SkeletonBlock from '@/components/SkeletonBlock';
@@ -476,8 +477,12 @@ export default function EmployeeProfileScreen() {
 
     return (
       <>
+        {profile?.id ? (
+          <BonusProgressBar userId={profile.id} style={{ marginBottom: 14 }} />
+        ) : null}
+
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>Bonus Summary</Text>
+          <Text style={styles.sectionLabel}>Manual Bonus Summary</Text>
           <View style={styles.infoRow}>
             <View>
               <Text style={styles.infoSmall}>Total Entries</Text>

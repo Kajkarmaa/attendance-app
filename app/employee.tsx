@@ -1,3 +1,4 @@
+import BonusProgressBar from "@/components/BonusProgressBar";
 import InlineErrorBanner from "@/components/InlineErrorBanner";
 import MonthlyAttendanceGrid from "@/components/MonthlyAttendanceGrid";
 import SalaryProgressBar from "@/components/SalaryProgressBar";
@@ -974,6 +975,10 @@ export default function EmployeeDashboardScreen() {
                         />
                     )}
                     <SalaryProgressBar
+                        style={{ marginBottom: 14 }}
+                        refreshKey={attendance?.checkIn?.time}
+                    />
+                    <BonusProgressBar
                         style={{ marginBottom: 14 }}
                         refreshKey={attendance?.checkIn?.time}
                     />
