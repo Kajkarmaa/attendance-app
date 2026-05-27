@@ -122,9 +122,9 @@ export default function AdminLeavesScreen() {
     const formatDate = (iso?: string) => {
         if (!iso) return "";
         try {
-            return new Date(iso).toLocaleDateString("en-US", {
-                month: "short",
+            return new Date(iso).toLocaleDateString("en-GB", {
                 day: "numeric",
+                month: "short",
             });
         } catch {
             return iso;

@@ -333,7 +333,7 @@ export default function AdminAttendanceScreen() {
                     </Text>
                     {item.checkInTime ? (
                         <Text style={styles.approvedDate}>
-                            {new Date(item.checkInTime).toLocaleDateString()}
+                            {new Date(item.checkInTime).toLocaleDateString("en-GB")}
                         </Text>
                     ) : null}
                 </View>
@@ -595,7 +595,13 @@ export default function AdminAttendanceScreen() {
                                     Time:{" "}
                                     {new Date(
                                         modalContent.checkInTime,
-                                    ).toLocaleString()}
+                                    ).toLocaleString("en-GB", {
+                                        day: "2-digit",
+                                        month: "short",
+                                        year: "numeric",
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                    })}
                                 </Text>
                             ) : null}
                         </ScrollView>

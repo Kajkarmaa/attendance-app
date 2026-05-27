@@ -259,7 +259,7 @@ export default function EmployeeDashboardScreen() {
         }
 
         return {
-            date: parsed.toLocaleDateString(undefined, {
+            date: parsed.toLocaleDateString("en-GB", {
                 day: "2-digit",
                 month: "short",
                 year: "numeric",
@@ -430,7 +430,7 @@ export default function EmployeeDashboardScreen() {
                 minute: "2-digit",
             });
         }
-        return date.toLocaleDateString();
+        return date.toLocaleDateString("en-GB");
     };
 
     useEffect(() => {

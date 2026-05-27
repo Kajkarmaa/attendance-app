@@ -158,18 +158,18 @@ export default function LeaveRequestScreen() {
 
     const rangeLabel = useMemo(() => {
         const format = (iso: string) =>
-            new Date(iso).toLocaleDateString("en-US", {
-                month: "short",
+            new Date(iso).toLocaleDateString("en-GB", {
                 day: "numeric",
+                month: "short",
             });
         return `${format(startDate)} - ${format(endDate)}`;
     }, [startDate, endDate]);
 
     const formatDateValue = (iso: string, includeYear = false) =>
-        new Date(iso).toLocaleDateString("en-US", {
+        new Date(iso).toLocaleDateString("en-GB", {
             weekday: "short",
-            month: "short",
             day: "numeric",
+            month: "short",
             ...(includeYear ? { year: "numeric" } : {}),
         });
 
