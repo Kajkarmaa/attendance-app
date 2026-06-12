@@ -18,7 +18,7 @@ import {
     useWindowDimensions,
 } from "react-native";
 
-const APP_LOGO = require("../assets/logo.jpg");
+const APP_LOGO = require("../assets/icon.jpg");
 
 export default function LoginScreen() {
     const [email, setEmail] = useState("");

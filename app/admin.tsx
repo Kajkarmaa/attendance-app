@@ -45,7 +45,7 @@ const ADMIN_DEPARTMENTS_CACHE_KEY = "admin:departments";
 const ADMIN_DAILY_SUMMARY_CACHE_KEY = "admin:daily-summary";
 const ADMIN_LIST_CACHE_PREFIX = "admin:list:";
 
-const APP_LOGO = require("../assets/logo.jpg");
+const APP_LOGO = require("../assets/icon.jpg");
 
 export default function HomeScreen() {
     const { logout, user, isLoading } = useAuth();

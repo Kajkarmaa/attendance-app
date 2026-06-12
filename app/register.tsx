@@ -18,7 +18,7 @@ import {
 } from "react-native";
 import * as auth from "../services/auth";
 
-const APP_LOGO = require("../assets/logo.jpg");
+const APP_LOGO = require("../assets/icon.jpg");
 
 export default function RegisterScreen() {
     const [form, setForm] = useState({
@@ -42,7 +42,9 @@ export default function RegisterScreen() {
 
     const isEmailUnverifiedMessage = useMemo(() => {
         return (message: string) =>
-            /not verified|verify your otp|verify the otp|email still not verified/i.test(message);
+            /not verified|verify your otp|verify the otp|email still not verified/i.test(
+                message,
+            );
     }, []);
 
     useEffect(() => {
@@ -75,7 +77,8 @@ export default function RegisterScreen() {
         if (result.canceled) return false;
         const asset = result.assets?.[0];
         if (!asset?.uri) return false;
-        const fallbackName = asset.uri.split("/").pop() || `profile_${Date.now()}.jpg`;
+        const fallbackName =
+            asset.uri.split("/").pop() || `profile_${Date.now()}.jpg`;
         setProfileImage({
             uri: asset.uri,
             name: asset.fileName || fallbackName,
@@ -146,11 +149,7 @@ export default function RegisterScreen() {
                 onPress: () => setProfileImage(null),
             });
         }
-        Alert.alert(
-            "Profile photo",
-            "Add a profile photo (optional)",
-            buttons,
-        );
+        Alert.alert("Profile photo", "Add a profile photo (optional)", buttons);
     };
 
     const openOtpStep = async (email: string, showAlertMessage?: string) => {
@@ -183,7 +182,12 @@ export default function RegisterScreen() {
 
     const handleRegister = async () => {
         const { name, email, phone, passcode } = form;
-        if (!name.trim() || !email.trim() || !phone.trim() || !passcode.trim()) {
+        if (
+            !name.trim() ||
+            !email.trim() ||
+            !phone.trim() ||
+            !passcode.trim()
+        ) {
             Alert.alert("Error", "Please fill out every field");
             return;
         }
@@ -201,7 +205,10 @@ export default function RegisterScreen() {
             );
 
             if (response.success) {
-                Alert.alert("Registration", response.message || "OTP sent to your email");
+                Alert.alert(
+                    "Registration",
+                    response.message || "OTP sent to your email",
+                );
                 setOtpStepVisible(true);
                 setOtpPendingEmail(email.trim());
                 setOtp("");
@@ -217,7 +224,9 @@ export default function RegisterScreen() {
         } catch (error: any) {
             logger.error("Registration error", error);
             const message =
-                error.response?.data?.message || error.message || "Unable to register right now.";
+                error.response?.data?.message ||
+                error.message ||
+                "Unable to register right now.";
             if (isEmailUnverifiedMessage(message)) {
                 await openOtpStep(email, message);
             } else {
@@ -250,7 +259,10 @@ export default function RegisterScreen() {
                 Alert.alert("OTP", response?.message || "Unable to send OTP");
             }
         } catch (error: any) {
-            const message = error.response?.data?.message || error.message || "Unable to send OTP.";
+            const message =
+                error.response?.data?.message ||
+                error.message ||
+                "Unable to send OTP.";
             Alert.alert("OTP Error", message);
         } finally {
             setResendLoading(false);
@@ -275,11 +287,17 @@ export default function RegisterScreen() {
                 resetFlow();
                 router.replace("/");
             } else {
-                Alert.alert("Verification Failed", response.message || "OTP invalid");
+                Alert.alert(
+                    "Verification Failed",
+                    response.message || "OTP invalid",
+                );
             }
         } catch (error: any) {
             logger.error("OTP verification error", error);
-            const message = error.response?.data?.message || error.message || "Unable to verify OTP.";
+            const message =
+                error.response?.data?.message ||
+                error.message ||
+                "Unable to verify OTP.";
             Alert.alert("Verification Error", message);
         } finally {
             setOtpLoading(false);
@@ -304,7 +322,9 @@ export default function RegisterScreen() {
                         </View>
                         <Text style={styles.welcome}>REGISTER</Text>
                         <Text style={styles.title}>Create Account</Text>
-                        <Text style={styles.subtitle}>Set up your attendance access</Text>
+                        <Text style={styles.subtitle}>
+                            Set up your attendance access
+                        </Text>
                     </View>
 
                     <View style={[styles.card, { width: cardWidth }]}>
@@ -318,12 +338,20 @@ export default function RegisterScreen() {
                                     >
                                         {profileImage ? (
                                             <Image
-                                                source={{ uri: profileImage.uri }}
+                                                source={{
+                                                    uri: profileImage.uri,
+                                                }}
                                                 style={styles.avatarImage}
                                             />
                                         ) : (
-                                            <View style={styles.avatarPlaceholder}>
-                                                <Text style={styles.avatarPlaceholderText}>
+                                            <View
+                                                style={styles.avatarPlaceholder}
+                                            >
+                                                <Text
+                                                    style={
+                                                        styles.avatarPlaceholderText
+                                                    }
+                                                >
                                                     +
                                                 </Text>
                                             </View>
@@ -341,36 +369,50 @@ export default function RegisterScreen() {
                                     style={styles.input}
                                     placeholder="John Doe"
                                     value={form.name}
-                                    onChangeText={(value) => handleChange("name", value)}
+                                    onChangeText={(value) =>
+                                        handleChange("name", value)
+                                    }
                                     autoCapitalize="words"
                                 />
 
-                                <Text style={[styles.label, styles.labelTop]}>EMAIL</Text>
+                                <Text style={[styles.label, styles.labelTop]}>
+                                    EMAIL
+                                </Text>
                                 <TextInput
                                     style={styles.input}
                                     placeholder="email@example.com"
                                     keyboardType="email-address"
                                     autoCapitalize="none"
                                     value={form.email}
-                                    onChangeText={(value) => handleChange("email", value)}
+                                    onChangeText={(value) =>
+                                        handleChange("email", value)
+                                    }
                                 />
 
-                                <Text style={[styles.label, styles.labelTop]}>PHONE</Text>
+                                <Text style={[styles.label, styles.labelTop]}>
+                                    PHONE
+                                </Text>
                                 <TextInput
                                     style={styles.input}
                                     placeholder="9876543210"
                                     keyboardType="phone-pad"
                                     value={form.phone}
-                                    onChangeText={(value) => handleChange("phone", value)}
+                                    onChangeText={(value) =>
+                                        handleChange("phone", value)
+                                    }
                                 />
 
-                                <Text style={[styles.label, styles.labelTop]}>PASSCODE</Text>
+                                <Text style={[styles.label, styles.labelTop]}>
+                                    PASSCODE
+                                </Text>
                                 <TextInput
                                     style={styles.input}
                                     placeholder="5678"
                                     secureTextEntry
                                     value={form.passcode}
-                                    onChangeText={(value) => handleChange("passcode", value)}
+                                    onChangeText={(value) =>
+                                        handleChange("passcode", value)
+                                    }
                                 />
 
                                 <Pressable
@@ -384,7 +426,9 @@ export default function RegisterScreen() {
                                     {loading ? (
                                         <ActivityIndicator color="#FFFFFF" />
                                     ) : (
-                                        <Text style={styles.registerButtonText}>Register</Text>
+                                        <Text style={styles.registerButtonText}>
+                                            Register
+                                        </Text>
                                     )}
                                 </Pressable>
 
@@ -392,13 +436,17 @@ export default function RegisterScreen() {
                                     style={styles.secondaryLink}
                                     onPress={() => router.replace("/")}
                                 >
-                                    <Text style={styles.secondaryText}>Back to login</Text>
+                                    <Text style={styles.secondaryText}>
+                                        Back to login
+                                    </Text>
                                 </Pressable>
                             </>
                         ) : (
                             <View style={styles.otpSection}>
                                 <Text style={styles.label}>ENTER OTP</Text>
-                                <Text style={styles.otpEmail}>{otpPendingEmail}</Text>
+                                <Text style={styles.otpEmail}>
+                                    {otpPendingEmail}
+                                </Text>
                                 <TextInput
                                     style={styles.input}
                                     placeholder="123456"
@@ -411,15 +459,24 @@ export default function RegisterScreen() {
                                     <Pressable
                                         style={[
                                             styles.resendButton,
-                                            (resendCooldown > 0 || resendLoading) && styles.resendButtonDisabled,
+                                            (resendCooldown > 0 ||
+                                                resendLoading) &&
+                                                styles.resendButtonDisabled,
                                         ]}
                                         onPress={handleResendOtp}
-                                        disabled={resendCooldown > 0 || resendLoading}
+                                        disabled={
+                                            resendCooldown > 0 || resendLoading
+                                        }
                                     >
                                         {resendLoading ? (
-                                            <ActivityIndicator color="#111111" size="small" />
+                                            <ActivityIndicator
+                                                color="#111111"
+                                                size="small"
+                                            />
                                         ) : (
-                                            <Text style={styles.resendButtonText}>
+                                            <Text
+                                                style={styles.resendButtonText}
+                                            >
                                                 {resendCooldown > 0
                                                     ? `Resend OTP (${resendCooldown}s)`
                                                     : "Resend OTP"}
@@ -431,7 +488,8 @@ export default function RegisterScreen() {
                                 <Pressable
                                     style={[
                                         styles.verifyButton,
-                                        otpLoading && styles.loginButtonDisabled,
+                                        otpLoading &&
+                                            styles.loginButtonDisabled,
                                     ]}
                                     onPress={handleVerifyOtp}
                                     disabled={otpLoading}
@@ -439,7 +497,9 @@ export default function RegisterScreen() {
                                     {otpLoading ? (
                                         <ActivityIndicator color="#FFFFFF" />
                                     ) : (
-                                        <Text style={styles.verifyButtonText}>Verify OTP</Text>
+                                        <Text style={styles.verifyButtonText}>
+                                            Verify OTP
+                                        </Text>
                                     )}
                                 </Pressable>
 
@@ -448,7 +508,9 @@ export default function RegisterScreen() {
                                     onPress={() => setOtpStepVisible(false)}
                                     disabled={otpLoading || resendLoading}
                                 >
-                                    <Text style={styles.secondaryText}>Edit registration details</Text>
+                                    <Text style={styles.secondaryText}>
+                                        Edit registration details
+                                    </Text>
                                 </Pressable>
                             </View>
                         )}
@@ -586,7 +648,7 @@ const styles = StyleSheet.create({
         opacity: 0.6,
     },
     registerButton: {
-         backgroundColor: "#D4A537",
+        backgroundColor: "#D4A537",
         borderRadius: 14,
         paddingVertical: 14,
         marginTop: 18,
