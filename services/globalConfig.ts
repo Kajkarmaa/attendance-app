@@ -9,6 +9,7 @@ interface ApiEnvelope<T> {
 export interface GlobalConfig {
     minCheckoutDuration: number;
     amountDeductionAfter10am: number;
+    amountDeductionAfter12pm: number;
 }
 
 export async function fetchGlobalConfig() {

@@ -27,11 +27,10 @@ export default function LoginScreen() {
     const [showPassword, setShowPassword] = useState(false);
     const { width } = useWindowDimensions();
     const cardWidth = Math.min(420, width - 48);
-    const { login, user, isLoading: authLoading } = useAuth();
+    const { login, user } = useAuth();
 
     // If already logged in, redirect immediately
     useEffect(() => {
-        if (authLoading) return;
         if (user) {
             if (user.role === "emp") {
                 router.replace("/employee");
@@ -39,7 +38,7 @@ export default function LoginScreen() {
                 router.replace("/admin");
             }
         }
-    }, [user, authLoading]);
+    }, [user]);
 
     const handleLogin = async () => {
         if (!email.trim() || !password.trim()) {

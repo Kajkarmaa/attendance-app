@@ -23,6 +23,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 const DEFAULT_CONFIG: GlobalConfig = {
     minCheckoutDuration: 4,
     amountDeductionAfter10am: 2000,
+    amountDeductionAfter12pm: 4000,
 };
 
 export default function AdminSettingsScreen() {
@@ -40,6 +41,9 @@ export default function AdminSettingsScreen() {
     const [deductionText, setDeductionText] = useState<string>(
         String(DEFAULT_CONFIG.amountDeductionAfter10am),
     );
+    const [deduction12Text, setDeduction12Text] = useState<string>(
+        String(DEFAULT_CONFIG.amountDeductionAfter12pm),
+    );
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -55,6 +59,7 @@ export default function AdminSettingsScreen() {
                 setConfig(response.data);
                 setMinCheckoutText(String(response.data.minCheckoutDuration));
                 setDeductionText(String(response.data.amountDeductionAfter10am));
+                setDeduction12Text(String(response.data.amountDeductionAfter12pm));
             }
         } catch (e: any) {
             setError(e?.response?.data?.message || e?.message || "Failed to load settings.");
@@ -79,13 +84,18 @@ export default function AdminSettingsScreen() {
 
         const minCheckout = Number(minCheckoutText);
         const deduction = Number(deductionText);
+        const deduction12 = Number(deduction12Text);
 
         if (!Number.isFinite(minCheckout) || minCheckout < 0.5) {
             setError("Min checkout duration must be a number ≥ 0.5");
             return;
         }
         if (!Number.isFinite(deduction) || deduction < 0) {
-            setError("Deduction amount must be a number ≥ 0");
+            setError("After 10 AM deduction must be a number ≥ 0");
+            return;
+        }
+        if (!Number.isFinite(deduction12) || deduction12 < 0) {
+            setError("After 12 PM deduction must be a number ≥ 0");
             return;
         }
 
@@ -94,11 +104,13 @@ export default function AdminSettingsScreen() {
             const response = await updateGlobalConfig({
                 minCheckoutDuration: minCheckout,
                 amountDeductionAfter10am: deduction,
+                amountDeductionAfter12pm: deduction12,
             });
             if (response?.success && response.data) {
                 setConfig(response.data);
                 setMinCheckoutText(String(response.data.minCheckoutDuration));
                 setDeductionText(String(response.data.amountDeductionAfter10am));
+                setDeduction12Text(String(response.data.amountDeductionAfter12pm));
                 setSuccessMsg(response.message || "Settings updated successfully.");
             }
         } catch (e: any) {
@@ -181,12 +193,12 @@ export default function AdminSettingsScreen() {
                         />
 
                         <Text style={styles.fieldLabel}>
-                            Late check-in deduction (₹)
+                            Late check-in deduction — after 10 AM (₹)
                         </Text>
                         <Text style={styles.fieldHelp}>
                             Amount subtracted from monthly salary before computing the
-                            per-day wage for any day the employee checks in at or after
-                            10:00 AM.
+                            per-day wage for any day the employee checks in between
+                            10:00 AM and 11:59 AM.
                         </Text>
                         <TextInput
                             style={styles.input}
@@ -194,6 +206,23 @@ export default function AdminSettingsScreen() {
                             onChangeText={setDeductionText}
                             keyboardType="number-pad"
                             placeholder="e.g. 2000"
+                            placeholderTextColor="#9CA3AF"
+                        />
+
+                        <Text style={styles.fieldLabel}>
+                            Late check-in deduction — after 12 PM (₹)
+                        </Text>
+                        <Text style={styles.fieldHelp}>
+                            Amount subtracted from monthly salary before computing the
+                            per-day wage for any day the employee checks in at or after
+                            12:00 PM. Replaces (not stacked with) the 10 AM deduction.
+                        </Text>
+                        <TextInput
+                            style={styles.input}
+                            value={deduction12Text}
+                            onChangeText={setDeduction12Text}
+                            keyboardType="number-pad"
+                            placeholder="e.g. 4000"
                             placeholderTextColor="#9CA3AF"
                         />
 

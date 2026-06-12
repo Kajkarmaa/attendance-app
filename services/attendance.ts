@@ -498,10 +498,15 @@ export interface MonthlyAccumulator {
     accumulated: number;
     fullSalary: number;
     percent: number;
+    /** Days where check-in was strictly before 10:00 IST. */
     daysBefore10: number;
+    /** Days where check-in was 10:00 ≤ t < 12:00 IST. */
     daysAfter10: number;
+    /** Days where check-in was at/after 12:00 IST. */
+    daysAfter12: number;
     dailyRateBefore10: number;
     dailyRateAfter10: number;
+    dailyRateAfter12: number;
     month: number;
     year: number;
 }

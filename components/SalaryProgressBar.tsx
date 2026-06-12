@@ -126,7 +126,7 @@ export default function SalaryProgressBar({ userId, style, refreshKey }: Props) 
             <View style={styles.footerRow}>
                 <Text style={styles.percentText}>{pctClamped.toFixed(1)}%</Text>
                 <Text style={styles.breakdownText}>
-                    {data.daysBefore10} before 10am · {data.daysAfter10} after 10am
+                    {data.daysBefore10} before 10 · {data.daysAfter10} 10–12 · {data.daysAfter12} after 12
                 </Text>
             </View>
         </View>
