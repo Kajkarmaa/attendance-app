@@ -649,19 +649,27 @@ export default function EmployeeProfileScreen() {
                     <Text style={styles.sectionLabel}>Payout Schedule</Text>
                     <View style={styles.salaryRow}>
                         <Text style={styles.salaryRowLabel}>Pay Cycle</Text>
-                        <Text style={styles.salaryRowValue}>
-                            Last working day of month
-                        </Text>
+                        <View style={styles.salaryRowValueWrap}>
+                            <Text style={styles.salaryRowValue}>
+                                Last working day of month
+                            </Text>
+                        </View>
                     </View>
                     <View style={styles.salaryRow}>
                         <Text style={styles.salaryRowLabel}>Disbursement</Text>
-                        <Text style={styles.salaryRowValue}>Bank Transfer</Text>
+                        <View style={styles.salaryRowValueWrap}>
+                            <Text style={styles.salaryRowValue}>
+                                Bank Transfer
+                            </Text>
+                        </View>
                     </View>
                     <View style={styles.salaryRow}>
                         <Text style={styles.salaryRowLabel}>Next Payroll</Text>
-                        <Text style={styles.salaryRowValue}>
-                            Auto-generates after attendance closure
-                        </Text>
+                        <View style={styles.salaryRowValueWrap}>
+                            <Text style={styles.salaryRowValue}>
+                                Auto-generates after attendance closure
+                            </Text>
+                        </View>
                     </View>
                 </View>
             </>
@@ -1325,13 +1333,17 @@ const styles = StyleSheet.create({
         flexShrink: 0,
         paddingTop: 2,
     },
-    salaryRowValue: {
+    salaryRowValueWrap: {
         flex: 1,
+        minWidth: 0,
+        alignItems: "flex-end",
+    },
+    salaryRowValue: {
         fontSize: 14,
         fontWeight: "600",
         color: "#111111",
         textAlign: "right",
-        flexWrap: "wrap",
+        flexShrink: 1,
     },
     salaryTag: {
         marginTop: 4,
