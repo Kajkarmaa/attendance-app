@@ -150,48 +150,6 @@ export default function EmployeeProfileScreen() {
         return profile?.Payslips?.[0];
     }, [profile?.Payslips]);
 
-    const payslipKey = (payslip: EmployeePayslip, index: number): string => {
-        return (
-            payslip.payrollId ||
-            payslip.id ||
-            `${payslip.year ?? ""}-${payslip.month ?? ""}-${index}`
-        );
-    };
-
-    const sortedPayslips = useMemo(() => {
-        const list = profile?.Payslips?.slice() ?? [];
-        return list.sort((a, b) => {
-            const aMy = extractMonthYear(a);
-            const bMy = extractMonthYear(b);
-            if (!aMy && !bMy) return 0;
-            if (!aMy) return 1;
-            if (!bMy) return -1;
-            return bMy.year - aMy.year || bMy.month - aMy.month;
-        });
-    }, [profile?.Payslips]);
-
-    const formatPayslipPeriod = (payslip: EmployeePayslip) => {
-        const my = extractMonthYear(payslip);
-        if (my) {
-            const date = new Date(my.year, my.month - 1, 1);
-            return date.toLocaleDateString(undefined, {
-                month: "long",
-                year: "numeric",
-            });
-        }
-        if (typeof payslip.month === "string" && payslip.month.length > 0) {
-            return payslip.month;
-        }
-        return "Period not set";
-    };
-
-    const getInitials = (name?: string) => {
-        if (!name) return "";
-        const parts = name.trim().split(/\s+/);
-        if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-        return (parts[0][0] + (parts[1][0] ?? "")).slice(0, 2).toUpperCase();
-    };
-
     const extractMonthYear = (
         payslip: any,
     ): { month: number; year: number } | null => {
@@ -231,6 +189,13 @@ export default function EmployeeProfileScreen() {
         }
 
         return null;
+    };
+
+    const getInitials = (name?: string) => {
+        if (!name) return "";
+        const parts = name.trim().split(/\s+/);
+        if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+        return (parts[0][0] + (parts[1][0] ?? "")).slice(0, 2).toUpperCase();
     };
 
     const downloadPayslip = useCallback(
@@ -298,6 +263,13 @@ export default function EmployeeProfileScreen() {
         if (!hasPayslips) return;
         return downloadPayslip(latestPayslip, "__latest__");
     }, [hasPayslips, downloadPayslip, latestPayslip]);
+
+    const handleDownloadPayslip = useCallback(
+        (payslip: EmployeePayslip, key: string) => {
+            return downloadPayslip(payslip, key);
+        },
+        [downloadPayslip],
+    );
 
     const formatHours = (value?: number | string) => {
         if (typeof value === "number") {
@@ -522,6 +494,9 @@ export default function EmployeeProfileScreen() {
                     <SalaryProgressBar
                         userId={profile.id}
                         style={{ marginBottom: 14 }}
+                        history={profile?.Payslips}
+                        onDownloadPayslip={handleDownloadPayslip}
+                        downloadingPayslipKey={downloadingPayslipKey}
                     />
                 ) : null}
 
@@ -561,88 +536,6 @@ export default function EmployeeProfileScreen() {
                         Figures sourced from employee detail API. Update actual
                         payouts from payroll.
                     </Text>
-                </View>
-
-                <View style={styles.sectionCard}>
-                    <Text style={styles.sectionLabel}>Salary History</Text>
-                    {sortedPayslips.length === 0 ? (
-                        <Text style={styles.infoValue}>
-                            No previous payroll on record yet.
-                        </Text>
-                    ) : (
-                        sortedPayslips.map((payslip, index) => {
-                            const key = payslipKey(payslip, index);
-                            const isRowDownloading =
-                                downloadingPayslipKey === key;
-                            const amount =
-                                typeof payslip.netSalary === "number"
-                                    ? payslip.netSalary
-                                    : typeof payslip.amount === "number"
-                                      ? payslip.amount
-                                      : null;
-                            return (
-                                <View
-                                    key={key}
-                                    style={[
-                                        styles.salaryHistoryRow,
-                                        index !== sortedPayslips.length - 1 &&
-                                            styles.salaryHistoryDivider,
-                                    ]}
-                                >
-                                    <View style={styles.salaryHistoryLeft}>
-                                        <Text
-                                            style={styles.salaryHistoryPeriod}
-                                        >
-                                            {formatPayslipPeriod(payslip)}
-                                        </Text>
-                                        <View style={styles.salaryTag}>
-                                            <Text style={styles.salaryTagText}>
-                                                {payslip.status ?? "pending"}
-                                            </Text>
-                                        </View>
-                                    </View>
-                                    <View style={styles.salaryHistoryRight}>
-                                        <Text
-                                            style={styles.salaryHistoryAmount}
-                                        >
-                                            {formatCurrency(amount)}
-                                        </Text>
-                                        <Pressable
-                                            style={[
-                                                styles.salaryHistoryDownload,
-                                                payslipDownloading &&
-                                                    !isRowDownloading &&
-                                                    styles.salaryHistoryDownloadDisabled,
-                                            ]}
-                                            disabled={payslipDownloading}
-                                            onPress={() =>
-                                                downloadPayslip(payslip, key)
-                                            }
-                                            accessibilityRole="button"
-                                            hitSlop={8}
-                                        >
-                                            {isRowDownloading ? (
-                                                <ActivityIndicator
-                                                    size="small"
-                                                    color="#D4A537"
-                                                />
-                                            ) : (
-                                                <Feather
-                                                    name="download"
-                                                    size={14}
-                                                    color={
-                                                        payslipDownloading
-                                                            ? "#9CA3AF"
-                                                            : "#D4A537"
-                                                    }
-                                                />
-                                            )}
-                                        </Pressable>
-                                    </View>
-                                </View>
-                            );
-                        })
-                    )}
                 </View>
 
                 <View style={styles.sectionCard}>
@@ -1351,47 +1244,6 @@ const styles = StyleSheet.create({
         borderRadius: 999,
         paddingHorizontal: 12,
         paddingVertical: 4,
-    },
-    salaryHistoryRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingVertical: 12,
-    },
-    salaryHistoryDivider: {
-        borderBottomWidth: 1,
-        borderColor: "#F3F4F6",
-    },
-    salaryHistoryLeft: {
-        flex: 1,
-        paddingRight: 12,
-        gap: 6,
-    },
-    salaryHistoryPeriod: {
-        fontSize: 13,
-        fontWeight: "600",
-        color: "#111111",
-    },
-    salaryHistoryRight: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 10,
-    },
-    salaryHistoryAmount: {
-        fontSize: 14,
-        fontWeight: "700",
-        color: "#111111",
-    },
-    salaryHistoryDownload: {
-        height: 30,
-        width: 30,
-        borderRadius: 15,
-        backgroundColor: "#FFF6DC",
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    salaryHistoryDownloadDisabled: {
-        backgroundColor: "#F3F4F6",
     },
     salaryTagText: {
         fontSize: 11,

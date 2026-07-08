@@ -75,6 +75,9 @@ export interface EmployeePayslip {
     year?: number | string;
     payrollId?: string;
     netSalary?: number;
+    totalMonthlySalary?: number;
+    monthlyPay?: number;
+    totalPresentDays?: number;
     payslipGenerated?: boolean;
     payslipSent?: boolean;
     amount?: number;

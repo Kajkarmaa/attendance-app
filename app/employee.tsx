@@ -22,6 +22,7 @@ import {
 } from "@/services/attendance";
 import { getPayslipDownloadUrl } from "@/services/payroll";
 import { fetchEmployeeProfile, type EmployeeProfile } from "@/services/profile";
+import type { EmployeePayslip } from "@/services/users";
 import { getCachedData, setCachedData } from "@/stores/cacheStore";
 import { logger } from "@/utils/logger";
 import { classifyNetworkError } from "@/utils/network";
@@ -551,6 +552,57 @@ export default function EmployeeDashboardScreen() {
         }
     };
 
+    const handleDownloadFromProgressBar = async (
+        payslip: EmployeePayslip,
+        key: string,
+    ) => {
+        if (!profile?.employeeId) {
+            Alert.alert("Download unavailable", "Missing employee id.");
+            return;
+        }
+        const monthNum =
+            typeof payslip.month === "number"
+                ? payslip.month
+                : Number(payslip.month);
+        const yearNum =
+            typeof payslip.year === "number"
+                ? payslip.year
+                : Number(payslip.year);
+        if (!Number.isFinite(monthNum) || !Number.isFinite(yearNum)) {
+            Alert.alert(
+                "Download unavailable",
+                "Missing payslip period details.",
+            );
+            return;
+        }
+        setDownloadingPayslipId(key);
+        try {
+            const response = await getPayslipDownloadUrl({
+                employeeId: profile.employeeId,
+                month: monthNum,
+                year: yearNum,
+            });
+            const downloadUrl = response?.data?.downloadUrl;
+            if (!downloadUrl) {
+                throw new Error("Download link not available yet.");
+            }
+            const canOpen = await Linking.canOpenURL(downloadUrl);
+            if (canOpen) {
+                await Linking.openURL(downloadUrl);
+            } else {
+                await WebBrowser.openBrowserAsync(downloadUrl);
+            }
+        } catch (error: any) {
+            const message =
+                error?.response?.data?.message ||
+                error?.message ||
+                "Unable to download payslip right now.";
+            Alert.alert("Download failed", message);
+        } finally {
+            setDownloadingPayslipId(null);
+        }
+    };
+
     const hasCheckedInToday = Boolean(attendance?.checkIn?.time);
     const isCheckedOut = Boolean(attendance?.checkOut?.time);
     const isCheckedIn = hasCheckedInToday && !isCheckedOut;
@@ -977,6 +1029,9 @@ export default function EmployeeDashboardScreen() {
                     <SalaryProgressBar
                         style={{ marginBottom: 14 }}
                         refreshKey={attendance?.checkIn?.time}
+                        history={profile?.Payslips}
+                        onDownloadPayslip={handleDownloadFromProgressBar}
+                        downloadingPayslipKey={downloadingPayslipId}
                     />
                     <BonusProgressBar
                         style={{ marginBottom: 14 }}

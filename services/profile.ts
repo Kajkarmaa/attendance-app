@@ -1,4 +1,5 @@
 import apiClient from "./api";
+import type { EmployeePayslip } from "./users";
 
 export interface EmployeeProfile {
     id: string;
@@ -12,14 +13,7 @@ export interface EmployeeProfile {
     profilePicture?: string;
     joinDate?: string;
     status?: string;
-    Payslips?: Array<{
-        month?: number;
-        year?: number;
-        payrollId?: string;
-        netSalary?: number;
-        payslipGenerated?: boolean;
-        payslipSent?: boolean;
-    }>;
+    Payslips?: EmployeePayslip[];
     attendance?: {
         thisMonth?: {
             present?: number;
